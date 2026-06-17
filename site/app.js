@@ -310,11 +310,7 @@ function renderAssetOpenFallback(record, assetPath) {
       </div>
     `;
   return `
-    <div class="source-page-shell">
-      <div class="source-page-note">
-        <strong>${escapeHtml(assetLabel(record))} available</strong>
-        <span>The file is stored locally in the archive. PDF files are previewed through PDF.js to avoid browser-triggered downloads.</span>
-      </div>
+    <div class="source-page-shell asset-preview-shell">
       ${preview}
     </div>
   `;
