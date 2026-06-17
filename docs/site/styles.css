@@ -353,6 +353,22 @@ a:focus-visible {
   font-size: 13px;
 }
 
+.source-page-open {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 560px;
+  padding: 40px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.source-page-open strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
 .viewer-frame img {
   display: block;
   max-width: 100%;

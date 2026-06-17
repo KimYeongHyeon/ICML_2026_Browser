@@ -204,6 +204,44 @@ function fallbackPageLabel(record) {
   return "Source page";
 }
 
+function sourcePageEmbeddable(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return ![
+      "icml.cc",
+      "openreview.net",
+      "docs.google.com",
+      "drive.google.com",
+      "sites.google.com",
+    ].some((blockedHost) => host === blockedHost || host.endsWith(`.${blockedHost}`));
+  } catch {
+    return false;
+  }
+}
+
+function renderSourcePageFallback(record, sourceUrl, message) {
+  const canEmbed = sourcePageEmbeddable(sourceUrl);
+  const frame = canEmbed
+    ? `<iframe src="${escapeHtml(sourceUrl)}" title="${escapeHtml(record.title)} source page"></iframe>`
+    : `
+      <div class="source-page-open">
+        <strong>Preview unavailable</strong>
+        <span>This source blocks embedding in GitHub Pages.</span>
+        <a class="action primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open source page</a>
+      </div>
+    `;
+
+  return `
+    <div class="source-page-shell">
+      <div class="source-page-note">
+        <strong>${escapeHtml(fallbackPageLabel(record))}</strong>
+        <span>${escapeHtml(message)}</span>
+      </div>
+      ${frame}
+    </div>
+  `;
+}
+
 function renderViewer(record) {
   if (!record) {
     els.viewerKind.textContent = "No selection";
@@ -245,16 +283,8 @@ function renderViewer(record) {
     els.viewerFrame.innerHTML = `<img src="${escapeHtml(assetUrl(preferred))}" alt="${escapeHtml(record.title)} poster" />`;
   } else if (fallbackPageUrl(record)) {
     const sourceUrl = fallbackPageUrl(record);
-    const message = record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is embedded instead.";
-    els.viewerFrame.innerHTML = `
-      <div class="source-page-shell">
-        <div class="source-page-note">
-          <strong>${escapeHtml(fallbackPageLabel(record))}</strong>
-          <span>${escapeHtml(message)}</span>
-        </div>
-        <iframe src="${escapeHtml(sourceUrl)}" title="${escapeHtml(record.title)} source page"></iframe>
-      </div>
-    `;
+    const message = record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is used instead.";
+    els.viewerFrame.innerHTML = renderSourcePageFallback(record, sourceUrl, message);
   } else {
     let title = assetLabel(record);
     let message = "No public local media file was collected for this record.";
