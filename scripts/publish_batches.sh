@@ -29,7 +29,9 @@ publish_untracked_dir() {
     return 0
   fi
 
-  mapfile -d '' files < <(git ls-files --others --exclude-standard -z -- "$dir")
+  while IFS= read -r -d '' file; do
+    files+=("$file")
+  done < <(git ls-files --others --exclude-standard -z -- "$dir")
   total="${#files[@]}"
 
   if [[ "$total" -eq 0 ]]; then
