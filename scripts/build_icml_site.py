@@ -74,21 +74,18 @@ def classify_availability(
     return "metadata", "Metadata only"
 
 
-def infer_category(title: str, group: str) -> str:
+def infer_categories(title: str, group: str) -> list[str]:
     haystack = f"{title} {group}".lower()
+    matches: list[str] = []
     for category, keywords in CATEGORIES:
         if any(keyword in haystack for keyword in keywords):
-            return category
-    return "Other"
+            matches.append(category)
+    return matches or ["Other"]
 
 
 def should_include_workshop_row(source: dict[str, Any]) -> bool:
     source_type = source.get("source_type")
-    if source_type in {"official_workshop_page", "workshop_program_or_schedule_page"}:
-        return False
-    if source_type == "workshop_page_linked_material":
-        return bool(source.get("local_pdf_path") or source.get("local_slide_path") or source.get("local_poster_path"))
-    return True
+    return source_type == "openreview_submission" and source.get("status") == "accepted_public"
 
 
 def should_include_paper_row(source: dict[str, Any]) -> bool:
@@ -145,13 +142,16 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
         or ""
     )
 
+    category_tags = infer_categories(title, group)
+
     return {
         "id": item_id,
         "type": item_type,
         "title": title,
         "authors": as_author_string(source.get("authors")),
         "group": group,
-        "category": infer_category(title, group),
+        "category": category_tags[0],
+        "categoryTags": category_tags,
         "status": status,
         "sourceType": str(source.get("source_type") or ""),
         "failureReason": failure_reason,

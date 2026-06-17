@@ -4,9 +4,10 @@ const REPO_RAW_BASE = "https://raw.githubusercontent.com/KimYeongHyeon/icml-2026
 const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
 const ASSET_BASE = window.location.hostname.endsWith("github.io") ? REPO_RAW_BASE : LOCAL_ASSET_PREFIX;
 const MATHJAX_RETRY_LIMIT = 40;
+const PDFJS_VIEWER_BASE = "https://mozilla.github.io/pdf.js/web/viewer.html";
 
 const state = {
-  tab: "paper",
+  tab: "poster",
   query: "",
   category: "all",
   group: "all",
@@ -86,6 +87,10 @@ function typeLabel(type) {
   }[type] || type;
 }
 
+function categoryTags(record) {
+  return Array.isArray(record.categoryTags) && record.categoryTags.length ? record.categoryTags : [record.category || "Other"];
+}
+
 function viewerKindLabel(record) {
   if (record.type === "paper" && /\/poster\//.test(record.pageUrl || "")) {
     return `Poster · ${record.category}`;
@@ -111,7 +116,7 @@ function getFilteredRecords() {
   const query = normalize(state.query);
   return state.data.records.filter((record) => {
     if (record.type !== state.tab) return false;
-    if (state.category !== "all" && record.category !== state.category) return false;
+    if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
     if (state.group !== "all" && record.group !== state.group) return false;
     if (state.asset === "local" && !(record.hasPdf || record.hasPoster || record.hasSlide)) return false;
     if (state.asset === "pdf" && !record.hasPdf) return false;
@@ -121,7 +126,7 @@ function getFilteredRecords() {
     if (state.asset === "metadata" && record.availabilityStatus !== "metadata") return false;
     if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
     if (!query) return true;
-    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${record.category}`);
+    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${categoryTags(record).join(" ")}`);
     return haystack.includes(query);
   });
 }
@@ -137,7 +142,7 @@ function updateHeader() {
     ["Poster images", summary.assetCounts.poster || 0],
     ["Slides", summary.assetCounts.slide || 0],
     ["Blocked", summary.availabilityCounts?.blocked || 0],
-  ]
+  ].filter(([label, value]) => label !== "Papers" || value > 0)
     .map(([label, value]) => `<span class="stat-pill"><strong>${value.toLocaleString()}</strong> ${label}</span>`)
     .join("");
 }
@@ -148,7 +153,7 @@ function option(value, label) {
 
 function updateSelects() {
   const recordsForTab = state.data.records.filter((record) => record.type === state.tab);
-  const categories = [...new Set(recordsForTab.map((record) => record.category))].sort();
+  const categories = [...new Set(recordsForTab.flatMap((record) => categoryTags(record)))].sort();
   const groups = [...new Set(recordsForTab.map((record) => record.group))].sort();
 
   els.category.innerHTML = option("all", "All fields") + categories.map((name) => option(name, name)).join("");
@@ -173,7 +178,7 @@ function renderResults() {
           <span class="result-title">${escapeHtml(plainMathTitle(record.title))}</span>
           <span class="result-authors">${escapeHtml(record.authors || "Authors unavailable")}</span>
           <span class="badges">
-            <span class="badge">${escapeHtml(record.category)}</span>
+            ${categoryTags(record).slice(0, 3).map((category) => `<span class="badge">${escapeHtml(category)}</span>`).join("")}
             <span class="badge">${escapeHtml(record.group)}</span>
             <span class="badge">${assetLabel(record)}</span>
             <span class="badge ${statusClass(record)}">${escapeHtml(record.availabilityLabel || "Metadata only")}</span>
@@ -185,9 +190,7 @@ function renderResults() {
     .join("");
 
   if (filtered.length === 0) {
-    const message = state.tab === "paper"
-      ? "No public paper PDFs are available in the collected ICML sources yet. Use Posters for the official ICML presentation pages."
-      : "Adjust the filters or search terms.";
+    const message = "Adjust the filters or search terms.";
     els.results.innerHTML = `<div class="empty-state"><strong>No records</strong><span>${escapeHtml(message)}</span></div>`;
   }
 
@@ -223,6 +226,10 @@ function assetUrl(path) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
   return `${ASSET_BASE}${path}`;
+}
+
+function pdfViewerUrl(path) {
+  return `${PDFJS_VIEWER_BASE}?file=${encodeURIComponent(assetUrl(path))}`;
 }
 
 function fallbackPageUrl(record) {
@@ -277,17 +284,23 @@ function renderSourcePageFallback(record, sourceUrl, message) {
 
 function renderAssetOpenFallback(record, assetPath) {
   const url = assetUrl(assetPath);
-  return `
-    <div class="source-page-shell">
-      <div class="source-page-note">
-        <strong>${escapeHtml(assetLabel(record))} available</strong>
-        <span>The file is stored locally in the archive. It is not auto-loaded to avoid browser-triggered downloads.</span>
-      </div>
+  const canPreview = record.bestAssetKind === "pdf" || record.bestAssetKind === "slide";
+  const preview = canPreview
+    ? `<iframe src="${escapeHtml(pdfViewerUrl(assetPath))}" title="${escapeHtml(record.title)} PDF preview"></iframe>`
+    : `
       <div class="source-page-open">
         <strong>Open when needed</strong>
         <span>Select the asset explicitly to view or download it.</span>
         <a class="action primary" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open asset</a>
       </div>
+    `;
+  return `
+    <div class="source-page-shell">
+      <div class="source-page-note">
+        <strong>${escapeHtml(assetLabel(record))} available</strong>
+        <span>The file is stored locally in the archive. PDF files are previewed through PDF.js to avoid browser-triggered downloads.</span>
+      </div>
+      ${preview}
     </div>
   `;
 }
@@ -357,6 +370,8 @@ function renderViewer(record) {
 
 function renderAll() {
   els.tabs.forEach((button) => {
+    const count = state.data?.summary?.typeCounts?.[button.dataset.tab] || 0;
+    button.hidden = count === 0;
     button.classList.toggle("is-active", button.dataset.tab === state.tab);
   });
   updateSelects();
