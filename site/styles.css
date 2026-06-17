@@ -579,6 +579,7 @@ a:focus-visible {
 }
 
 .map-canvas {
+  position: relative;
   min-height: inherit;
   height: 100%;
   min-width: 0;
@@ -586,23 +587,54 @@ a:focus-visible {
     radial-gradient(circle at 28% 22%, rgb(37 99 235 / 0.14), transparent 28%),
     radial-gradient(circle at 78% 76%, rgb(20 184 166 / 0.08), transparent 26%),
     #111827;
-  cursor: grab;
+  cursor: crosshair;
+  user-select: none;
 }
 
 .map-canvas canvas {
   display: block;
 }
 
+.map-canvas.is-space-ready {
+  cursor: grab;
+}
+
+.map-canvas.is-panning {
+  cursor: grabbing;
+}
+
+.map-selection-box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  box-sizing: border-box;
+  border: 1px solid rgb(147 197 253 / 0.95);
+  border-radius: 3px;
+  background: rgb(59 130 246 / 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgb(15 23 42 / 0.35),
+    0 0 28px rgb(59 130 246 / 0.22);
+  pointer-events: none;
+}
+
+.map-selection-box[hidden] {
+  display: none;
+}
+
 .map-detail {
   overflow: auto;
   border-left: 1px solid var(--line);
   background: var(--surface);
+  min-width: 0;
 }
 
 .map-detail-card {
   display: grid;
   gap: 12px;
   padding: 14px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .map-detail-card h3 {
@@ -688,6 +720,89 @@ a:focus-visible {
 .neighbor-item span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.selection-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.selection-stat-grid span,
+.selection-stat-block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.selection-stat-grid span {
+  display: grid;
+  gap: 2px;
+  padding: 9px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.selection-stat-grid strong {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.selection-stat-block {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.selection-stat-block > strong {
+  font-size: 12px;
+}
+
+.selection-stat-block span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.selection-stat-block em {
+  min-width: 0;
+  overflow: hidden;
+  font-style: normal;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-stat-block b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.selection-stat-block small {
+  color: var(--muted);
+}
+
+.map-detail-card .neighbor-item {
+  min-width: 0;
+}
+
+.map-detail-card .neighbor-item strong {
+  overflow-wrap: anywhere;
+}
+
+.map-zoom-selection {
+  width: 100%;
 }
 
 .empty-state {
