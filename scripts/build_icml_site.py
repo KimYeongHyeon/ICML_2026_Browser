@@ -91,6 +91,12 @@ def should_include_workshop_row(source: dict[str, Any]) -> bool:
     return True
 
 
+def should_include_paper_row(source: dict[str, Any]) -> bool:
+    page_url = str(source.get("paper_url") or "")
+    has_public_pdf = bool(source.get("local_pdf_path") or source.get("pdf_url"))
+    return has_public_pdf or "/poster/" not in page_url
+
+
 def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[str, Any]:
     title = str(source.get("title") or "Untitled")
     local_pdf = rel(source.get("local_pdf_path"))
@@ -172,6 +178,8 @@ def build() -> dict[str, Any]:
     records: list[dict[str, Any]] = []
 
     for row in read_jsonl(MATERIALS / "papers" / "manifest.jsonl"):
+        if not should_include_paper_row(row):
+            continue
         records.append(compact_record(row, "paper", "Main Conference"))
 
     for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):

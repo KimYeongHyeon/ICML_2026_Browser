@@ -184,6 +184,13 @@ function renderResults() {
     })
     .join("");
 
+  if (filtered.length === 0) {
+    const message = state.tab === "paper"
+      ? "No public paper PDFs are available in the collected ICML sources yet. Use Posters for the official ICML presentation pages."
+      : "Adjust the filters or search terms.";
+    els.results.innerHTML = `<div class="empty-state"><strong>No records</strong><span>${escapeHtml(message)}</span></div>`;
+  }
+
   els.results.querySelectorAll(".result-item").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
