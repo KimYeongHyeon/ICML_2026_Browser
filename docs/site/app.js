@@ -1,10 +1,9 @@
 const DATA_URL = "site/data/icml2026_index.json";
 const MAP_URL = "site/data/icml2026_map.json";
 const PAGE_SIZE = 80;
-const REPO_RAW_BASE = "https://raw.githubusercontent.com/KimYeongHyeon/icml-2026-materials-browser/main/";
+const REPO_CDN_BASE = "https://cdn.jsdelivr.net/gh/KimYeongHyeon/icml-2026-materials-browser@main/";
 const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
 const MATHJAX_RETRY_LIMIT = 40;
-const PDFJS_VIEWER_BASE = "https://mozilla.github.io/pdf.js/web/viewer.html";
 
 const state = {
   tab: "poster",
@@ -1071,9 +1070,6 @@ function actionLink(href, label, primary = false) {
 
 function assetActionHref(record, path) {
   if (!path) return "";
-  if (record.bestAssetKind === "pdf" || record.bestAssetKind === "slide") {
-    return pdfViewerUrl(path);
-  }
   return assetUrl(path);
 }
 
@@ -1087,12 +1083,12 @@ function assetActionLabel(record) {
 function assetUrl(path) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  if (window.location.hostname.endsWith("github.io")) return `${REPO_RAW_BASE}${path}`;
+  if (window.location.hostname.endsWith("github.io")) return `${REPO_CDN_BASE}${path}`;
   return new URL(`${LOCAL_ASSET_PREFIX}${path}`, window.location.href).href;
 }
 
 function pdfViewerUrl(path) {
-  return `${PDFJS_VIEWER_BASE}?file=${encodeURIComponent(assetUrl(path))}`;
+  return assetUrl(path);
 }
 
 function fallbackPageUrl(record) {
@@ -1209,7 +1205,7 @@ function renderViewer(record) {
     els.viewerTitle.textContent = "Select a record";
     els.viewerActions.innerHTML = "";
     els.viewerMeta.innerHTML = "";
-    els.viewerFrame.innerHTML = `<div class="empty-state"><strong>No matching record</strong><span>Adjust the filters.</span></div>`;
+    els.viewerFrame.innerHTML = `<div class="empty-state"><strong>No record selected</strong><span>Pick a result to preview its collected material.</span></div>`;
     queueMathTypeset(els.viewerFrame);
     return;
   }
