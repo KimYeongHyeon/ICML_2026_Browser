@@ -863,7 +863,7 @@ function ensureForceGraph() {
   state.mapGraph = window.ForceGraph()(els.mapCanvas)
     .backgroundColor("#111827")
     .nodeId("id")
-    .nodeLabel((node) => node.title)
+    .nodeLabel("")
     .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : node.depth === 2 ? 2.3 : node.type === "workshop" ? 1.9 : 1.5)
     .enableZoomInteraction(false)
     .enablePanInteraction(false)
