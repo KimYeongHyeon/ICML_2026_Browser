@@ -56,12 +56,41 @@ function queueMathTypeset(root = document.body, attempt = 0) {
   }
 }
 
+function plainMathTitle(value) {
+  const greek = {
+    alpha: "α",
+    beta: "β",
+    gamma: "γ",
+    delta: "δ",
+    epsilon: "ε",
+    lambda: "λ",
+    mu: "μ",
+    pi: "π",
+    sigma: "σ",
+    theta: "θ",
+  };
+  let title = String(value || "");
+  title = title.replaceAll("\\mathbb{R}", "ℝ");
+  title = title.replaceAll("\\mathcal{O}", "O");
+  title = title.replace(/\\([a-zA-Z]+)/g, (_, command) => greek[command] || command);
+  title = title.replace(/\$([^$]+)\$/g, "$1");
+  title = title.replace(/\s+/g, " ").trim();
+  return title;
+}
+
 function typeLabel(type) {
   return {
     paper: "Paper",
     poster: "Poster",
     workshop: "Workshop",
   }[type] || type;
+}
+
+function viewerKindLabel(record) {
+  if (record.type === "paper" && /\/poster\//.test(record.pageUrl || "")) {
+    return `Poster · ${record.category}`;
+  }
+  return `${typeLabel(record.type)} · ${record.category}`;
 }
 
 function assetLabel(record) {
@@ -92,7 +121,7 @@ function getFilteredRecords() {
     if (state.asset === "metadata" && record.availabilityStatus !== "metadata") return false;
     if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
     if (!query) return true;
-    const haystack = normalize(`${record.title} ${record.authors} ${record.group} ${record.category}`);
+    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${record.category}`);
     return haystack.includes(query);
   });
 }
@@ -141,7 +170,7 @@ function renderResults() {
       const selected = record.id === state.selectedId ? " is-selected" : "";
       return `
         <button class="result-item${selected}" type="button" data-id="${escapeHtml(record.id)}">
-          <span class="result-title">${escapeHtml(record.title)}</span>
+          <span class="result-title">${escapeHtml(plainMathTitle(record.title))}</span>
           <span class="result-authors">${escapeHtml(record.authors || "Authors unavailable")}</span>
           <span class="badges">
             <span class="badge">${escapeHtml(record.category)}</span>
@@ -198,6 +227,7 @@ function fallbackPageUrl(record) {
 }
 
 function fallbackPageLabel(record) {
+  if (record.type === "paper" && /\/poster\//.test(record.pageUrl || "")) return "Poster source page";
   if (record.availabilityStatus === "blocked") return `${typeLabel(record.type)} source page`;
   if (record.status === "downloaded") return "Downloaded source page";
   if (record.availabilityStatus === "metadata") return "Metadata source page";
@@ -253,8 +283,8 @@ function renderViewer(record) {
     return;
   }
 
-  els.viewerKind.textContent = `${typeLabel(record.type)} · ${record.category}`;
-  els.viewerTitle.textContent = record.title;
+  els.viewerKind.textContent = viewerKindLabel(record);
+  els.viewerTitle.textContent = plainMathTitle(record.title);
   els.viewerMeta.innerHTML = [
     record.group,
     record.authors,
