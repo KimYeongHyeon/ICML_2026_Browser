@@ -1682,6 +1682,7 @@ function renderMiniMap(record) {
 
 function renderViewer(record) {
   destroyMiniGraph();
+  els.viewerFrame.scrollTop = 0;
   if (!record) {
     els.viewerKind.textContent = "No selection";
     els.viewerTitle.textContent = "Select a record";
@@ -1764,6 +1765,7 @@ function renderViewer(record) {
       });
     });
   }
+  els.viewerFrame.scrollTop = 0;
   queueMathTypeset(document.body);
 }
 
@@ -1809,11 +1811,12 @@ async function init() {
       state.category = "all";
       state.group = "all";
       state.asset = "all";
-    state.mapFilterValue = "";
-    clearMapSelection();
-    els.asset.value = "all";
+      state.mapFilterValue = "";
+      clearMapSelection();
+      els.asset.value = "all";
       resetResultWindow();
       renderAll();
+      window.scrollTo(0, 0);
     });
   });
 
