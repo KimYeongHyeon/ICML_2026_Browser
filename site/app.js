@@ -16,10 +16,15 @@ const state = {
   visibleCount: PAGE_SIZE,
   data: null,
   mapData: null,
+  mapEngine: "force",
   mapColor: "area",
   mapMode: "global",
+  mapLive: true,
   mapFilterValue: "",
   mapGraph: null,
+  sigmaGraph: null,
+  sigmaRenderer: null,
+  cyGraph: null,
   mapHoverId: "",
 };
 
@@ -36,8 +41,14 @@ const els = {
   mapView: document.querySelector("#mapView"),
   mapCanvas: document.querySelector("#mapCanvas"),
   mapDetail: document.querySelector("#mapDetail"),
+  mapEngine: document.querySelector("#mapEngineSelect"),
   mapColor: document.querySelector("#mapColorSelect"),
   mapMode: document.querySelector("#mapModeSelect"),
+  mapLive: document.querySelector("#mapLiveButton"),
+  mapReflow: document.querySelector("#mapReflowButton"),
+  mapFit: document.querySelector("#mapFitButton"),
+  mapZoomOut: document.querySelector("#mapZoomOutButton"),
+  mapZoomIn: document.querySelector("#mapZoomInButton"),
   mapLegend: document.querySelector("#mapLegend"),
   viewerKind: document.querySelector("#viewerKind"),
   viewerTitle: document.querySelector("#viewerTitle"),
@@ -298,23 +309,90 @@ function scaleMapValue(value, min, max) {
   return max === min ? 50 : 5 + ((value - min) / (max - min)) * 90;
 }
 
+function stableHash(value) {
+  let hash = 2166136261;
+  for (const char of String(value || "")) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnit(id, salt = 0) {
+  return ((stableHash(`${id}:${salt}`) % 10000) / 10000);
+}
+
+function clusterAnchor(record) {
+  const areas = Object.keys(AREA_COLORS).filter((area) => area !== "Other");
+  const value = (record?.areaTags || record?.categoryTags || [record?.category || "Other"])[0] || "Other";
+  const index = Math.max(0, areas.indexOf(value));
+  if (value === "Other" || index < 0) return { x: 0, y: 0 };
+  const angle = (-Math.PI / 2) + (index / Math.max(1, areas.length)) * Math.PI * 2;
+  const radius = 390;
+  return {
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius,
+  };
+}
+
+function seededGraphPosition(id, record) {
+  const anchor = clusterAnchor(record);
+  const angle = seededUnit(id, 1) * Math.PI * 2;
+  const radius = Math.sqrt(seededUnit(id, 2)) * (record?.type === "workshop" ? 150 : 190);
+  return {
+    x: anchor.x + Math.cos(angle) * radius,
+    y: anchor.y + Math.sin(angle) * radius,
+  };
+}
+
+function projectedGraphPosition(mapPoint, id, record) {
+  const hasProjection = Number.isFinite(mapPoint?.x)
+    && Number.isFinite(mapPoint?.y)
+    && (Math.abs(mapPoint.x) > 1e-9 || Math.abs(mapPoint.y) > 1e-9);
+  if (!hasProjection) return seededGraphPosition(id, record);
+  return {
+    x: mapPoint.x * 1500,
+    y: -mapPoint.y * 1500,
+  };
+}
+
 function selectedNeighborIds(mapById) {
   const selected = mapById.get(state.selectedId);
   if (!selected) return new Set();
   return new Set((selected.nearestNeighbors || []).slice(0, 12).map((item) => item.id));
 }
 
+function focusedGraphIds(visibleIds, mapById) {
+  if (!visibleIds.has(state.selectedId)) {
+    state.selectedId = [...visibleIds][0] || "";
+  }
+  const ids = new Set([state.selectedId]);
+  const selected = mapById.get(state.selectedId);
+  const firstHop = (selected?.nearestNeighbors || [])
+    .filter((item) => visibleIds.has(item.id))
+    .slice(0, 12);
+  for (const neighbor of firstHop) ids.add(neighbor.id);
+  for (const neighbor of firstHop.slice(0, 10)) {
+    const neighborMap = mapById.get(neighbor.id);
+    for (const secondHop of (neighborMap?.nearestNeighbors || []).slice(0, 5)) {
+      if (visibleIds.has(secondHop.id) && secondHop.id !== state.selectedId) ids.add(secondHop.id);
+    }
+  }
+  return ids;
+}
+
+function focusDepth(id, selectedNeighbors, mapById) {
+  if (id === state.selectedId) return 0;
+  if (selectedNeighbors.has(id)) return 1;
+  const selected = mapById.get(state.selectedId);
+  const firstHop = (selected?.nearestNeighbors || []).slice(0, 12).map((item) => item.id);
+  return firstHop.some((neighborId) => (mapById.get(neighborId)?.nearestNeighbors || []).some((item) => item.id === id)) ? 2 : 3;
+}
+
 function graphNodeIds(visibleRecords, mapById) {
   const visibleIds = new Set(visibleRecords.map((record) => record.id));
   if (state.mapMode !== "focused") return visibleIds;
-  if (!visibleIds.has(state.selectedId)) {
-    state.selectedId = visibleRecords[0]?.id || "";
-  }
-  const ids = new Set([state.selectedId]);
-  for (const id of selectedNeighborIds(mapById)) {
-    if (visibleIds.has(id)) ids.add(id);
-  }
-  return ids;
+  return focusedGraphIds(visibleIds, mapById);
 }
 
 function buildGraphData(visibleRecords, mapById) {
@@ -323,6 +401,8 @@ function buildGraphData(visibleRecords, mapById) {
   const selectedNeighbors = selectedNeighborIds(mapById);
   const nodes = [...ids].map((id) => {
     const record = recordsById.get(id);
+    const position = projectedGraphPosition(mapById.get(id), id, record);
+    const depth = state.mapMode === "focused" ? focusDepth(id, selectedNeighbors, mapById) : 0;
     return {
       id,
       record,
@@ -330,12 +410,15 @@ function buildGraphData(visibleRecords, mapById) {
       group: mapColorValue(record || {}),
       selected: id === state.selectedId,
       adjacent: selectedNeighbors.has(id),
+      depth,
       type: record?.type || "record",
+      x: position.x,
+      y: position.y,
     };
   }).filter((node) => node.record);
   const links = [];
   const seen = new Set();
-  const neighborLimit = state.mapMode === "focused" ? 12 : 3;
+  const neighborLimit = state.mapMode === "focused" ? 8 : 3;
   for (const node of nodes) {
     const map = mapById.get(node.id);
     for (const neighbor of (map?.nearestNeighbors || []).slice(0, neighborLimit)) {
@@ -348,6 +431,7 @@ function buildGraphData(visibleRecords, mapById) {
         target: neighbor.id,
         value: Number(neighbor.score || 0),
         selected: node.id === state.selectedId || neighbor.id === state.selectedId,
+        depth: node.id === state.selectedId || neighbor.id === state.selectedId ? 1 : 2,
       });
     }
   }
@@ -397,16 +481,19 @@ function ensureForceGraph() {
     .backgroundColor("#111827")
     .nodeId("id")
     .nodeLabel((node) => node.title)
-    .nodeVal((node) => node.selected ? 9 : node.adjacent ? 4 : node.type === "workshop" ? 2.4 : 1.8)
+    .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : node.depth === 2 ? 2.3 : node.type === "workshop" ? 1.9 : 1.5)
+    .enableZoomInteraction(true)
+    .enablePanInteraction(true)
+    .enableNodeDrag(true)
     .linkCurvature(0.06)
-    .linkWidth((link) => link.selected ? 1.7 : Math.max(0.25, Number(link.value || 0) * 1.8))
-    .linkColor((link) => link.selected ? "rgba(147,197,253,0.72)" : "rgba(148,163,184,0.08)")
-    .linkDirectionalParticles((link) => link.selected ? 2 : 0)
-    .linkDirectionalParticleWidth(1.4)
+    .linkWidth((link) => link.selected ? 1.25 : Math.max(0.18, Number(link.value || 0) * (state.mapMode === "focused" ? 1.1 : 1.45)))
+    .linkColor((link) => link.selected ? "rgba(148,196,255,0.48)" : state.mapMode === "focused" ? "rgba(148,163,184,0.13)" : "rgba(148,163,184,0.07)")
+    .linkDirectionalParticles((link) => link.selected && state.mapLive ? 1 : 0)
+    .linkDirectionalParticleWidth(1)
     .linkDirectionalParticleSpeed(0.004)
-    .d3AlphaDecay(0.028)
-    .d3VelocityDecay(0.34)
-    .cooldownTicks(140)
+    .d3AlphaMin(0.0006)
+    .d3AlphaDecay(0.01)
+    .d3VelocityDecay(0.38)
     .onNodeHover((node) => {
       state.mapHoverId = node?.id || "";
       els.mapCanvas.style.cursor = node ? "pointer" : "grab";
@@ -424,26 +511,27 @@ function ensureForceGraph() {
       const isSelected = node.id === state.selectedId;
       const isHover = node.id === state.mapHoverId;
       const isAdjacent = node.adjacent;
-      const radius = isSelected ? 8.5 : isHover ? 7 : isAdjacent ? 5.4 : 4.2;
+      const radius = isSelected ? 7.2 : isHover ? 6 : isAdjacent ? 4.6 : node.depth === 2 ? 3.4 : 2.8;
       if (isSelected || isHover) {
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius + 8, 0, 2 * Math.PI);
-        ctx.fillStyle = isSelected ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.12)";
+        ctx.arc(node.x, node.y, radius + (isSelected ? 10 : 6), 0, 2 * Math.PI);
+        ctx.fillStyle = isSelected ? "rgba(96,165,250,0.16)" : "rgba(255,255,255,0.10)";
         ctx.fill();
       }
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
       ctx.fillStyle = isSelected ? "#60a5fa" : color;
-      ctx.globalAlpha = isSelected || isAdjacent || isHover || state.mapMode === "focused" ? 0.96 : 0.82;
+      ctx.globalAlpha = isSelected || isAdjacent || isHover ? 0.98 : state.mapMode === "focused" ? 0.78 : 0.82;
       ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.lineWidth = isSelected ? 1.8 : 0.8;
-      ctx.strokeStyle = isSelected ? "#dbeafe" : "rgba(255,255,255,0.55)";
+      ctx.lineWidth = isSelected ? 1.5 : 0.7;
+      ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
       ctx.stroke();
-      const shouldLabel = isSelected || isHover || (state.mapMode !== "focused" && globalScale > 1.9);
+      const shouldLabel = isHover || (isSelected && globalScale > 0.75) || (state.mapMode !== "focused" && globalScale > 1.9);
       if (!shouldLabel) return;
-      const label = node.title.length > 68 ? `${node.title.slice(0, 65)}...` : node.title;
-      const fontSize = Math.min(14, Math.max(9, 12 / globalScale));
+      const maxLabelLength = state.mapMode === "focused" ? 24 : 58;
+      const label = node.title.length > maxLabelLength ? `${node.title.slice(0, maxLabelLength - 3)}...` : node.title;
+      const fontSize = Math.min(13, Math.max(9, 11 / globalScale));
       ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -455,7 +543,253 @@ function ensureForceGraph() {
       ctx.fillStyle = "#f8fafc";
       ctx.fillText(label, textX, textY);
     });
+  applyMapMotionSettings(state.mapGraph);
   return state.mapGraph;
+}
+
+function updateMapControlState() {
+  if (!els.mapLive) return;
+  els.mapLive.classList.toggle("is-active", state.mapLive);
+  els.mapLive.setAttribute("aria-pressed", String(state.mapLive));
+  els.mapLive.textContent = state.mapLive ? "Live: On" : "Live: Off";
+}
+
+function destroyGraphEngine(except = "") {
+  if (except !== "force" && state.mapGraph) {
+    state.mapGraph.pauseAnimation?.();
+    state.mapGraph = null;
+  }
+  if (except !== "sigma" && state.sigmaRenderer) {
+    state.sigmaRenderer.kill?.();
+    state.sigmaRenderer = null;
+    state.sigmaGraph = null;
+  }
+  if (except !== "cytoscape" && state.cyGraph) {
+    state.cyGraph.destroy?.();
+    state.cyGraph = null;
+  }
+  if (except !== "force" && except !== "sigma" && except !== "cytoscape") {
+    els.mapCanvas.innerHTML = "";
+  }
+}
+
+function applyMapMotionSettings(graph = state.mapGraph) {
+  if (!graph) return;
+  graph
+    .autoPauseRedraw(!state.mapLive)
+    .cooldownTicks(state.mapLive ? Infinity : 180)
+    .cooldownTime(state.mapLive ? Infinity : 14000);
+  if (typeof graph.d3AlphaTarget === "function") {
+    graph.d3AlphaTarget(state.mapLive ? 0.018 : 0);
+  }
+  updateMapControlState();
+}
+
+function reflowMap(options = {}) {
+  if (state.mapEngine === "sigma" && state.sigmaRenderer) {
+    const camera = state.sigmaRenderer.getCamera?.();
+    camera?.animatedReset?.({ duration: 280 });
+    return;
+  }
+  if (state.mapEngine === "cytoscape" && state.cyGraph) {
+    if (options.fit) state.cyGraph.fit(undefined, 48);
+    else state.cyGraph.layout({ name: "preset", fit: true, padding: 48 }).run();
+    return;
+  }
+  if (state.mapEngine === "force") {
+    const graph = state.mapGraph;
+    if (!graph) return;
+    applyMapMotionSettings(graph);
+    graph.resumeAnimation?.();
+    graph.d3ReheatSimulation?.();
+    if (options.fit) {
+      window.setTimeout(() => {
+        if (state.tab === "map" && state.mapGraph === graph) {
+          graph.zoomToFit(420, 90);
+        }
+      }, options.delay || 120);
+    }
+  }
+}
+
+function zoomMap(multiplier) {
+  if (state.mapEngine === "sigma" && state.sigmaRenderer) {
+    const camera = state.sigmaRenderer.getCamera?.();
+    if (!camera) return;
+    const nextRatio = Math.max(0.02, Math.min(8, camera.ratio / multiplier));
+    camera.animate?.({ ratio: nextRatio }, { duration: 180 });
+    return;
+  }
+  if (state.mapEngine === "cytoscape" && state.cyGraph) {
+    const current = state.cyGraph.zoom();
+    state.cyGraph.zoom({
+      level: Math.max(0.05, Math.min(8, current * multiplier)),
+      renderedPosition: { x: els.mapCanvas.clientWidth / 2, y: els.mapCanvas.clientHeight / 2 },
+    });
+    return;
+  }
+  if (state.mapEngine === "force") {
+    const graph = state.mapGraph;
+    if (!graph) return;
+    const currentZoom = typeof graph.zoom === "function" ? graph.zoom() : 1;
+    graph.zoom(Math.max(0.08, Math.min(18, currentZoom * multiplier)), 220);
+    graph.resumeAnimation?.();
+  }
+}
+
+function graphologyConstructor() {
+  return window.graphology?.Graph || window.Graphology?.Graph || window.graphology;
+}
+
+function renderSigmaGraph(graphData) {
+  const Graph = graphologyConstructor();
+  if (!Graph || typeof window.Sigma !== "function") return false;
+  state.mapGraph?.pauseAnimation?.();
+  state.mapGraph = null;
+  state.cyGraph?.destroy?.();
+  state.cyGraph = null;
+  state.sigmaRenderer?.kill?.();
+  state.sigmaRenderer = null;
+  state.sigmaGraph = new Graph({ type: "undirected", multi: false });
+  const graph = state.sigmaGraph;
+  const selectedNeighbors = new Set(graphData.nodes.filter((node) => node.depth === 1).map((node) => node.id));
+  for (const node of graphData.nodes) {
+    graph.addNode(node.id, {
+      x: node.x,
+      y: node.y,
+      label: state.mapMode === "focused" && (node.selected || selectedNeighbors.has(node.id)) ? node.title : "",
+      size: node.selected ? 9 : node.depth === 1 ? 6.5 : node.depth === 2 ? 4.2 : 2.4,
+      color: node.selected ? "#60a5fa" : colorForValue(node.group),
+      record: node.record,
+      forceLabel: node.selected,
+    });
+  }
+  graphData.links.forEach((link, index) => {
+    const source = typeof link.source === "object" ? link.source.id : link.source;
+    const target = typeof link.target === "object" ? link.target.id : link.target;
+    if (graph.hasNode(source) && graph.hasNode(target) && !graph.hasEdge(source, target)) {
+      graph.addEdgeWithKey(`${source}->${target}-${index}`, source, target, {
+        size: link.selected ? 0.9 : 0.12,
+        color: link.selected ? "#5f8fd3" : "#263244",
+      });
+    }
+  });
+  els.mapCanvas.innerHTML = "";
+  state.sigmaRenderer = new window.Sigma(graph, els.mapCanvas, {
+    allowInvalidContainer: true,
+    defaultEdgeColor: "#263244",
+    defaultNodeColor: "#60a5fa",
+    labelColor: { color: "#e5e7eb" },
+    labelDensity: state.mapMode === "focused" ? 0.18 : 0.04,
+    labelRenderedSizeThreshold: state.mapMode === "focused" ? 7 : 11,
+    renderEdgeLabels: false,
+  });
+  state.sigmaRenderer.on?.("clickNode", ({ node }) => {
+    const record = graph.getNodeAttribute(node, "record");
+    if (!record) return;
+    state.selectedId = node;
+    renderMap();
+    renderMapDetail(record);
+    renderViewer(record);
+  });
+  state.sigmaRenderer.on?.("enterNode", ({ node }) => {
+    state.mapHoverId = node;
+    els.mapCanvas.style.cursor = "pointer";
+  });
+  state.sigmaRenderer.on?.("leaveNode", () => {
+    state.mapHoverId = "";
+    els.mapCanvas.style.cursor = "grab";
+  });
+  window.setTimeout(() => state.sigmaRenderer?.getCamera?.()?.animatedReset?.({ duration: 260 }), 80);
+  return true;
+}
+
+function renderCytoscapeGraph(graphData) {
+  if (typeof window.cytoscape !== "function") return false;
+  state.mapGraph?.pauseAnimation?.();
+  state.mapGraph = null;
+  state.sigmaRenderer?.kill?.();
+  state.sigmaRenderer = null;
+  state.sigmaGraph = null;
+  state.cyGraph?.destroy?.();
+  state.cyGraph = null;
+  els.mapCanvas.innerHTML = "";
+  const elements = [
+    ...graphData.nodes.map((node) => ({
+      data: {
+        id: node.id,
+        label: state.mapMode === "focused" && node.selected ? plainMathTitle(node.title).slice(0, 26) : "",
+        color: node.selected ? "#60a5fa" : colorForValue(node.group),
+        size: node.selected ? 18 : node.depth === 1 ? 12 : node.depth === 2 ? 8 : 5,
+      },
+      position: { x: node.x, y: node.y },
+      classes: node.selected ? "selected" : node.depth === 1 ? "near" : node.depth === 2 ? "second" : "",
+    })),
+    ...graphData.links.map((link, index) => ({
+      data: {
+        id: `e-${index}`,
+        source: typeof link.source === "object" ? link.source.id : link.source,
+        target: typeof link.target === "object" ? link.target.id : link.target,
+        selected: link.selected,
+      },
+      classes: link.selected ? "selected" : "",
+    })),
+  ];
+  state.cyGraph = window.cytoscape({
+    container: els.mapCanvas,
+    elements,
+    minZoom: 0.04,
+    maxZoom: 6,
+    wheelSensitivity: 0.18,
+    layout: { name: "preset", fit: true, padding: 56 },
+    style: [
+      { selector: "node", style: { "background-color": "data(color)", width: "data(size)", height: "data(size)", "border-color": "rgba(255,255,255,0.52)", "border-width": 1, label: "data(label)", color: "#e5e7eb", "font-size": 10, "text-outline-color": "#111827", "text-outline-width": 3 } },
+      { selector: "node.selected", style: { width: 22, height: 22, "border-color": "#dbeafe", "border-width": 3 } },
+      { selector: "edge", style: { width: 0.28, "line-color": "#263244", opacity: 0.55, "curve-style": "haystack", "haystack-radius": 0 } },
+      { selector: "edge.selected", style: { width: 0.9, "line-color": "#5f8fd3", opacity: 0.78 } },
+    ],
+  });
+  state.cyGraph.on("tap", "node", (event) => {
+    const id = event.target.id();
+    const record = state.data.records.find((item) => item.id === id);
+    if (!record) return;
+    state.selectedId = id;
+    renderMap();
+    renderMapDetail(record);
+    renderViewer(record);
+  });
+  return true;
+}
+
+function renderForceGraph(graphData) {
+  destroyGraphEngine("force");
+  const graph = ensureForceGraph();
+  if (!graph) return false;
+  graph
+    .width(els.mapCanvas.clientWidth || 840)
+    .height(els.mapCanvas.clientHeight || 640)
+    .graphData(graphData);
+  applyMapMotionSettings(graph);
+  if (state.mapMode === "focused") {
+    graph.d3Force("charge")?.strength(-96);
+    graph.d3Force("link")?.distance((link) => link.selected ? 52 : 44);
+    graph.zoomToFit(320, 110);
+    window.setTimeout(() => {
+      if (state.tab === "map" && state.mapMode === "focused" && state.mapGraph === graph) {
+        graph.zoomToFit(420, 120);
+      }
+    }, 350);
+  } else {
+    graph.d3Force("charge")?.strength(-34);
+    graph.d3Force("link")?.distance(28);
+    window.setTimeout(() => {
+      if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
+        graph.zoomToFit(420, 72);
+      }
+    }, 450);
+  }
+  reflowMap();
+  return true;
 }
 
 function renderMapDetail(record) {
@@ -521,35 +855,22 @@ function renderMap() {
   const colorFilter = state.mapFilterValue ? ` · ${state.mapFilterValue}` : "";
   els.activeSummary.textContent = `Map · ${state.category === "all" ? "all fields" : state.category} · ${state.mapMode}${colorFilter}`;
   if (!visibleRecords.length) {
-    state.mapGraph = null;
+    destroyGraphEngine();
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No mapped records</strong><span>Adjust the filters.</span></div>`;
     renderMapDetail(null);
     return;
   }
-  const graph = ensureForceGraph();
-  if (!graph) {
-    state.mapGraph = null;
+  const graphData = buildGraphData(visibleRecords, mapById);
+  const rendered = state.mapEngine === "sigma"
+    ? renderSigmaGraph(graphData)
+    : state.mapEngine === "cytoscape"
+      ? renderCytoscapeGraph(graphData)
+      : renderForceGraph(graphData);
+  if (!rendered) {
+    destroyGraphEngine();
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>force-graph could not be loaded.</span></div>`;
     renderMapDetail(visibleRecords[0]);
     return;
-  }
-  const graphData = buildGraphData(visibleRecords, mapById);
-  graph
-    .width(els.mapCanvas.clientWidth || 840)
-    .height(els.mapCanvas.clientHeight || 640)
-    .graphData(graphData);
-  if (state.mapMode === "focused") {
-    graph.d3Force("charge")?.strength(-240);
-    graph.d3Force("link")?.distance((link) => link.selected ? 42 : 70);
-    graph.zoomToFit(320, 80);
-    window.setTimeout(() => {
-      if (state.tab === "map" && state.mapMode === "focused" && state.mapGraph === graph) {
-        graph.zoomToFit(420, 100);
-      }
-    }, 350);
-  } else {
-    graph.d3Force("charge")?.strength(-34);
-    graph.d3Force("link")?.distance(28);
   }
   const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
   renderMapDetail(selected || visibleRecords[0]);
@@ -794,6 +1115,11 @@ function renderAll() {
   document.body.classList.toggle("is-map-tab", isMap);
   els.results.hidden = isMap;
   els.mapView.hidden = !isMap;
+  if (!isMap && state.mapGraph) {
+    state.mapGraph.pauseAnimation?.();
+  } else if (isMap && state.mapGraph && state.mapLive) {
+    state.mapGraph.resumeAnimation?.();
+  }
   renderResults();
   renderMap();
   renderViewer(null);
@@ -866,10 +1192,24 @@ async function init() {
     state.mapFilterValue = "";
     renderMap();
   });
+  els.mapEngine.addEventListener("change", (event) => {
+    state.mapEngine = event.target.value;
+    destroyGraphEngine();
+    renderMap();
+  });
   els.mapMode.addEventListener("change", (event) => {
     state.mapMode = event.target.value;
     renderMap();
   });
+  els.mapLive?.addEventListener("click", () => {
+    state.mapLive = !state.mapLive;
+    applyMapMotionSettings();
+    if (state.mapLive) reflowMap();
+  });
+  els.mapReflow?.addEventListener("click", () => reflowMap());
+  els.mapFit?.addEventListener("click", () => reflowMap({ fit: true }));
+  els.mapZoomOut?.addEventListener("click", () => zoomMap(0.78));
+  els.mapZoomIn?.addEventListener("click", () => zoomMap(1.28));
   els.results.addEventListener("scroll", () => {
     const distanceFromBottom = els.results.scrollHeight - els.results.scrollTop - els.results.clientHeight;
     if (distanceFromBottom < 320) {
@@ -881,6 +1221,18 @@ async function init() {
       state.mapGraph
         .width(els.mapCanvas.clientWidth || 840)
         .height(els.mapCanvas.clientHeight || 640);
+    }
+    if (state.tab === "map" && state.cyGraph) {
+      state.cyGraph.resize();
+      state.cyGraph.fit(undefined, 48);
+    }
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!state.mapGraph) return;
+    if (document.hidden || state.tab !== "map") {
+      state.mapGraph.pauseAnimation?.();
+    } else if (state.mapLive) {
+      state.mapGraph.resumeAnimation?.();
     }
   });
 }
