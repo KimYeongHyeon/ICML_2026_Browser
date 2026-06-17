@@ -297,6 +297,38 @@ function option(value, label) {
   return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
 }
 
+function assetOption(value, label, count, disabled = false) {
+  return `<option value="${escapeHtml(value)}"${disabled ? " disabled" : ""}>${escapeHtml(`${label} (${count.toLocaleString()})`)}</option>`;
+}
+
+function updateAssetOptions(recordsForTab) {
+  const counts = {
+    all: recordsForTab.length,
+    local: recordsForTab.filter((record) => record.hasPdf || record.hasPoster || record.hasSlide).length,
+    pdf: recordsForTab.filter((record) => record.hasPdf).length,
+    poster: recordsForTab.filter((record) => record.hasPoster).length,
+    slide: recordsForTab.filter((record) => record.hasSlide).length,
+    blocked: recordsForTab.filter((record) => record.availabilityStatus === "blocked").length,
+    metadata: recordsForTab.filter((record) => record.availabilityStatus === "metadata").length,
+    unavailable: recordsForTab.filter((record) => record.availabilityStatus === "unavailable").length,
+  };
+  const options = [
+    ["all", "All records"],
+    ["local", "Downloaded locally"],
+    ["pdf", "Has PDF"],
+    ["poster", "Has poster image"],
+    ["slide", "Has slide deck"],
+    ["blocked", "Blocked"],
+    ["metadata", "Metadata only"],
+    ["unavailable", "Unavailable / skipped"],
+  ];
+  els.asset.innerHTML = options
+    .map(([value, label]) => assetOption(value, label, counts[value] || 0, value !== "all" && !counts[value]))
+    .join("");
+  if (!counts[state.asset] && state.asset !== "all") state.asset = "all";
+  els.asset.value = state.asset;
+}
+
 function updateSelects() {
   const recordsForTab = state.tab === "map" ? state.data.records : state.data.records.filter((record) => record.type === state.tab);
   const categories = [...new Set(recordsForTab.flatMap((record) => categoryTags(record)))].sort();
@@ -308,6 +340,7 @@ function updateSelects() {
   els.group.value = groups.includes(state.group) ? state.group : "all";
   state.category = els.category.value;
   state.group = els.group.value;
+  updateAssetOptions(recordsForTab);
 }
 
 function renderResults() {
