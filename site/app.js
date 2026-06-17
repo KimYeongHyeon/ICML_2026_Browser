@@ -1407,6 +1407,7 @@ function actionLink(href, label, primary = false) {
 
 function assetActionHref(record, path) {
   if (!path) return "";
+  if ((record.bestAssetKind === "pdf" || record.bestAssetKind === "slide") && isPdfAsset(path)) return "";
   return assetUrl(path);
 }
 
@@ -1642,6 +1643,7 @@ async function mountPdfViewer(assetPath) {
     });
     void renderPage();
   } catch (error) {
+    if (token !== state.pdfViewer.token || /Worker was destroyed/i.test(error?.message || "")) return;
     console.error("PDF.js load failed", error);
     showPdfError(shell);
   }
