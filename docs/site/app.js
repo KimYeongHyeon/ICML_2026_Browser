@@ -161,7 +161,7 @@ const CLUSTER_AREA_HINTS = {
 };
 
 function normalize(value) {
-  return String(value || "").toLowerCase();
+  return String(value || "").trim().toLowerCase();
 }
 
 function escapeHtml(value) {
