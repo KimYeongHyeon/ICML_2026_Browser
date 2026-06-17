@@ -239,6 +239,23 @@ function statusClass(record) {
   return "";
 }
 
+function statusLabel(value) {
+  const labels = {
+    accepted_public: "Accepted public",
+    metadata_only: "Metadata only",
+    downloaded: "Downloaded",
+    blocked: "Blocked",
+    unavailable: "Unavailable",
+    failed: "Failed",
+    skipped: "Skipped",
+  };
+  return labels[value] || value;
+}
+
+function resultDetails(record) {
+  return record.failureReason || "";
+}
+
 function getFilteredRecords(options = {}) {
   const query = normalize(state.query);
   const ignoreMapFilter = Boolean(options.ignoreMapFilter);
@@ -302,6 +319,7 @@ function renderResults() {
   els.results.innerHTML = visible
     .map((record) => {
       const selected = record.id === state.selectedId ? " is-selected" : "";
+      const details = resultDetails(record);
       return `
         <button class="result-item${selected}" type="button" data-id="${escapeHtml(record.id)}">
           <span class="result-title">${escapeHtml(plainMathTitle(record.title))}</span>
@@ -312,7 +330,7 @@ function renderResults() {
             <span class="badge">${assetLabel(record)}</span>
             <span class="badge ${statusClass(record)}">${escapeHtml(record.availabilityLabel || "Metadata only")}</span>
           </span>
-          <span class="result-details">${escapeHtml(record.status || record.availabilityLabel || "available")} ${record.failureReason ? "· " + escapeHtml(record.failureReason) : ""}</span>
+          ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;
     })
@@ -1863,7 +1881,7 @@ function renderViewer(record) {
     record.group,
     record.authors,
     record.availabilityLabel,
-    record.status,
+    statusLabel(record.status),
     record.failureReason,
   ])
     .map((value) => `<span class="chip">${escapeHtml(value)}</span>`)
