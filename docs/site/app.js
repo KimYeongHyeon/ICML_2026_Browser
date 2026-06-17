@@ -329,6 +329,28 @@ function updateAssetOptions(recordsForTab) {
   els.asset.value = state.asset;
 }
 
+const ASSET_FILTER_LABELS = {
+  all: "all assets",
+  local: "downloaded locally",
+  pdf: "has PDF",
+  poster: "has poster image",
+  slide: "has slide deck",
+  blocked: "blocked",
+  metadata: "metadata only",
+  unavailable: "unavailable / skipped",
+};
+
+function activeFilterSummary(baseLabel, extraParts = []) {
+  const parts = [baseLabel, state.category === "all" ? "all fields" : state.category];
+  if (state.group !== "all") parts.push(state.group);
+  if (state.asset !== "all") parts.push(ASSET_FILTER_LABELS[state.asset] || state.asset);
+  if (state.query.trim()) {
+    const query = state.query.trim();
+    parts.push(`search: ${query.length > 32 ? query.slice(0, 31) + "..." : query}`);
+  }
+  return [...parts, ...extraParts.filter(Boolean)].join(" · ");
+}
+
 function updateSelects() {
   const recordsForTab = state.tab === "map" ? state.data.records : state.data.records.filter((record) => record.type === state.tab);
   const categories = [...new Set(recordsForTab.flatMap((record) => categoryTags(record)))].sort();
@@ -346,7 +368,7 @@ function updateSelects() {
 function renderResults() {
   const filtered = getFilteredRecords();
   els.resultCount.textContent = `${filtered.length.toLocaleString()} results`;
-  els.activeSummary.textContent = `${typeLabel(state.tab)} · ${state.category === "all" ? "all fields" : state.category}`;
+  els.activeSummary.textContent = activeFilterSummary(typeLabel(state.tab));
 
   const visible = filtered.slice(0, state.visibleCount);
   els.results.innerHTML = visible
@@ -1416,8 +1438,7 @@ function renderMap() {
   const visibleRecords = getFilteredRecords().filter((record) => record.mapAvailable && mapById.has(record.id));
   renderMapLegend(legendRecords);
   els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
-  const colorFilter = state.mapFilterValue ? ` · ${state.mapFilterValue}` : "";
-  els.activeSummary.textContent = `Map · ${state.category === "all" ? "all fields" : state.category} · ${state.mapMode}${colorFilter}`;
+  els.activeSummary.textContent = activeFilterSummary("Map", [state.mapMode, state.mapFilterValue]);
   if (!visibleRecords.length) {
     destroyGraphEngine();
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No mapped records</strong><span>Adjust the filters.</span></div>`;
