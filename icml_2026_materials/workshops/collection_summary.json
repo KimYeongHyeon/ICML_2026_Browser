@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-06-17T05:38:42+00:00",
+  "files_downloaded": 172,
+  "files_failed": 2036,
+  "files_skipped_existing": 43,
+  "items_failed": 0,
+  "items_skipped": 800,
+  "openreview_items_discovered": 3041,
+  "output_dir": "icml_2026_materials/workshops",
+  "page_items_discovered": 1015,
+  "workshops_discovered": 45,
+  "workshops_with_manifest": 45,
+  "workshops_with_public_submissions": 26
+}
