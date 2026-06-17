@@ -1460,35 +1460,84 @@ function renderMiniMap(record) {
   const mapById = mapRecordById();
   const center = mapById.get(record.id);
   if (!center) return "";
-  const neighbors = (center.nearestNeighbors || []).slice(0, 6)
+  const centerAreas = new Set(record.areaTags || []);
+  const neighbors = (center.nearestNeighbors || []).slice(0, 8)
     .map((neighbor, index) => ({
       record: state.data.records.find((item) => item.id === neighbor.id),
       score: neighbor.score,
-      angle: (Math.PI * 2 * index) / Math.max(1, Math.min(6, center.nearestNeighbors.length)),
+      rank: index + 1,
     }))
     .filter((item) => item.record);
+  if (!neighbors.length) return "";
+  const scores = neighbors.map((item) => Number(item.score || 0));
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+  const scoreRange = Math.max(0.001, maxScore - minScore);
+  const similarityPercent = (score) => Math.max(0.08, Math.min(1, (Number(score || 0) - minScore) / scoreRange));
+  const sharedTags = (neighborRecord) => (neighborRecord.areaTags || []).filter((tag) => centerAreas.has(tag));
+  const topTags = countLabels(neighbors.map((item) => item.record.areaTags || [])).slice(0, 4);
   const nodeButtons = neighbors.map((item, index) => {
-    const radius = index % 2 === 0 ? 34 : 42;
-    const left = 50 + Math.cos(item.angle) * radius;
-    const top = 50 + Math.sin(item.angle) * radius;
-    return `<button class="mini-graph-node" type="button" data-id="${escapeHtml(item.record.id)}" style="left:${left}%;top:${top}%;" title="${escapeHtml(plainMathTitle(item.record.title))}"></button>`;
+    const strength = similarityPercent(item.score);
+    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / neighbors.length;
+    const radius = 18 + (1 - strength) * 28 + (index % 2) * 4;
+    const left = 50 + Math.cos(angle) * radius;
+    const top = 50 + Math.sin(angle) * radius;
+    const size = 11 + strength * 9;
+    const color = colorForValue((item.record.areaTags || item.record.domainTags || [item.record.group || "Other"])[0]);
+    const labelSide = left > 62 ? " is-left" : "";
+    const label = index < 3 ? `<span class="mini-graph-label${labelSide}">${escapeHtml(plainMathTitle(item.record.title))}</span>` : "";
+    return `
+      <button class="mini-graph-node" type="button" data-id="${escapeHtml(item.record.id)}" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;background:${color};" title="${escapeHtml(plainMathTitle(item.record.title))}">
+        <span class="mini-rank">${item.rank}</span>
+        ${label}
+      </button>
+    `;
   }).join("");
   const edges = neighbors.map((item, index) => {
-    const radius = index % 2 === 0 ? 34 : 42;
-    const x = 50 + Math.cos(item.angle) * radius;
-    const y = 50 + Math.sin(item.angle) * radius;
-    return `<line x1="50" y1="50" x2="${x}" y2="${y}" />`;
+    const strength = similarityPercent(item.score);
+    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / neighbors.length;
+    const radius = 18 + (1 - strength) * 28 + (index % 2) * 4;
+    const x = 50 + Math.cos(angle) * radius;
+    const y = 50 + Math.sin(angle) * radius;
+    return `<line x1="50" y1="50" x2="${x}" y2="${y}" style="stroke-width:${0.55 + strength * 1.9};opacity:${0.28 + strength * 0.55}" />`;
   }).join("");
   return `
     <section class="mini-map-panel">
-      <h3>Related papers</h3>
-      <div class="mini-graph" aria-hidden="true">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none">${edges}</svg>
-        <span class="mini-graph-node is-center" style="left:50%;top:50%;"></span>
+      <div class="mini-map-heading">
+        <h3>Semantic neighborhood</h3>
+        <span>${neighbors.length} nearest mapped records</span>
+      </div>
+      <div class="mini-graph" aria-label="Semantic neighborhood: closer nodes are more similar and colors represent areas">
+        <div class="mini-graph-caption">
+          <strong>${Number(maxScore || 0).toFixed(2)}</strong>
+          <span>top similarity</span>
+        </div>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <circle cx="50" cy="50" r="18" />
+          <circle cx="50" cy="50" r="36" />
+          ${edges}
+        </svg>
+        <span class="mini-graph-node is-center" style="left:50%;top:50%;" title="${escapeHtml(plainMathTitle(record.title))}"></span>
         ${nodeButtons}
       </div>
+      <div class="mini-tag-summary">
+        ${topTags.map(([tag, count]) => `<span><i style="background:${colorForValue(tag)}"></i>${escapeHtml(tag)} <b>${count}</b></span>`).join("")}
+      </div>
       <div class="neighbor-list">
-        ${neighbors.map((item) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(item.record.id)}"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Number(item.score || 0).toFixed(2)} similarity</span></button>`).join("")}
+        ${neighbors.map((item) => {
+          const strength = similarityPercent(item.score);
+          const tags = sharedTags(item.record).slice(0, 3);
+          return `
+            <button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}">
+              <span class="neighbor-rank">${item.rank}</span>
+              <span class="neighbor-main">
+                <strong>${escapeHtml(plainMathTitle(item.record.title))}</strong>
+                <span>${Number(item.score || 0).toFixed(2)} similarity${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span>
+                <i class="neighbor-score-bar"><b style="width:${Math.round(strength * 100)}%"></b></i>
+              </span>
+            </button>
+          `;
+        }).join("")}
       </div>
     </section>
   `;
