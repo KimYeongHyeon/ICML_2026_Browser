@@ -86,12 +86,13 @@
               </select>
             </label>
             <label>
-              <span>Mode</span>
+              <span>Scope</span>
               <select id="mapModeSelect">
-                <option value="2d">2D</option>
-                <option value="3d">3D</option>
+                <option value="global">Global</option>
+                <option value="focused">Focused</option>
               </select>
             </label>
+            <div class="map-legend" id="mapLegend" aria-label="Map color legend"></div>
           </div>
           <div class="map-body">
             <div class="map-canvas" id="mapCanvas" aria-label="Semantic paper map"></div>
@@ -118,6 +119,7 @@
       </aside>
     </main>
 
+    <script src="site/vendor/force-graph.min.js"></script>
     <script src="site/app.js" type="module"></script>
   </body>
 </html>
