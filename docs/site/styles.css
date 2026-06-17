@@ -704,13 +704,17 @@ a:focus-visible {
 
 .mini-graph {
   position: relative;
-  height: 220px;
+  height: 260px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
     radial-gradient(circle at center, rgb(59 130 246 / 0.18), transparent 36%),
     #111827;
+}
+
+.mini-graph canvas {
+  display: block;
 }
 
 .mini-graph-caption {
@@ -723,6 +727,7 @@ a:focus-visible {
   color: #94a3b8;
   font-size: 11px;
   font-weight: 800;
+  pointer-events: none;
 }
 
 .mini-graph-caption strong {
