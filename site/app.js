@@ -440,10 +440,10 @@ function ensureForceGraph() {
       ctx.lineWidth = isSelected ? 1.8 : 0.8;
       ctx.strokeStyle = isSelected ? "#dbeafe" : "rgba(255,255,255,0.55)";
       ctx.stroke();
-      const shouldLabel = isSelected || isHover || (state.mapMode === "focused" && isAdjacent) || globalScale > 1.65;
+      const shouldLabel = isSelected || isHover || (state.mapMode !== "focused" && globalScale > 1.9);
       if (!shouldLabel) return;
       const label = node.title.length > 68 ? `${node.title.slice(0, 65)}...` : node.title;
-      const fontSize = Math.max(10, 13 / globalScale);
+      const fontSize = Math.min(14, Math.max(9, 12 / globalScale));
       ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -542,6 +542,11 @@ function renderMap() {
     graph.d3Force("charge")?.strength(-240);
     graph.d3Force("link")?.distance((link) => link.selected ? 42 : 70);
     graph.zoomToFit(320, 80);
+    window.setTimeout(() => {
+      if (state.tab === "map" && state.mapMode === "focused" && state.mapGraph === graph) {
+        graph.zoomToFit(420, 100);
+      }
+    }, 350);
   } else {
     graph.d3Force("charge")?.strength(-34);
     graph.d3Force("link")?.distance(28);
