@@ -4,6 +4,8 @@ const PAGE_SIZE = 80;
 const REPO_CDN_BASE = "https://cdn.jsdelivr.net/gh/KimYeongHyeon/icml-2026-materials-browser@main/";
 const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
 const MATHJAX_RETRY_LIMIT = 40;
+const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm";
+const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
 
 const state = {
   tab: "poster",
@@ -43,7 +45,14 @@ const state = {
     end: null,
     nodeIds: [],
   },
+  pdfViewer: {
+    token: 0,
+    loadingTask: null,
+    renderTask: null,
+  },
 };
+
+let pdfJsPromise = null;
 
 const els = {
   headerStats: document.querySelector("#headerStats"),
@@ -1415,8 +1424,26 @@ function assetUrl(path) {
   return new URL(`${LOCAL_ASSET_PREFIX}${path}`, window.location.href).href;
 }
 
-function pdfViewerUrl(path) {
-  return assetUrl(path);
+function isPdfAsset(path) {
+  return /\.pdf(?:$|[?#])/i.test(path || "");
+}
+
+function destroyPdfViewer() {
+  state.pdfViewer.token += 1;
+  state.pdfViewer.renderTask?.cancel?.();
+  state.pdfViewer.loadingTask?.destroy?.();
+  state.pdfViewer.renderTask = null;
+  state.pdfViewer.loadingTask = null;
+}
+
+async function loadPdfJs() {
+  if (!pdfJsPromise) {
+    pdfJsPromise = import(PDFJS_MODULE_URL).then((pdfjsLib) => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+      return pdfjsLib;
+    });
+  }
+  return pdfJsPromise;
 }
 
 function fallbackPageUrl(record) {
@@ -1471,9 +1498,28 @@ function renderSourcePageFallback(record, sourceUrl, message) {
 
 function renderAssetOpenFallback(record, assetPath) {
   const url = assetUrl(assetPath);
-  const canPreview = record.bestAssetKind === "pdf" || record.bestAssetKind === "slide";
+  const canPreview = isPdfAsset(assetPath);
   const preview = canPreview
-    ? `<iframe src="${escapeHtml(pdfViewerUrl(assetPath))}" title="${escapeHtml(record.title)} PDF preview"></iframe>`
+    ? `
+      <div class="pdfjs-shell" data-pdf-src="${escapeHtml(url)}">
+        <div class="pdfjs-toolbar" aria-label="PDF controls">
+          <button type="button" class="icon-button" data-pdf-prev title="Previous page" aria-label="Previous page">‹</button>
+          <span class="pdfjs-status" data-pdf-status>Loading PDF</span>
+          <button type="button" class="icon-button" data-pdf-next title="Next page" aria-label="Next page">›</button>
+          <button type="button" class="icon-button" data-pdf-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
+          <button type="button" class="icon-button" data-pdf-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
+          <a class="action" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open in new tab</a>
+        </div>
+        <div class="pdfjs-stage">
+          <canvas data-pdf-canvas aria-label="${escapeHtml(record.title)} PDF preview"></canvas>
+        </div>
+        <div class="source-page-open pdfjs-error" data-pdf-error hidden>
+          <strong>Preview unavailable</strong>
+          <span>The local PDF could not be rendered in this browser.</span>
+          <a class="action primary" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open in new tab</a>
+        </div>
+      </div>
+    `
     : `
       <div class="source-page-open">
         <strong>Open when needed</strong>
@@ -1486,6 +1532,119 @@ function renderAssetOpenFallback(record, assetPath) {
       ${preview}
     </div>
   `;
+}
+
+function setPdfToolbarState(shell, pageNum, pageCount, isBusy = false) {
+  const status = shell.querySelector("[data-pdf-status]");
+  const prev = shell.querySelector("[data-pdf-prev]");
+  const next = shell.querySelector("[data-pdf-next]");
+  if (status) status.textContent = pageCount ? `${pageNum} / ${pageCount}` : "Loading PDF";
+  if (prev) prev.disabled = isBusy || pageNum <= 1;
+  if (next) next.disabled = isBusy || pageNum >= pageCount;
+}
+
+function showPdfError(shell) {
+  shell.classList.add("has-error");
+  shell.querySelector("[data-pdf-error]")?.removeAttribute("hidden");
+  shell.querySelector(".pdfjs-stage")?.setAttribute("hidden", "");
+  shell.querySelector("[data-pdf-status]").textContent = "Preview unavailable";
+}
+
+function uniqueChipValues(values) {
+  const seen = new Set();
+  return values.filter(Boolean).filter((value) => {
+    const key = String(value).trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function mountPdfViewer(assetPath) {
+  const shell = els.viewerFrame.querySelector(".pdfjs-shell");
+  const canvas = shell?.querySelector("[data-pdf-canvas]");
+  const stage = shell?.querySelector(".pdfjs-stage");
+  if (!shell || !canvas || !stage || !isPdfAsset(assetPath)) return;
+
+  const token = state.pdfViewer.token;
+  const source = shell.dataset.pdfSrc;
+  const context = canvas.getContext("2d");
+  let pdfDoc = null;
+  let pageNum = 1;
+  let zoom = 1;
+  let rendering = false;
+  let pending = false;
+
+  const renderPage = async () => {
+    if (!pdfDoc || token !== state.pdfViewer.token) return;
+    if (rendering) {
+      pending = true;
+      return;
+    }
+    rendering = true;
+    pending = false;
+    setPdfToolbarState(shell, pageNum, pdfDoc.numPages, true);
+    state.pdfViewer.renderTask?.cancel?.();
+    try {
+      const page = await pdfDoc.getPage(pageNum);
+      if (token !== state.pdfViewer.token) return;
+      const baseViewport = page.getViewport({ scale: 1 });
+      const stageWidth = Math.max(320, stage.clientWidth - 32);
+      const fitScale = Math.max(0.42, Math.min(1.8, stageWidth / baseViewport.width));
+      const viewport = page.getViewport({ scale: fitScale * zoom });
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(viewport.width * ratio);
+      canvas.height = Math.floor(viewport.height * ratio);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, viewport.width, viewport.height);
+      const renderTask = page.render({ canvasContext: context, viewport });
+      state.pdfViewer.renderTask = renderTask;
+      await renderTask.promise;
+      setPdfToolbarState(shell, pageNum, pdfDoc.numPages, false);
+    } catch (error) {
+      if (error?.name !== "RenderingCancelledException") {
+        console.error("PDF preview failed", error);
+        showPdfError(shell);
+      }
+    } finally {
+      rendering = false;
+      if (pending) void renderPage();
+    }
+  };
+
+  try {
+    const pdfjsLib = await loadPdfJs();
+    if (token !== state.pdfViewer.token) return;
+    const loadingTask = pdfjsLib.getDocument({ url: source, withCredentials: false });
+    state.pdfViewer.loadingTask = loadingTask;
+    pdfDoc = await loadingTask.promise;
+    if (token !== state.pdfViewer.token) return;
+    setPdfToolbarState(shell, pageNum, pdfDoc.numPages, false);
+    shell.querySelector("[data-pdf-prev]")?.addEventListener("click", () => {
+      if (pageNum <= 1) return;
+      pageNum -= 1;
+      void renderPage();
+    });
+    shell.querySelector("[data-pdf-next]")?.addEventListener("click", () => {
+      if (pageNum >= pdfDoc.numPages) return;
+      pageNum += 1;
+      void renderPage();
+    });
+    shell.querySelector("[data-pdf-zoom-out]")?.addEventListener("click", () => {
+      zoom = Math.max(0.65, zoom - 0.15);
+      void renderPage();
+    });
+    shell.querySelector("[data-pdf-zoom-in]")?.addEventListener("click", () => {
+      zoom = Math.min(2.4, zoom + 0.15);
+      void renderPage();
+    });
+    void renderPage();
+  } catch (error) {
+    console.error("PDF.js load failed", error);
+    showPdfError(shell);
+  }
 }
 
 function renderPosterPreview(record, assetPath) {
@@ -1684,6 +1843,7 @@ function renderMiniMap(record) {
 
 function renderViewer(record) {
   destroyMiniGraph();
+  destroyPdfViewer();
   els.viewerFrame.scrollTop = 0;
   if (!record) {
     els.viewerKind.textContent = "No selection";
@@ -1697,14 +1857,13 @@ function renderViewer(record) {
 
   els.viewerKind.textContent = viewerKindLabel(record);
   els.viewerTitle.textContent = plainMathTitle(record.title);
-  els.viewerMeta.innerHTML = [
+  els.viewerMeta.innerHTML = uniqueChipValues([
     record.group,
     record.authors,
     record.availabilityLabel,
     record.status,
     record.failureReason,
-  ]
-    .filter(Boolean)
+  ])
     .map((value) => `<span class="chip">${escapeHtml(value)}</span>`)
     .join("");
 
@@ -1723,6 +1882,7 @@ function renderViewer(record) {
     els.viewerFrame.innerHTML = renderPosterPreview(record, preferred);
   } else if (preferred && (record.bestAssetKind === "pdf" || record.bestAssetKind === "slide")) {
     els.viewerFrame.innerHTML = renderAssetOpenFallback(record, preferred);
+    void mountPdfViewer(preferred);
   } else if (fallbackPageUrl(record)) {
     const sourceUrl = fallbackPageUrl(record);
     const message = record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is used instead.";
