@@ -22,6 +22,7 @@ const state = {
   mapLive: true,
   mapFilterValue: "",
   mapGraph: null,
+  mapGraphData: null,
   sigmaGraph: null,
   sigmaRenderer: null,
   cyGraph: null,
@@ -101,6 +102,37 @@ const AVAILABILITY_COLORS = {
   "Source link": "#60a5fa",
   "Blocked": "#ef4444",
   "Unavailable": "#f59e0b",
+};
+
+const AREA_LAYOUT_ANCHORS = {
+  "LLMs": { x: -340, y: -210 },
+  "Agents": { x: -150, y: -300 },
+  "Systems": { x: 90, y: -310 },
+  "Vision": { x: 320, y: -210 },
+  "Multimodal Learning": { x: 390, y: 20 },
+  "Generative Models": { x: 230, y: 210 },
+  "Optimization": { x: 0, y: 120 },
+  "Theory": { x: -230, y: 210 },
+  "Probabilistic Methods": { x: -410, y: 20 },
+  "Reinforcement Learning": { x: -170, y: -20 },
+  "Safety": { x: 170, y: -20 },
+  "Evaluation": { x: 0, y: -90 },
+  "Other": { x: 0, y: 0 },
+};
+
+const CLUSTER_AREA_HINTS = {
+  "cluster-llms": "LLMs",
+  "cluster-agents": "Agents",
+  "cluster-systems": "Systems",
+  "cluster-vision": "Vision",
+  "cluster-multimodal": "Multimodal Learning",
+  "cluster-generative": "Generative Models",
+  "cluster-optimization": "Optimization",
+  "cluster-theory": "Theory",
+  "cluster-probabilistic": "Probabilistic Methods",
+  "cluster-rl": "Reinforcement Learning",
+  "cluster-safety": "Safety",
+  "cluster-evaluation": "Evaluation",
 };
 
 function normalize(value) {
@@ -323,22 +355,16 @@ function seededUnit(id, salt = 0) {
 }
 
 function clusterAnchor(record) {
-  const areas = Object.keys(AREA_COLORS).filter((area) => area !== "Other");
-  const value = (record?.areaTags || record?.categoryTags || [record?.category || "Other"])[0] || "Other";
-  const index = Math.max(0, areas.indexOf(value));
-  if (value === "Other" || index < 0) return { x: 0, y: 0 };
-  const angle = (-Math.PI / 2) + (index / Math.max(1, areas.length)) * Math.PI * 2;
-  const radius = 390;
-  return {
-    x: Math.cos(angle) * radius,
-    y: Math.sin(angle) * radius,
-  };
+  const primaryArea = (record?.areaTags || []).find((tag) => tag !== "Other");
+  const clusterHint = CLUSTER_AREA_HINTS[record?.clusterId] || record?.clusterLabel;
+  const value = primaryArea || (AREA_LAYOUT_ANCHORS[clusterHint] ? clusterHint : "Other");
+  return AREA_LAYOUT_ANCHORS[value] || AREA_LAYOUT_ANCHORS.Other;
 }
 
 function seededGraphPosition(id, record) {
   const anchor = clusterAnchor(record);
   const angle = seededUnit(id, 1) * Math.PI * 2;
-  const radius = Math.sqrt(seededUnit(id, 2)) * (record?.type === "workshop" ? 150 : 190);
+  const radius = Math.sqrt(seededUnit(id, 2)) * (record?.type === "workshop" ? 88 : 126);
   return {
     x: anchor.x + Math.cos(angle) * radius,
     y: anchor.y + Math.sin(angle) * radius,
@@ -370,11 +396,11 @@ function focusedGraphIds(visibleIds, mapById) {
   const selected = mapById.get(state.selectedId);
   const firstHop = (selected?.nearestNeighbors || [])
     .filter((item) => visibleIds.has(item.id))
-    .slice(0, 12);
+    .slice(0, 10);
   for (const neighbor of firstHop) ids.add(neighbor.id);
-  for (const neighbor of firstHop.slice(0, 10)) {
+  for (const neighbor of firstHop) {
     const neighborMap = mapById.get(neighbor.id);
-    for (const secondHop of (neighborMap?.nearestNeighbors || []).slice(0, 5)) {
+    for (const secondHop of (neighborMap?.nearestNeighbors || []).slice(0, 4)) {
       if (visibleIds.has(secondHop.id) && secondHop.id !== state.selectedId) ids.add(secondHop.id);
     }
   }
@@ -395,13 +421,80 @@ function graphNodeIds(visibleRecords, mapById) {
   return focusedGraphIds(visibleIds, mapById);
 }
 
+function focusedLayoutContext(ids, mapById) {
+  const selected = mapById.get(state.selectedId);
+  const firstHop = (selected?.nearestNeighbors || [])
+    .filter((item) => ids.has(item.id))
+    .slice(0, 10);
+  const firstHopIndex = new Map(firstHop.map((item, index) => [item.id, index]));
+  const firstHopScore = new Map(firstHop.map((item) => [item.id, Number(item.score || 0)]));
+  const angles = new Map();
+  firstHop.forEach((item, index) => {
+    const baseAngle = (-Math.PI / 2) + (index / Math.max(1, firstHop.length)) * Math.PI * 2;
+    angles.set(item.id, baseAngle + (seededUnit(item.id, 9) - 0.5) * 0.24);
+  });
+
+  const secondAnchors = new Map();
+  firstHop.forEach((item, firstIndex) => {
+    const neighborMap = mapById.get(item.id);
+    (neighborMap?.nearestNeighbors || []).slice(0, 5).forEach((secondHop, secondIndex) => {
+      if (!ids.has(secondHop.id) || secondHop.id === state.selectedId || firstHopIndex.has(secondHop.id)) return;
+      const score = Number(secondHop.score || 0);
+      const previous = secondAnchors.get(secondHop.id);
+      if (!previous || score > previous.score) {
+        secondAnchors.set(secondHop.id, {
+          anchorId: item.id,
+          firstIndex,
+          secondIndex,
+          score,
+        });
+      }
+    });
+  });
+
+  return { firstHopIndex, firstHopScore, angles, secondAnchors };
+}
+
+function focusedGraphPosition(id, record, context) {
+  if (id === state.selectedId) return { x: 0, y: 0 };
+  if (context.firstHopIndex.has(id)) {
+    const rank = context.firstHopIndex.get(id);
+    const score = context.firstHopScore.get(id) || 0.5;
+    const angle = context.angles.get(id) || seededUnit(id, 3) * Math.PI * 2;
+    const radius = 126 + rank * 4 + (1 - Math.min(0.9, score)) * 38;
+    return {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+    };
+  }
+
+  const secondAnchor = context.secondAnchors.get(id);
+  if (secondAnchor) {
+    const anchorAngle = context.angles.get(secondAnchor.anchorId) || 0;
+    const anchorPosition = focusedGraphPosition(secondAnchor.anchorId, record, context);
+    const side = secondAnchor.secondIndex % 2 === 0 ? -1 : 1;
+    const angle = anchorAngle + side * (0.62 + seededUnit(id, 4) * 0.34);
+    const radius = 72 + seededUnit(id, 5) * 44;
+    return {
+      x: anchorPosition.x + Math.cos(angle) * radius,
+      y: anchorPosition.y + Math.sin(angle) * radius,
+    };
+  }
+
+  const fallback = seededGraphPosition(id, record);
+  return { x: fallback.x * 0.36, y: fallback.y * 0.36 };
+}
+
 function buildGraphData(visibleRecords, mapById) {
   const ids = graphNodeIds(visibleRecords, mapById);
   const recordsById = new Map(visibleRecords.map((record) => [record.id, record]));
   const selectedNeighbors = selectedNeighborIds(mapById);
+  const focusContext = state.mapMode === "focused" ? focusedLayoutContext(ids, mapById) : null;
   const nodes = [...ids].map((id) => {
     const record = recordsById.get(id);
-    const position = projectedGraphPosition(mapById.get(id), id, record);
+    const position = focusContext
+      ? focusedGraphPosition(id, record, focusContext)
+      : projectedGraphPosition(mapById.get(id), id, record);
     const depth = state.mapMode === "focused" ? focusDepth(id, selectedNeighbors, mapById) : 0;
     return {
       id,
@@ -412,13 +505,16 @@ function buildGraphData(visibleRecords, mapById) {
       adjacent: selectedNeighbors.has(id),
       depth,
       type: record?.type || "record",
+      focusRank: focusContext?.firstHopIndex.get(id) ?? 99,
+      seedX: position.x,
+      seedY: position.y,
       x: position.x,
       y: position.y,
     };
   }).filter((node) => node.record);
   const links = [];
   const seen = new Set();
-  const neighborLimit = state.mapMode === "focused" ? 8 : 3;
+  const neighborLimit = state.mapMode === "focused" ? 6 : 3;
   for (const node of nodes) {
     const map = mapById.get(node.id);
     for (const neighbor of (map?.nearestNeighbors || []).slice(0, neighborLimit)) {
@@ -497,7 +593,7 @@ function ensureForceGraph() {
     .onNodeHover((node) => {
       state.mapHoverId = node?.id || "";
       els.mapCanvas.style.cursor = node ? "pointer" : "grab";
-      state.mapGraph.refresh();
+      state.mapGraph?.refresh?.();
     })
     .onNodeClick((node) => {
       if (!node?.record) return;
@@ -511,11 +607,11 @@ function ensureForceGraph() {
       const isSelected = node.id === state.selectedId;
       const isHover = node.id === state.mapHoverId;
       const isAdjacent = node.adjacent;
-      const radius = isSelected ? 7.2 : isHover ? 6 : isAdjacent ? 4.6 : node.depth === 2 ? 3.4 : 2.8;
+      const radius = isSelected ? 6.6 : isHover ? 5.6 : isAdjacent ? 4.1 : node.depth === 2 ? 3.1 : 2.5;
       if (isSelected || isHover) {
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius + (isSelected ? 10 : 6), 0, 2 * Math.PI);
-        ctx.fillStyle = isSelected ? "rgba(96,165,250,0.16)" : "rgba(255,255,255,0.10)";
+        ctx.arc(node.x, node.y, radius + (isSelected ? 8 : 5), 0, 2 * Math.PI);
+        ctx.fillStyle = isSelected ? "rgba(96,165,250,0.14)" : "rgba(255,255,255,0.10)";
         ctx.fill();
       }
       ctx.beginPath();
@@ -527,19 +623,24 @@ function ensureForceGraph() {
       ctx.lineWidth = isSelected ? 1.5 : 0.7;
       ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
       ctx.stroke();
-      const shouldLabel = isHover || (isSelected && globalScale > 0.75) || (state.mapMode !== "focused" && globalScale > 1.9);
+      const shouldLabel = isHover
+        || isSelected
+        || (state.mapMode === "focused" && node.depth === 1 && node.focusRank < 1 && globalScale > 0.78)
+        || (state.mapMode !== "focused" && globalScale > 1.9);
       if (!shouldLabel) return;
-      const maxLabelLength = state.mapMode === "focused" ? 24 : 58;
+      const maxLabelLength = state.mapMode === "focused" ? 28 : 58;
       const label = node.title.length > maxLabelLength ? `${node.title.slice(0, maxLabelLength - 3)}...` : node.title;
       const fontSize = Math.min(13, Math.max(9, 11 / globalScale));
       ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
-      ctx.textAlign = "left";
+      const labelOnLeft = state.mapMode === "focused" && node.x > 0;
+      ctx.textAlign = labelOnLeft ? "right" : "left";
       ctx.textBaseline = "middle";
-      const textX = node.x + radius + 5;
+      const textX = labelOnLeft ? node.x - radius - 5 : node.x + radius + 5;
       const textY = node.y;
       const metrics = ctx.measureText(label);
       ctx.fillStyle = "rgba(17,24,39,0.78)";
-      ctx.fillRect(textX - 3, textY - fontSize * 0.7, metrics.width + 6, fontSize * 1.35);
+      const boxX = labelOnLeft ? textX - metrics.width - 3 : textX - 3;
+      ctx.fillRect(boxX, textY - fontSize * 0.7, metrics.width + 6, fontSize * 1.35);
       ctx.fillStyle = "#f8fafc";
       ctx.fillText(label, textX, textY);
     });
@@ -558,6 +659,7 @@ function destroyGraphEngine(except = "") {
   if (except !== "force" && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
     state.mapGraph = null;
+    state.mapGraphData = null;
   }
   if (except !== "sigma" && state.sigmaRenderer) {
     state.sigmaRenderer.kill?.();
@@ -573,14 +675,81 @@ function destroyGraphEngine(except = "") {
   }
 }
 
+function graphDataBounds(graphData) {
+  const allNodes = graphData?.nodes || [];
+  const focusedNodes = state.mapMode === "focused"
+    ? allNodes.filter((node) => node.depth <= 1)
+    : allNodes;
+  const nodes = focusedNodes.length ? focusedNodes : allNodes;
+  if (!nodes.length) return null;
+  return nodes.reduce((bounds, node) => ({
+    minX: Math.min(bounds.minX, Number(node.x) || 0),
+    maxX: Math.max(bounds.maxX, Number(node.x) || 0),
+    minY: Math.min(bounds.minY, Number(node.y) || 0),
+    maxY: Math.max(bounds.maxY, Number(node.y) || 0),
+  }), {
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+  });
+}
+
+function fitForceGraph(graph = state.mapGraph, graphData = state.mapGraphData, options = {}) {
+  if (!graph || !graphData?.nodes?.length) return;
+  const bounds = graphDataBounds(graphData);
+  if (!bounds) return;
+  const width = els.mapCanvas.clientWidth || 840;
+  const height = els.mapCanvas.clientHeight || 640;
+  const padding = options.padding ?? (state.mapMode === "focused" ? 84 : 92);
+  const duration = options.duration ?? 420;
+  const spanX = Math.max(80, bounds.maxX - bounds.minX);
+  const spanY = Math.max(80, bounds.maxY - bounds.minY);
+  const availableWidth = Math.max(80, width - padding * 2);
+  const availableHeight = Math.max(80, height - padding * 2);
+  const fitScale = Math.min(
+    availableWidth / spanX,
+    availableHeight / spanY,
+  );
+  const zoom = Math.max(0.16, Math.min(state.mapMode === "focused" ? 3.2 : 1.35, fitScale));
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  graph.centerAt?.(centerX, centerY, duration);
+  graph.zoom?.(zoom, duration);
+}
+
+function createAnchorForce(strength) {
+  let nodes = [];
+  const force = (alpha) => {
+    for (const node of nodes) {
+      const targetX = Number(node.seedX) || 0;
+      const targetY = Number(node.seedY) || 0;
+      node.vx += (targetX - node.x) * strength * alpha;
+      node.vy += (targetY - node.y) * strength * alpha;
+    }
+  };
+  force.initialize = (nextNodes) => {
+    nodes = nextNodes || [];
+  };
+  return force;
+}
+
+function applyForceAnchors(graph, strength) {
+  if (!graph) return;
+  graph.d3Force("anchor", createAnchorForce(strength));
+}
+
 function applyMapMotionSettings(graph = state.mapGraph) {
   if (!graph) return;
+  const alphaTarget = state.mapLive
+    ? state.mapMode === "focused" ? 0.014 : 0.006
+    : 0;
   graph
     .autoPauseRedraw(!state.mapLive)
     .cooldownTicks(state.mapLive ? Infinity : 180)
     .cooldownTime(state.mapLive ? Infinity : 14000);
   if (typeof graph.d3AlphaTarget === "function") {
-    graph.d3AlphaTarget(state.mapLive ? 0.018 : 0);
+    graph.d3AlphaTarget(alphaTarget);
   }
   updateMapControlState();
 }
@@ -605,7 +774,7 @@ function reflowMap(options = {}) {
     if (options.fit) {
       window.setTimeout(() => {
         if (state.tab === "map" && state.mapGraph === graph) {
-          graph.zoomToFit(420, 90);
+          fitForceGraph(graph, state.mapGraphData, { duration: 420, padding: 96 });
         }
       }, options.delay || 120);
     }
@@ -765,28 +934,36 @@ function renderForceGraph(graphData) {
   destroyGraphEngine("force");
   const graph = ensureForceGraph();
   if (!graph) return false;
+  state.mapGraphData = graphData;
   graph
     .width(els.mapCanvas.clientWidth || 840)
     .height(els.mapCanvas.clientHeight || 640)
     .graphData(graphData);
   applyMapMotionSettings(graph);
   if (state.mapMode === "focused") {
-    graph.d3Force("charge")?.strength(-96);
-    graph.d3Force("link")?.distance((link) => link.selected ? 52 : 44);
-    graph.zoomToFit(320, 110);
+    graph.d3Force("charge")?.strength((node) => node.selected ? -145 : node.depth === 1 ? -72 : -34);
+    graph.d3Force("link")?.distance((link) => link.selected ? 58 : 66);
+    applyForceAnchors(graph, 0.028);
+    fitForceGraph(graph, graphData, { duration: 260, padding: 88 });
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "focused" && state.mapGraph === graph) {
-        graph.zoomToFit(420, 120);
+        fitForceGraph(graph, graphData, { duration: 420, padding: 84 });
       }
     }, 350);
   } else {
-    graph.d3Force("charge")?.strength(-34);
-    graph.d3Force("link")?.distance(28);
+    graph.d3Force("charge")?.strength(-22);
+    graph.d3Force("link")?.distance(24);
+    applyForceAnchors(graph, 0.04);
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
-        graph.zoomToFit(420, 72);
+        fitForceGraph(graph, graphData, { duration: 420, padding: 118 });
       }
     }, 450);
+    window.setTimeout(() => {
+      if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
+        fitForceGraph(graph, graphData, { duration: 360, padding: 118 });
+      }
+    }, 1100);
   }
   reflowMap();
   return true;
@@ -1221,6 +1398,7 @@ async function init() {
       state.mapGraph
         .width(els.mapCanvas.clientWidth || 840)
         .height(els.mapCanvas.clientHeight || 640);
+      fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 180 });
     }
     if (state.tab === "map" && state.cyGraph) {
       state.cyGraph.resize();
