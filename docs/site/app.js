@@ -193,10 +193,6 @@ function renderResults() {
     });
   });
 
-  if (!state.selectedId && filtered[0]) {
-    state.selectedId = filtered[0].id;
-    renderViewer(filtered[0]);
-  }
   queueMathTypeset(els.results);
 }
 
@@ -272,6 +268,23 @@ function renderSourcePageFallback(record, sourceUrl, message) {
   `;
 }
 
+function renderAssetOpenFallback(record, assetPath) {
+  const url = assetUrl(assetPath);
+  return `
+    <div class="source-page-shell">
+      <div class="source-page-note">
+        <strong>${escapeHtml(assetLabel(record))} available</strong>
+        <span>The file is stored locally in the archive. It is not auto-loaded to avoid browser-triggered downloads.</span>
+      </div>
+      <div class="source-page-open">
+        <strong>Open when needed</strong>
+        <span>Select the asset explicitly to view or download it.</span>
+        <a class="action primary" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open asset</a>
+      </div>
+    </div>
+  `;
+}
+
 function renderViewer(record) {
   if (!record) {
     els.viewerKind.textContent = "No selection";
@@ -307,10 +320,10 @@ function renderViewer(record) {
   ].join("");
   els.viewerActions.innerHTML = actions;
 
-  if (preferred && (record.bestAssetKind === "pdf" || record.bestAssetKind === "slide")) {
-    els.viewerFrame.innerHTML = `<iframe src="${escapeHtml(assetUrl(preferred))}" title="${escapeHtml(record.title)}"></iframe>`;
-  } else if (preferred && record.bestAssetKind === "poster") {
+  if (preferred && record.bestAssetKind === "poster") {
     els.viewerFrame.innerHTML = `<img src="${escapeHtml(assetUrl(preferred))}" alt="${escapeHtml(record.title)} poster" />`;
+  } else if (preferred && (record.bestAssetKind === "pdf" || record.bestAssetKind === "slide")) {
+    els.viewerFrame.innerHTML = renderAssetOpenFallback(record, preferred);
   } else if (fallbackPageUrl(record)) {
     const sourceUrl = fallbackPageUrl(record);
     const message = record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is used instead.";
@@ -343,6 +356,7 @@ function renderAll() {
   state.selectedId = "";
   resetResultWindow();
   renderResults();
+  renderViewer(null);
 }
 
 async function init() {
@@ -369,24 +383,28 @@ async function init() {
     state.selectedId = "";
     resetResultWindow();
     renderResults();
+    renderViewer(null);
   });
   els.category.addEventListener("change", (event) => {
     state.category = event.target.value;
     state.selectedId = "";
     resetResultWindow();
     renderResults();
+    renderViewer(null);
   });
   els.group.addEventListener("change", (event) => {
     state.group = event.target.value;
     state.selectedId = "";
     resetResultWindow();
     renderResults();
+    renderViewer(null);
   });
   els.asset.addEventListener("change", (event) => {
     state.asset = event.target.value;
     state.selectedId = "";
     resetResultWindow();
     renderResults();
+    renderViewer(null);
   });
   els.results.addEventListener("scroll", () => {
     const distanceFromBottom = els.results.scrollHeight - els.results.scrollTop - els.results.clientHeight;
