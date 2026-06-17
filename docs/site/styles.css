@@ -769,20 +769,8 @@ a:focus-visible {
     min-height: 44px;
   }
 
-  .map-canvas-wrap {
-    grid-template-columns: 1fr;
-  }
-
-  .map-dock {
-    max-height: 180px;
-  }
-
   .map-legend {
     max-height: 132px;
-  }
-
-  .map-canvas-wrap {
-    min-height: 360px;
   }
 
   .map-legend {
