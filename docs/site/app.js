@@ -59,8 +59,9 @@ function assetLabel(record) {
 }
 
 function statusClass(record) {
-  if (record.hasPdf || record.hasPoster || record.hasSlide) return "good";
-  if (record.status.includes("failed") || record.failureReason) return "warn";
+  if (record.availabilityStatus === "downloaded") return "good";
+  if (record.availabilityStatus === "blocked") return "bad";
+  if (record.availabilityStatus === "unavailable") return "warn";
   return "";
 }
 
@@ -70,10 +71,13 @@ function getFilteredRecords() {
     if (record.type !== state.tab) return false;
     if (state.category !== "all" && record.category !== state.category) return false;
     if (state.group !== "all" && record.group !== state.group) return false;
+    if (state.asset === "local" && !(record.hasPdf || record.hasPoster || record.hasSlide)) return false;
     if (state.asset === "pdf" && !record.hasPdf) return false;
     if (state.asset === "poster" && !record.hasPoster) return false;
     if (state.asset === "slide" && !record.hasSlide) return false;
-    if (state.asset === "none" && (record.hasPdf || record.hasPoster || record.hasSlide)) return false;
+    if (state.asset === "blocked" && record.availabilityStatus !== "blocked") return false;
+    if (state.asset === "metadata" && record.availabilityStatus !== "metadata") return false;
+    if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
     if (!query) return true;
     const haystack = normalize(`${record.title} ${record.authors} ${record.group} ${record.category}`);
     return haystack.includes(query);
@@ -90,6 +94,7 @@ function updateHeader() {
     ["PDFs", summary.assetCounts.pdf || 0],
     ["Poster images", summary.assetCounts.poster || 0],
     ["Slides", summary.assetCounts.slide || 0],
+    ["Blocked", summary.availabilityCounts?.blocked || 0],
   ]
     .map(([label, value]) => `<span class="stat-pill"><strong>${value.toLocaleString()}</strong> ${label}</span>`)
     .join("");
@@ -128,9 +133,10 @@ function renderResults() {
           <span class="badges">
             <span class="badge">${escapeHtml(record.category)}</span>
             <span class="badge">${escapeHtml(record.group)}</span>
-            <span class="badge ${statusClass(record)}">${assetLabel(record)}</span>
+            <span class="badge">${assetLabel(record)}</span>
+            <span class="badge ${statusClass(record)}">${escapeHtml(record.availabilityLabel || "Metadata only")}</span>
           </span>
-          <span class="result-details">${escapeHtml(record.status || "available")} ${record.failureReason ? "· " + escapeHtml(record.failureReason) : ""}</span>
+          <span class="result-details">${escapeHtml(record.status || record.availabilityLabel || "available")} ${record.failureReason ? "· " + escapeHtml(record.failureReason) : ""}</span>
         </button>
       `;
     })
@@ -184,6 +190,7 @@ function renderViewer(record) {
   els.viewerMeta.innerHTML = [
     record.group,
     record.authors,
+    record.availabilityLabel,
     record.status,
     record.failureReason,
   ]
@@ -207,10 +214,21 @@ function renderViewer(record) {
   } else if (preferred && record.bestAssetKind === "poster") {
     els.viewerFrame.innerHTML = `<img src="${escapeHtml(assetUrl(preferred))}" alt="${escapeHtml(record.title)} poster" />`;
   } else {
-    const message = record.type === "paper"
-      ? "The main-conference paper PDFs are not public in the collected official sources yet."
-      : "No public local media file was collected for this record.";
-    els.viewerFrame.innerHTML = `<div class="empty-state"><strong>${escapeHtml(assetLabel(record))}</strong><span>${escapeHtml(message)}</span></div>`;
+    let title = assetLabel(record);
+    let message = "No public local media file was collected for this record.";
+    if (record.availabilityStatus === "blocked") {
+      title = "Blocked";
+      message = record.failureReason || "The source was checked, but the material is not publicly downloadable yet or blocked the download.";
+    } else if (record.availabilityStatus === "metadata") {
+      title = "Metadata only";
+      message = record.type === "paper"
+        ? "The main-conference paper PDFs are not public in the collected official sources yet."
+        : "The source exposed metadata, but no downloadable media file.";
+    } else if (record.availabilityStatus === "unavailable") {
+      title = "Unavailable / skipped";
+      message = record.failureReason || "The linked source was not a direct downloadable material.";
+    }
+    els.viewerFrame.innerHTML = `<div class="empty-state status-${escapeHtml(record.availabilityStatus || "metadata")}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   }
 }
 

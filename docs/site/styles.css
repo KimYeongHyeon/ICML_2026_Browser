@@ -350,6 +350,20 @@ a:focus-visible {
   font-size: 18px;
 }
 
+.empty-state.status-blocked {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.empty-state.status-blocked strong {
+  color: var(--bad);
+}
+
+.empty-state.status-unavailable {
+  background: #fffbeb;
+  color: var(--warn);
+}
+
 @media (max-width: 1040px) {
   .app-header {
     align-items: flex-start;

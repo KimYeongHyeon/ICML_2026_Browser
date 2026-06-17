@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MATERIALS = ROOT / "icml_2026_materials"
-OUT = ROOT / "docs" / "site" / "data" / "icml2026_index.json"
+OUT = ROOT / os.environ.get("ICML_SITE_INDEX", "site/data/icml2026_index.json")
 
 
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
@@ -54,6 +55,25 @@ def rel(path: str | None) -> str:
     return path.replace("\\", "/").lstrip("/")
 
 
+def classify_availability(
+    *,
+    has_pdf: bool,
+    has_poster: bool,
+    has_slide: bool,
+    status: str,
+    failure_reason: str,
+) -> tuple[str, str]:
+    if has_pdf or has_poster or has_slide:
+        return "downloaded", "Downloaded"
+
+    text = f"{status} {failure_reason}".lower()
+    if "blocked" in text or "403" in text or "429" in text or "rate limit" in text:
+        return "blocked", "Blocked"
+    if status in {"skipped", "failed"} or "not a direct downloadable file" in text:
+        return "unavailable", "Unavailable / skipped"
+    return "metadata", "Metadata only"
+
+
 def infer_category(title: str, group: str) -> str:
     haystack = f"{title} {group}".lower()
     for category, keywords in CATEGORIES:
@@ -80,6 +100,15 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
     has_pdf = bool(local_pdf)
     has_poster = bool(local_poster)
     has_slide = bool(local_slide)
+    status = str(source.get("status") or "")
+    failure_reason = str(source.get("failure_reason") or "")
+    availability_status, availability_label = classify_availability(
+        has_pdf=has_pdf,
+        has_poster=has_poster,
+        has_slide=has_slide,
+        status=status,
+        failure_reason=failure_reason,
+    )
 
     best_asset = ""
     best_asset_kind = ""
@@ -108,8 +137,10 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
         "authors": as_author_string(source.get("authors")),
         "group": group,
         "category": infer_category(title, group),
-        "status": str(source.get("status") or ""),
-        "failureReason": str(source.get("failure_reason") or ""),
+        "status": status,
+        "failureReason": failure_reason,
+        "availabilityStatus": availability_status,
+        "availabilityLabel": availability_label,
         "pageUrl": page_url,
         "openreviewUrl": str(source.get("openreview_url") or ""),
         "projectPageUrl": str(source.get("project_page_url") or ""),
@@ -145,12 +176,14 @@ def build() -> dict[str, Any]:
 
     type_counts: dict[str, int] = {}
     asset_counts = {"pdf": 0, "poster": 0, "slide": 0}
+    availability_counts = {"downloaded": 0, "blocked": 0, "metadata": 0, "unavailable": 0}
     categories: set[str] = set()
     groups: dict[str, set[str]] = {"paper": set(), "poster": set(), "workshop": set()}
 
     for record in records:
         item_type = record["type"]
         type_counts[item_type] = type_counts.get(item_type, 0) + 1
+        availability_counts[record["availabilityStatus"]] = availability_counts.get(record["availabilityStatus"], 0) + 1
         categories.add(record["category"])
         groups[item_type].add(record["group"])
         if record["hasPdf"]:
@@ -167,6 +200,7 @@ def build() -> dict[str, Any]:
             "total": len(records),
             "typeCounts": type_counts,
             "assetCounts": asset_counts,
+            "availabilityCounts": availability_counts,
             "categories": sorted(categories),
             "groups": {key: sorted(value) for key, value in groups.items()},
         },
