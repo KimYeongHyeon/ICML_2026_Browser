@@ -652,19 +652,51 @@ a:focus-visible {
 }
 
 .mini-map-panel h3 {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 14px;
+}
+
+.mini-map-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mini-map-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .mini-graph {
   position: relative;
-  height: 168px;
+  height: 220px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
     radial-gradient(circle at center, rgb(59 130 246 / 0.18), transparent 36%),
     #111827;
+}
+
+.mini-graph-caption {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  z-index: 2;
+  display: grid;
+  gap: 1px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mini-graph-caption strong {
+  color: #e5e7eb;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .mini-graph svg {
@@ -674,13 +706,22 @@ a:focus-visible {
   height: 100%;
 }
 
+.mini-graph circle {
+  fill: none;
+  stroke: rgb(148 163 184 / 0.10);
+  stroke-width: 0.45;
+}
+
 .mini-graph line {
-  stroke: rgb(148 163 184 / 0.38);
-  stroke-width: 0.7;
+  stroke: rgb(147 197 253 / 0.72);
+  vector-effect: non-scaling-stroke;
 }
 
 .mini-graph-node {
   position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 13px;
   height: 13px;
   border: 1px solid white;
@@ -691,12 +732,80 @@ a:focus-visible {
   cursor: pointer;
 }
 
+.mini-graph-node:hover {
+  z-index: 4;
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.16), 0 0 24px rgb(56 189 248 / 0.55);
+}
+
 .mini-graph-node.is-center {
   width: 18px;
   height: 18px;
   background: #60a5fa;
   box-shadow: 0 0 24px rgb(96 165 250 / 0.72);
   pointer-events: none;
+}
+
+.mini-rank {
+  color: white;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgb(15 23 42 / 0.8);
+}
+
+.mini-graph-label {
+  position: absolute;
+  left: calc(100% + 7px);
+  top: 50%;
+  max-width: 210px;
+  overflow: hidden;
+  padding: 3px 6px;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 6px;
+  background: rgb(15 23 42 / 0.84);
+  color: #e5e7eb;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.mini-graph-label.is-left {
+  right: calc(100% + 7px);
+  left: auto;
+}
+
+.mini-tag-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.mini-tag-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: #475467;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mini-tag-summary i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.mini-tag-summary b {
+  color: var(--text);
 }
 
 .neighbor-list {
@@ -720,6 +829,48 @@ a:focus-visible {
 .neighbor-item span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.semantic-neighbor {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.neighbor-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.neighbor-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.neighbor-main strong {
+  overflow-wrap: anywhere;
+}
+
+.neighbor-score-bar {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.neighbor-score-bar b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #60a5fa, #22d3ee);
 }
 
 .selection-stat-grid {
