@@ -327,6 +327,32 @@ a:focus-visible {
   background: white;
 }
 
+.source-page-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100%;
+}
+
+.source-page-shell iframe {
+  min-height: 560px;
+}
+
+.source-page-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.source-page-note strong {
+  color: var(--bad);
+  font-size: 13px;
+}
+
 .viewer-frame img {
   display: block;
   max-width: 100%;

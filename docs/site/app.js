@@ -3,6 +3,7 @@ const PAGE_SIZE = 80;
 const REPO_RAW_BASE = "https://raw.githubusercontent.com/KimYeongHyeon/icml-2026-materials-browser/main/";
 const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
 const ASSET_BASE = window.location.hostname.endsWith("github.io") ? REPO_RAW_BASE : LOCAL_ASSET_PREFIX;
+const MATHJAX_RETRY_LIMIT = 40;
 
 const state = {
   tab: "paper",
@@ -41,6 +42,17 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function queueMathTypeset(root = document.body, attempt = 0) {
+  if (!root) return;
+  if (window.MathJax?.typesetPromise) {
+    window.MathJax.typesetPromise([root]).catch(() => {});
+    return;
+  }
+  if (attempt < MATHJAX_RETRY_LIMIT) {
+    window.setTimeout(() => queueMathTypeset(root, attempt + 1), 150);
+  }
 }
 
 function typeLabel(type) {
@@ -162,6 +174,7 @@ function renderResults() {
     state.selectedId = filtered[0].id;
     renderViewer(filtered[0]);
   }
+  queueMathTypeset(els.results);
 }
 
 function actionLink(href, label, primary = false) {
@@ -175,6 +188,17 @@ function assetUrl(path) {
   return `${ASSET_BASE}${path}`;
 }
 
+function fallbackPageUrl(record) {
+  return record.pageUrl || record.openreviewUrl || record.projectPageUrl || record.pdfUrl || "";
+}
+
+function fallbackPageLabel(record) {
+  if (record.availabilityStatus === "blocked") return `${typeLabel(record.type)} source page`;
+  if (record.status === "downloaded") return "Downloaded source page";
+  if (record.availabilityStatus === "metadata") return "Metadata source page";
+  return "Source page";
+}
+
 function renderViewer(record) {
   if (!record) {
     els.viewerKind.textContent = "No selection";
@@ -182,6 +206,7 @@ function renderViewer(record) {
     els.viewerActions.innerHTML = "";
     els.viewerMeta.innerHTML = "";
     els.viewerFrame.innerHTML = `<div class="empty-state"><strong>No matching record</strong><span>Adjust the filters.</span></div>`;
+    queueMathTypeset(els.viewerFrame);
     return;
   }
 
@@ -213,6 +238,18 @@ function renderViewer(record) {
     els.viewerFrame.innerHTML = `<iframe src="${escapeHtml(assetUrl(preferred))}" title="${escapeHtml(record.title)}"></iframe>`;
   } else if (preferred && record.bestAssetKind === "poster") {
     els.viewerFrame.innerHTML = `<img src="${escapeHtml(assetUrl(preferred))}" alt="${escapeHtml(record.title)} poster" />`;
+  } else if (fallbackPageUrl(record)) {
+    const sourceUrl = fallbackPageUrl(record);
+    const message = record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is embedded instead.";
+    els.viewerFrame.innerHTML = `
+      <div class="source-page-shell">
+        <div class="source-page-note">
+          <strong>${escapeHtml(fallbackPageLabel(record))}</strong>
+          <span>${escapeHtml(message)}</span>
+        </div>
+        <iframe src="${escapeHtml(sourceUrl)}" title="${escapeHtml(record.title)} source page"></iframe>
+      </div>
+    `;
   } else {
     let title = assetLabel(record);
     let message = "No public local media file was collected for this record.";
@@ -230,6 +267,7 @@ function renderViewer(record) {
     }
     els.viewerFrame.innerHTML = `<div class="empty-state status-${escapeHtml(record.availabilityStatus || "metadata")}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   }
+  queueMathTypeset(document.body);
 }
 
 function renderAll() {
