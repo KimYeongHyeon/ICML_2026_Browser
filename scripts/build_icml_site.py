@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""Build the static ICML 2026 browser data used by the GitHub Pages UI."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MATERIALS = ROOT / "icml_2026_materials"
+OUT = ROOT / "docs" / "site" / "data" / "icml2026_index.json"
+
+
+CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
+    ("Medical & Health", ("clinical", "medical", "health", "patient", "disease", "ehr", "radiology", "diagnosis")),
+    ("Biology & Drug Discovery", ("protein", "rna", "dna", "genomic", "gene", "molecule", "molecular", "drug", "peptide", "cell", "bio", "binder")),
+    ("AI4Science", ("science", "scientific", "discovery", "equation", "microscopy", "materials", "chemistry", "physics", "simulation", "pde")),
+    ("Agents & Tools", ("agent", "tool", "workflow", "planning", "orchestration", "autonomous")),
+    ("LLMs & Foundation Models", ("llm", "language model", "foundation model", "transformer", "token", "prompt", "reasoning", "alignment")),
+    ("Vision & Multimodal", ("vision", "image", "video", "multimodal", "vlm", "3d", "point cloud", "segmentation")),
+    ("Reinforcement Learning", ("reinforcement", "rl", "policy", "reward", "bandit", "control")),
+    ("Optimization", ("optimization", "bayesian optimization", "gradient", "optimizer", "search", "sampling")),
+    ("Theory & Math", ("theory", "theorem", "proof", "bound", "geometry", "graph", "math")),
+    ("Robustness & Safety", ("robust", "safety", "privacy", "fairness", "uncertainty", "adversarial", "calibration", "security")),
+    ("Climate & Earth", ("climate", "weather", "earth", "forecast", "extreme weather")),
+    ("Systems & Efficiency", ("efficient", "compression", "quantization", "pruning", "cache", "serving", "inference", "systems")),
+    ("Evaluation & Benchmarks", ("benchmark", "evaluation", "dataset", "metric", "test-time", "assessment")),
+]
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+
+def as_author_string(value: Any) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value if v)
+    return str(value or "")
+
+
+def rel(path: str | None) -> str:
+    if not path:
+        return ""
+    return path.replace("\\", "/").lstrip("/")
+
+
+def infer_category(title: str, group: str) -> str:
+    haystack = f"{title} {group}".lower()
+    for category, keywords in CATEGORIES:
+        if any(keyword in haystack for keyword in keywords):
+            return category
+    return "Other"
+
+
+def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[str, Any]:
+    title = str(source.get("title") or "Untitled")
+    local_pdf = rel(source.get("local_pdf_path"))
+    local_poster = rel(source.get("local_poster_path"))
+    local_slide = rel(source.get("local_slide_path"))
+    local_supplementals = [rel(p) for p in source.get("local_supplemental_paths", []) if p]
+    pdf_url = str(source.get("pdf_url") or "")
+
+    if item_type == "paper":
+        item_id = str(source.get("openreview_id_or_icml_id") or source.get("paper_url") or title)
+    elif item_type == "poster":
+        item_id = str(source.get("icml_poster_id") or source.get("poster_page_url") or title)
+    else:
+        item_id = str(source.get("openreview_id") or source.get("paper_url") or title)
+
+    has_pdf = bool(local_pdf)
+    has_poster = bool(local_poster)
+    has_slide = bool(local_slide)
+
+    best_asset = ""
+    best_asset_kind = ""
+    if has_pdf:
+        best_asset = local_pdf
+        best_asset_kind = "pdf"
+    elif has_slide:
+        best_asset = local_slide
+        best_asset_kind = "slide"
+    elif has_poster:
+        best_asset = local_poster
+        best_asset_kind = "poster"
+
+    page_url = str(
+        source.get("paper_url")
+        or source.get("poster_page_url")
+        or source.get("workshop_page_url")
+        or source.get("openreview_url")
+        or ""
+    )
+
+    return {
+        "id": item_id,
+        "type": item_type,
+        "title": title,
+        "authors": as_author_string(source.get("authors")),
+        "group": group,
+        "category": infer_category(title, group),
+        "status": str(source.get("status") or ""),
+        "failureReason": str(source.get("failure_reason") or ""),
+        "pageUrl": page_url,
+        "openreviewUrl": str(source.get("openreview_url") or ""),
+        "projectPageUrl": str(source.get("project_page_url") or ""),
+        "pdfUrl": pdf_url,
+        "localPdfPath": local_pdf,
+        "localPosterPath": local_poster,
+        "localSlidePath": local_slide,
+        "localSupplementalPaths": local_supplementals,
+        "bestAsset": best_asset,
+        "bestAssetKind": best_asset_kind,
+        "hasPdf": has_pdf,
+        "hasPoster": has_poster,
+        "hasSlide": has_slide,
+        "sourceCheckedAt": str(source.get("source_checked_at") or ""),
+    }
+
+
+def build() -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+
+    for row in read_jsonl(MATERIALS / "papers" / "manifest.jsonl"):
+        records.append(compact_record(row, "paper", "Main Conference"))
+
+    for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):
+        records.append(compact_record(row, "poster", "Main Conference"))
+
+    workshop_root = MATERIALS / "workshops"
+    for manifest in sorted(workshop_root.glob("*/manifest.jsonl")):
+        slug = manifest.parent.name
+        for row in read_jsonl(manifest):
+            group = str(row.get("workshop_name") or slug)
+            records.append(compact_record(row, "workshop", group))
+
+    type_counts: dict[str, int] = {}
+    asset_counts = {"pdf": 0, "poster": 0, "slide": 0}
+    categories: set[str] = set()
+    groups: dict[str, set[str]] = {"paper": set(), "poster": set(), "workshop": set()}
+
+    for record in records:
+        item_type = record["type"]
+        type_counts[item_type] = type_counts.get(item_type, 0) + 1
+        categories.add(record["category"])
+        groups[item_type].add(record["group"])
+        if record["hasPdf"]:
+            asset_counts["pdf"] += 1
+        if record["hasPoster"]:
+            asset_counts["poster"] += 1
+        if record["hasSlide"]:
+            asset_counts["slide"] += 1
+
+    return {
+        "generatedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "records": records,
+        "summary": {
+            "total": len(records),
+            "typeCounts": type_counts,
+            "assetCounts": asset_counts,
+            "categories": sorted(categories),
+            "groups": {key: sorted(value) for key, value in groups.items()},
+        },
+    }
+
+
+def main() -> None:
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    payload = build()
+    OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Wrote {OUT.relative_to(ROOT)}")
+    print(json.dumps(payload["summary"], indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
