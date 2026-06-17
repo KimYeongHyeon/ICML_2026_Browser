@@ -82,6 +82,15 @@ def infer_category(title: str, group: str) -> str:
     return "Other"
 
 
+def should_include_workshop_row(source: dict[str, Any]) -> bool:
+    source_type = source.get("source_type")
+    if source_type in {"official_workshop_page", "workshop_program_or_schedule_page"}:
+        return False
+    if source_type == "workshop_page_linked_material":
+        return bool(source.get("local_pdf_path") or source.get("local_slide_path") or source.get("local_poster_path"))
+    return True
+
+
 def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[str, Any]:
     title = str(source.get("title") or "Untitled")
     local_pdf = rel(source.get("local_pdf_path"))
@@ -138,6 +147,7 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
         "group": group,
         "category": infer_category(title, group),
         "status": status,
+        "sourceType": str(source.get("source_type") or ""),
         "failureReason": failure_reason,
         "availabilityStatus": availability_status,
         "availabilityLabel": availability_label,
@@ -171,6 +181,8 @@ def build() -> dict[str, Any]:
     for manifest in sorted(workshop_root.glob("*/manifest.jsonl")):
         slug = manifest.parent.name
         for row in read_jsonl(manifest):
+            if not should_include_workshop_row(row):
+                continue
             group = str(row.get("workshop_name") or slug)
             records.append(compact_record(row, "workshop", group))
 

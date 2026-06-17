@@ -12,6 +12,7 @@ const state = {
   group: "all",
   asset: "all",
   selectedId: "",
+  visibleCount: PAGE_SIZE,
   data: null,
 };
 
@@ -134,7 +135,7 @@ function renderResults() {
   els.resultCount.textContent = `${filtered.length.toLocaleString()} results`;
   els.activeSummary.textContent = `${typeLabel(state.tab)} · ${state.category === "all" ? "all fields" : state.category}`;
 
-  const visible = filtered.slice(0, PAGE_SIZE);
+  const visible = filtered.slice(0, state.visibleCount);
   els.results.innerHTML = visible
     .map((record) => {
       const selected = record.id === state.selectedId ? " is-selected" : "";
@@ -154,13 +155,6 @@ function renderResults() {
     })
     .join("");
 
-  if (filtered.length > PAGE_SIZE) {
-    els.results.insertAdjacentHTML(
-      "beforeend",
-      `<div class="empty-state"><strong>Showing first ${PAGE_SIZE} records</strong><span>Narrow the filters or search to reduce the result set.</span></div>`,
-    );
-  }
-
   els.results.querySelectorAll(".result-item").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
@@ -175,6 +169,17 @@ function renderResults() {
     renderViewer(filtered[0]);
   }
   queueMathTypeset(els.results);
+}
+
+function resetResultWindow() {
+  state.visibleCount = PAGE_SIZE;
+}
+
+function loadMoreResultsIfNeeded() {
+  const remaining = getFilteredRecords().length - state.visibleCount;
+  if (remaining <= 0) return;
+  state.visibleCount += PAGE_SIZE;
+  renderResults();
 }
 
 function actionLink(href, label, primary = false) {
@@ -276,6 +281,7 @@ function renderAll() {
   });
   updateSelects();
   state.selectedId = "";
+  resetResultWindow();
   renderResults();
 }
 
@@ -293,6 +299,7 @@ async function init() {
       state.group = "all";
       state.asset = "all";
       els.asset.value = "all";
+      resetResultWindow();
       renderAll();
     });
   });
@@ -300,22 +307,32 @@ async function init() {
   els.search.addEventListener("input", (event) => {
     state.query = event.target.value;
     state.selectedId = "";
+    resetResultWindow();
     renderResults();
   });
   els.category.addEventListener("change", (event) => {
     state.category = event.target.value;
     state.selectedId = "";
+    resetResultWindow();
     renderResults();
   });
   els.group.addEventListener("change", (event) => {
     state.group = event.target.value;
     state.selectedId = "";
+    resetResultWindow();
     renderResults();
   });
   els.asset.addEventListener("change", (event) => {
     state.asset = event.target.value;
     state.selectedId = "";
+    resetResultWindow();
     renderResults();
+  });
+  els.results.addEventListener("scroll", () => {
+    const distanceFromBottom = els.results.scrollHeight - els.results.scrollTop - els.results.clientHeight;
+    if (distanceFromBottom < 320) {
+      loadMoreResultsIfNeeded();
+    }
   });
 }
 
