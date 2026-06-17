@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import random
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -74,6 +75,31 @@ class SmokeEmbedder:
         return vectors
 
 
+class LexicalEmbedder:
+    """Deterministic sparse lexical fallback when scientific embeddings are unavailable."""
+
+    def __init__(self, dimension: int = 256) -> None:
+        self.dimension = dimension
+
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        return [self.encode_one(text) for text in texts]
+
+    def encode_one(self, text: str) -> list[float]:
+        vector = [0.0] * self.dimension
+        tokens = tokenize(text)
+        counts = Counter(tokens)
+        for token, count in counts.items():
+            digest = hashlib.sha256(token.encode("utf-8")).digest()
+            index = int.from_bytes(digest[:4], "big") % self.dimension
+            sign = 1.0 if digest[4] % 2 == 0 else -1.0
+            weight = 1.0 + math.log1p(count)
+            if len(token) > 8:
+                weight += 0.25
+            vector[index] += sign * weight
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [round(value / norm, 8) for value in vector]
+
+
 class ScientificEmbedder:
     def __init__(self, model_id: str) -> None:
         try:
@@ -89,6 +115,17 @@ class ScientificEmbedder:
     def encode(self, texts: list[str]) -> list[list[float]]:
         embeddings = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
         return [[float(value) for value in row] for row in embeddings]
+
+
+def tokenize(text: str) -> list[str]:
+    stopwords = {
+        "and", "are", "based", "for", "from", "into", "of", "on", "or", "the",
+        "this", "through", "to", "towards", "using", "via", "with",
+        "context", "record", "title", "type", "poster", "workshop",
+    }
+    raw_tokens = re.findall(r"[a-z0-9][a-z0-9+\-]{1,}", text.lower())
+    tokens = [token.strip("-+") for token in raw_tokens]
+    return [token for token in tokens if len(token) > 2 and token not in stopwords]
 
 
 def infer_controlled_tags(text: str) -> dict[str, list[str]]:
@@ -221,7 +258,8 @@ def build_semantic_payload(records: list[dict[str, Any]], vectors: list[list[flo
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--smoke", action="store_true", help="Use deterministic smoke embeddings instead of the local scientific model.")
+    parser.add_argument("--smoke", action="store_true", help="Use deterministic random smoke embeddings for test speed only.")
+    parser.add_argument("--lexical", action="store_true", help="Use deterministic lexical hash embeddings when no scientific model is installed.")
     parser.add_argument("--limit", type=int, default=0, help="Limit records for fast development checks. Zero means all records.")
     args = parser.parse_args()
 
@@ -230,12 +268,23 @@ def main() -> None:
     if args.limit:
         records = records[: args.limit]
     payloads = [build_embedding_text(record) for record in records]
-    embedder = SmokeEmbedder() if args.smoke else ScientificEmbedder(config.EMBEDDING_MODEL_ID)
+    if args.smoke:
+        embedder = SmokeEmbedder()
+        model_id = "smoke-deterministic"
+        model_kind = "smoke"
+    elif args.lexical:
+        embedder = LexicalEmbedder()
+        model_id = "lexical-hash-tfidf"
+        model_kind = "lexical"
+    else:
+        embedder = ScientificEmbedder(config.EMBEDDING_MODEL_ID)
+        model_id = config.EMBEDDING_MODEL_ID
+        model_kind = config.EMBEDDING_MODEL_KIND
     vectors = embedder.encode([payload["text"] for payload in payloads])
     map_payload, sidecar_payload = build_semantic_payload(records, vectors, payloads)
     map_payload["model"] = {
-        "id": "smoke-deterministic" if args.smoke else config.EMBEDDING_MODEL_ID,
-        "kind": "smoke" if args.smoke else config.EMBEDDING_MODEL_KIND,
+        "id": model_id,
+        "kind": model_kind,
         "dimension": len(vectors[0]) if vectors else 0,
     }
 

@@ -45,6 +45,17 @@ def test_smoke_embedder_is_deterministic() -> None:
     assert len(first) == 8
 
 
+def test_lexical_embedder_prefers_shared_terms() -> None:
+    builder = importlib.import_module("scripts.build_icml_embedding_map")
+    embedder = builder.LexicalEmbedder(dimension=64)
+    query, close, far = embedder.encode([
+        "protein language model for drug discovery",
+        "drug discovery with protein foundation models",
+        "reinforcement learning for robot navigation",
+    ])
+    assert builder.dot(query, close) > builder.dot(query, far)
+
+
 def test_infer_controlled_tags_uses_area_and_domain_keywords() -> None:
     builder = importlib.import_module("scripts.build_icml_embedding_map")
     result = builder.infer_controlled_tags("LLM agent for protein design and drug discovery")
@@ -67,6 +78,7 @@ def run() -> None:
     test_validate_tags_rejects_unknown_values()
     test_build_embedding_text_quality_levels()
     test_smoke_embedder_is_deterministic()
+    test_lexical_embedder_prefers_shared_terms()
     test_infer_controlled_tags_uses_area_and_domain_keywords()
     test_compute_neighbors_resolves_known_ids()
     print("embedding map unit tests passed")

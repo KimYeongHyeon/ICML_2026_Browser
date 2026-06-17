@@ -17,7 +17,10 @@ const state = {
   data: null,
   mapData: null,
   mapColor: "area",
-  mapMode: "2d",
+  mapMode: "global",
+  mapFilterValue: "",
+  mapGraph: null,
+  mapHoverId: "",
 };
 
 const els = {
@@ -35,11 +38,58 @@ const els = {
   mapDetail: document.querySelector("#mapDetail"),
   mapColor: document.querySelector("#mapColorSelect"),
   mapMode: document.querySelector("#mapModeSelect"),
+  mapLegend: document.querySelector("#mapLegend"),
   viewerKind: document.querySelector("#viewerKind"),
   viewerTitle: document.querySelector("#viewerTitle"),
   viewerActions: document.querySelector("#viewerActions"),
   viewerMeta: document.querySelector("#viewerMeta"),
   viewerFrame: document.querySelector("#viewerFrame"),
+};
+
+const AREA_COLORS = {
+  "LLMs": "#60a5fa",
+  "Vision": "#22d3ee",
+  "Theory": "#a78bfa",
+  "Optimization": "#f59e0b",
+  "Reinforcement Learning": "#34d399",
+  "Generative Models": "#f472b6",
+  "Multimodal Learning": "#38bdf8",
+  "Probabilistic Methods": "#c084fc",
+  "Systems": "#f97316",
+  "Safety": "#ef4444",
+  "Agents": "#2dd4bf",
+  "Evaluation": "#c084fc",
+  "Other": "#94a3b8",
+};
+
+const DOMAIN_COLORS = {
+  "General": "#94a3b8",
+  "Biology": "#84cc16",
+  "Medical": "#fb7185",
+  "Climate": "#38bdf8",
+  "Robotics": "#34d399",
+  "Education": "#facc15",
+  "Finance": "#f97316",
+  "Chemistry": "#a78bfa",
+  "Materials": "#c084fc",
+  "Scientific Discovery": "#f472b6",
+  "Social Science": "#2dd4bf",
+};
+
+const QUALITY_COLORS = {
+  "title_abstract": "#22c55e",
+  "title_topic": "#60a5fa",
+  "title_only": "#f59e0b",
+  "unavailable": "#64748b",
+};
+
+const AVAILABILITY_COLORS = {
+  "Downloaded": "#22c55e",
+  "Metadata only": "#60a5fa",
+  "Local file": "#22c55e",
+  "Source link": "#60a5fa",
+  "Blocked": "#ef4444",
+  "Unavailable": "#f59e0b",
 };
 
 function normalize(value) {
@@ -121,8 +171,9 @@ function statusClass(record) {
   return "";
 }
 
-function getFilteredRecords() {
+function getFilteredRecords(options = {}) {
   const query = normalize(state.query);
+  const ignoreMapFilter = Boolean(options.ignoreMapFilter);
   return state.data.records.filter((record) => {
     if (state.tab !== "map" && record.type !== state.tab) return false;
     if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
@@ -134,6 +185,7 @@ function getFilteredRecords() {
     if (state.asset === "blocked" && record.availabilityStatus !== "blocked") return false;
     if (state.asset === "metadata" && record.availabilityStatus !== "metadata") return false;
     if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
+    if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
     if (!query) return true;
     const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""}`);
     return haystack.includes(query);
@@ -229,14 +281,174 @@ function mapColorValue(record) {
 }
 
 function colorForValue(value) {
+  const palette = {
+    area: AREA_COLORS,
+    domain: DOMAIN_COLORS,
+    quality: QUALITY_COLORS,
+    availability: AVAILABILITY_COLORS,
+  }[state.mapColor];
+  if (palette?.[value]) return palette[value];
   let hash = 0;
   for (const char of String(value)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   const hue = hash % 360;
-  return `hsl(${hue} 68% 42%)`;
+  return `hsl(${hue} 72% 58%)`;
 }
 
 function scaleMapValue(value, min, max) {
   return max === min ? 50 : 5 + ((value - min) / (max - min)) * 90;
+}
+
+function selectedNeighborIds(mapById) {
+  const selected = mapById.get(state.selectedId);
+  if (!selected) return new Set();
+  return new Set((selected.nearestNeighbors || []).slice(0, 12).map((item) => item.id));
+}
+
+function graphNodeIds(visibleRecords, mapById) {
+  const visibleIds = new Set(visibleRecords.map((record) => record.id));
+  if (state.mapMode !== "focused") return visibleIds;
+  if (!visibleIds.has(state.selectedId)) {
+    state.selectedId = visibleRecords[0]?.id || "";
+  }
+  const ids = new Set([state.selectedId]);
+  for (const id of selectedNeighborIds(mapById)) {
+    if (visibleIds.has(id)) ids.add(id);
+  }
+  return ids;
+}
+
+function buildGraphData(visibleRecords, mapById) {
+  const ids = graphNodeIds(visibleRecords, mapById);
+  const recordsById = new Map(visibleRecords.map((record) => [record.id, record]));
+  const selectedNeighbors = selectedNeighborIds(mapById);
+  const nodes = [...ids].map((id) => {
+    const record = recordsById.get(id);
+    return {
+      id,
+      record,
+      title: plainMathTitle(record?.title || ""),
+      group: mapColorValue(record || {}),
+      selected: id === state.selectedId,
+      adjacent: selectedNeighbors.has(id),
+      type: record?.type || "record",
+    };
+  }).filter((node) => node.record);
+  const links = [];
+  const seen = new Set();
+  const neighborLimit = state.mapMode === "focused" ? 12 : 3;
+  for (const node of nodes) {
+    const map = mapById.get(node.id);
+    for (const neighbor of (map?.nearestNeighbors || []).slice(0, neighborLimit)) {
+      if (!ids.has(neighbor.id)) continue;
+      const key = [node.id, neighbor.id].sort().join("::");
+      if (seen.has(key) || node.id === neighbor.id) continue;
+      seen.add(key);
+      links.push({
+        source: node.id,
+        target: neighbor.id,
+        value: Number(neighbor.score || 0),
+        selected: node.id === state.selectedId || neighbor.id === state.selectedId,
+      });
+    }
+  }
+  return { nodes, links };
+}
+
+function renderMapLegend(visibleRecords) {
+  if (!els.mapLegend) return;
+  const counts = new Map();
+  for (const record of visibleRecords) {
+    const value = mapColorValue(record);
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  const items = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 12);
+  els.mapLegend.innerHTML = items.map(([value, count]) => `
+    <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(value)}">
+      <span class="legend-swatch" style="background:${colorForValue(value)}"></span>
+      <span>${escapeHtml(value)}</span>
+      <strong>${count.toLocaleString()}</strong>
+    </button>
+  `).join("");
+  els.mapLegend.querySelectorAll(".legend-item").forEach((button) => {
+    button.addEventListener("click", () => {
+      const value = button.dataset.value;
+      state.mapFilterValue = state.mapFilterValue === value ? "" : value || "";
+      state.selectedId = "";
+      resetResultWindow();
+      renderMap();
+      renderViewer(null);
+    });
+  });
+}
+
+function ensureForceGraph() {
+  if (state.mapGraph || typeof window.ForceGraph !== "function") return state.mapGraph;
+  els.mapCanvas.innerHTML = "";
+  state.mapGraph = window.ForceGraph()(els.mapCanvas)
+    .backgroundColor("#111827")
+    .nodeId("id")
+    .nodeLabel((node) => node.title)
+    .nodeVal((node) => node.selected ? 9 : node.adjacent ? 4 : node.type === "workshop" ? 2.4 : 1.8)
+    .linkCurvature(0.06)
+    .linkWidth((link) => link.selected ? 1.7 : Math.max(0.25, Number(link.value || 0) * 1.8))
+    .linkColor((link) => link.selected ? "rgba(147,197,253,0.72)" : "rgba(148,163,184,0.08)")
+    .linkDirectionalParticles((link) => link.selected ? 2 : 0)
+    .linkDirectionalParticleWidth(1.4)
+    .linkDirectionalParticleSpeed(0.004)
+    .d3AlphaDecay(0.028)
+    .d3VelocityDecay(0.34)
+    .cooldownTicks(140)
+    .onNodeHover((node) => {
+      state.mapHoverId = node?.id || "";
+      els.mapCanvas.style.cursor = node ? "pointer" : "grab";
+      state.mapGraph.refresh();
+    })
+    .onNodeClick((node) => {
+      if (!node?.record) return;
+      state.selectedId = node.id;
+      renderMap();
+      renderMapDetail(node.record);
+      renderViewer(node.record);
+    })
+    .nodeCanvasObject((node, ctx, globalScale) => {
+      const color = colorForValue(node.group);
+      const isSelected = node.id === state.selectedId;
+      const isHover = node.id === state.mapHoverId;
+      const isAdjacent = node.adjacent;
+      const radius = isSelected ? 8.5 : isHover ? 7 : isAdjacent ? 5.4 : 4.2;
+      if (isSelected || isHover) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius + 8, 0, 2 * Math.PI);
+        ctx.fillStyle = isSelected ? "rgba(59,130,246,0.18)" : "rgba(255,255,255,0.12)";
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = isSelected ? "#60a5fa" : color;
+      ctx.globalAlpha = isSelected || isAdjacent || isHover || state.mapMode === "focused" ? 0.96 : 0.82;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = isSelected ? 1.8 : 0.8;
+      ctx.strokeStyle = isSelected ? "#dbeafe" : "rgba(255,255,255,0.55)";
+      ctx.stroke();
+      const shouldLabel = isSelected || isHover || (state.mapMode === "focused" && isAdjacent) || globalScale > 1.65;
+      if (!shouldLabel) return;
+      const label = node.title.length > 68 ? `${node.title.slice(0, 65)}...` : node.title;
+      const fontSize = Math.max(10, 13 / globalScale);
+      ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const textX = node.x + radius + 5;
+      const textY = node.y;
+      const metrics = ctx.measureText(label);
+      ctx.fillStyle = "rgba(17,24,39,0.78)";
+      ctx.fillRect(textX - 3, textY - fontSize * 0.7, metrics.width + 6, fontSize * 1.35);
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillText(label, textX, textY);
+    });
+  return state.mapGraph;
 }
 
 function renderMapDetail(record) {
@@ -264,7 +476,17 @@ function renderMapDetail(record) {
       </div>
     </div>
   `;
-  els.mapDetail.querySelector(".map-open-record")?.addEventListener("click", () => renderViewer(record));
+  els.mapDetail.querySelector(".map-open-record")?.addEventListener("click", () => {
+    state.tab = record.type;
+    state.category = "all";
+    state.group = "all";
+    state.asset = "all";
+    els.asset.value = "all";
+    renderAll();
+    state.selectedId = record.id;
+    renderResults();
+    renderViewer(record);
+  });
   els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
@@ -279,50 +501,44 @@ function renderMapDetail(record) {
 function renderMap() {
   if (state.tab !== "map") return;
   if (!state.mapData?.records?.length) {
+    state.mapGraph = null;
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No map data</strong><span>Run the semantic map builder.</span></div>`;
     renderMapDetail(null);
     return;
   }
   const mapById = mapRecordById();
+  const legendRecords = getFilteredRecords({ ignoreMapFilter: true }).filter((record) => record.mapAvailable && mapById.has(record.id));
   const visibleRecords = getFilteredRecords().filter((record) => record.mapAvailable && mapById.has(record.id));
+  renderMapLegend(legendRecords);
   els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
-  els.activeSummary.textContent = `Map · ${state.category === "all" ? "all fields" : state.category} · ${state.mapMode.toUpperCase()}`;
+  const colorFilter = state.mapFilterValue ? ` · ${state.mapFilterValue}` : "";
+  els.activeSummary.textContent = `Map · ${state.category === "all" ? "all fields" : state.category} · ${state.mapMode}${colorFilter}`;
   if (!visibleRecords.length) {
+    state.mapGraph = null;
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No mapped records</strong><span>Adjust the filters.</span></div>`;
     renderMapDetail(null);
     return;
   }
-  const points = visibleRecords.map((record) => ({ record, map: mapById.get(record.id) }));
-  const xs = points.map((item) => item.map.x);
-  const ys = points.map((item) => item.map.y);
-  const zs = points.map((item) => Number.isFinite(item.map.z) ? item.map.z : 0);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const minZ = Math.min(...zs);
-  const maxZ = Math.max(...zs);
-  els.mapCanvas.innerHTML = points.map(({ record, map }) => {
-    const colorValue = mapColorValue(record);
-    const left = scaleMapValue(map.x, minX, maxX);
-    const depth = scaleMapValue(Number.isFinite(map.z) ? map.z : 0, minZ, maxZ);
-    const depthOffset = state.mapMode === "3d" ? (depth - 50) * 0.12 : 0;
-    const top = 100 - scaleMapValue(map.y, minY, maxY) + depthOffset;
-    const pointSize = state.mapMode === "3d" ? 7 + depth / 10 : 10;
-    const opacity = state.mapMode === "3d" ? 0.48 + depth / 180 : 0.82;
-    const zIndex = state.mapMode === "3d" ? Math.round(depth) : 1;
-    const selected = record.id === state.selectedId ? " is-selected" : "";
-    return `<button class="map-point${selected}" type="button" data-id="${escapeHtml(record.id)}" style="left:${left}%;top:${Math.max(2, Math.min(98, top))}%;background:${colorForValue(colorValue)};--point-size:${pointSize}px;opacity:${opacity};z-index:${zIndex}" title="${escapeHtml(plainMathTitle(record.title))}"></button>`;
-  }).join("");
-  els.mapCanvas.querySelectorAll(".map-point").forEach((point) => {
-    point.addEventListener("click", () => {
-      state.selectedId = point.dataset.id;
-      const selected = state.data.records.find((record) => record.id === state.selectedId);
-      renderMap();
-      renderMapDetail(selected);
-      renderViewer(selected);
-    });
-  });
+  const graph = ensureForceGraph();
+  if (!graph) {
+    state.mapGraph = null;
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>force-graph could not be loaded.</span></div>`;
+    renderMapDetail(visibleRecords[0]);
+    return;
+  }
+  const graphData = buildGraphData(visibleRecords, mapById);
+  graph
+    .width(els.mapCanvas.clientWidth || 840)
+    .height(els.mapCanvas.clientHeight || 640)
+    .graphData(graphData);
+  if (state.mapMode === "focused") {
+    graph.d3Force("charge")?.strength(-240);
+    graph.d3Force("link")?.distance((link) => link.selected ? 42 : 70);
+    graph.zoomToFit(320, 80);
+  } else {
+    graph.d3Force("charge")?.strength(-34);
+    graph.d3Force("link")?.distance(28);
+  }
   const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
   renderMapDetail(selected || visibleRecords[0]);
 }
@@ -443,20 +659,32 @@ function renderMiniMap(record) {
   const mapById = mapRecordById();
   const center = mapById.get(record.id);
   if (!center) return "";
-  const neighborIds = (center.nearestNeighbors || []).slice(0, 6).map((item) => item.id);
-  const neighbors = neighborIds
-    .map((id) => ({
-      record: state.data.records.find((item) => item.id === id),
-      map: mapById.get(id),
-      score: (center.nearestNeighbors || []).find((item) => item.id === id)?.score,
+  const neighbors = (center.nearestNeighbors || []).slice(0, 6)
+    .map((neighbor, index) => ({
+      record: state.data.records.find((item) => item.id === neighbor.id),
+      score: neighbor.score,
+      angle: (Math.PI * 2 * index) / Math.max(1, Math.min(6, center.nearestNeighbors.length)),
     }))
-    .filter((item) => item.record && item.map);
-  const points = [{ record, map: center, score: 1, center: true }, ...neighbors];
+    .filter((item) => item.record);
+  const nodeButtons = neighbors.map((item, index) => {
+    const radius = index % 2 === 0 ? 34 : 42;
+    const left = 50 + Math.cos(item.angle) * radius;
+    const top = 50 + Math.sin(item.angle) * radius;
+    return `<button class="mini-graph-node" type="button" data-id="${escapeHtml(item.record.id)}" style="left:${left}%;top:${top}%;" title="${escapeHtml(plainMathTitle(item.record.title))}"></button>`;
+  }).join("");
+  const edges = neighbors.map((item, index) => {
+    const radius = index % 2 === 0 ? 34 : 42;
+    const x = 50 + Math.cos(item.angle) * radius;
+    const y = 50 + Math.sin(item.angle) * radius;
+    return `<line x1="50" y1="50" x2="${x}" y2="${y}" />`;
+  }).join("");
   return `
     <section class="mini-map-panel">
       <h3>Related papers</h3>
-      <div class="mini-map">
-        ${points.map((item) => `<button class="mini-map-point ${item.center ? "is-center" : ""}" type="button" data-id="${escapeHtml(item.record.id)}" style="left:${Math.max(5, Math.min(95, 50 + (item.map.x - center.x) * 18))}%;top:${Math.max(5, Math.min(95, 50 - (item.map.y - center.y) * 18))}%;" title="${escapeHtml(plainMathTitle(item.record.title))}"></button>`).join("")}
+      <div class="mini-graph" aria-hidden="true">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none">${edges}</svg>
+        <span class="mini-graph-node is-center" style="left:50%;top:50%;"></span>
+        ${nodeButtons}
       </div>
       <div class="neighbor-list">
         ${neighbors.map((item) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(item.record.id)}"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Number(item.score || 0).toFixed(2)} similarity</span></button>`).join("")}
@@ -528,7 +756,7 @@ function renderViewer(record) {
   const miniMap = renderMiniMap(record);
   if (miniMap) {
     els.viewerFrame.insertAdjacentHTML("beforeend", miniMap);
-    els.viewerFrame.querySelectorAll(".mini-map-point, .neighbor-item").forEach((button) => {
+    els.viewerFrame.querySelectorAll(".mini-graph-node[data-id], .neighbor-item").forEach((button) => {
       button.addEventListener("click", () => {
         const selected = state.data.records.find((item) => item.id === button.dataset.id);
         state.selectedId = button.dataset.id;
@@ -551,6 +779,7 @@ function renderAll() {
   state.selectedId = "";
   resetResultWindow();
   const isMap = state.tab === "map";
+  document.body.classList.toggle("is-map-tab", isMap);
   els.results.hidden = isMap;
   els.mapView.hidden = !isMap;
   renderResults();
@@ -577,6 +806,7 @@ async function init() {
       state.category = "all";
       state.group = "all";
       state.asset = "all";
+      state.mapFilterValue = "";
       els.asset.value = "all";
       resetResultWindow();
       renderAll();
@@ -586,27 +816,34 @@ async function init() {
   els.search.addEventListener("input", (event) => {
     state.query = event.target.value;
     state.selectedId = "";
+    state.mapFilterValue = "";
     resetResultWindow();
     renderResults();
+    renderMap();
     renderViewer(null);
   });
   els.category.addEventListener("change", (event) => {
     state.category = event.target.value;
     state.selectedId = "";
+    state.mapFilterValue = "";
     resetResultWindow();
     renderResults();
+    renderMap();
     renderViewer(null);
   });
   els.group.addEventListener("change", (event) => {
     state.group = event.target.value;
     state.selectedId = "";
+    state.mapFilterValue = "";
     resetResultWindow();
     renderResults();
+    renderMap();
     renderViewer(null);
   });
   els.asset.addEventListener("change", (event) => {
     state.asset = event.target.value;
     state.selectedId = "";
+    state.mapFilterValue = "";
     resetResultWindow();
     renderResults();
     renderMap();
@@ -614,6 +851,7 @@ async function init() {
   });
   els.mapColor.addEventListener("change", (event) => {
     state.mapColor = event.target.value;
+    state.mapFilterValue = "";
     renderMap();
   });
   els.mapMode.addEventListener("change", (event) => {
@@ -624,6 +862,13 @@ async function init() {
     const distanceFromBottom = els.results.scrollHeight - els.results.scrollTop - els.results.clientHeight;
     if (distanceFromBottom < 320) {
       loadMoreResultsIfNeeded();
+    }
+  });
+  window.addEventListener("resize", () => {
+    if (state.tab === "map" && state.mapGraph) {
+      state.mapGraph
+        .width(els.mapCanvas.clientWidth || 840)
+        .height(els.mapCanvas.clientHeight || 640);
     }
   });
 }

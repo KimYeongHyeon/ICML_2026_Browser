@@ -14,6 +14,7 @@ It provides:
 - group/workshop filters
 - asset filters for PDF, poster image, slide deck, or metadata-only records
 - in-page viewer for collected PDF, slide PDF, and poster image files
+- Obsidian-style semantic graph map with zoom, pan, drag, hover, focused scope, and neighbor navigation
 
 The Papers tab is hidden when no public main-conference paper PDF is available. ICML virtual poster pages are not treated as paper records.
 
@@ -45,13 +46,19 @@ scripts/verify_site_contract.sh
 
 ## Semantic Map Build
 
-The Map tab is generated offline and served as static JSON. The default build uses deterministic smoke embeddings so the site remains rebuildable without model downloads:
+The Map tab is generated offline and served as static JSON. The default build uses deterministic lexical hash embeddings, so the site remains rebuildable without model downloads while still grouping records by shared title/topic terms:
 
 ```bash
 scripts/build_site.sh
 ```
 
-For real local scientific embeddings, install:
+For a fast test-only map, use smoke mode:
+
+```bash
+ICML_SEMANTIC_ARGS="--smoke --limit 500" scripts/build_site.sh
+```
+
+For local scientific embeddings, install:
 
 ```bash
 python3 -m pip install sentence-transformers umap-learn scikit-learn numpy
@@ -66,8 +73,10 @@ ICML_SEMANTIC_ARGS="" scripts/build_site.sh
 The semantic verifier checks map/index consistency:
 
 ```bash
-python3 scripts/verify_embedding_map.py
+python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json
 ```
+
+The browser uses `force-graph` for the Map tab. It renders the semantic-neighbor graph on Canvas with `d3-force` physics, zoom/pan, dragging, hover labels, and focused local-graph filtering.
 
 ## Local Preview
 

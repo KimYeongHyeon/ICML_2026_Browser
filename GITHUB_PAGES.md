@@ -34,17 +34,19 @@ docs/site/data/icml2026_map.json
 
 ## Semantic Map
 
-The Map tab is static. Generate semantic data before deploying:
+The Map tab is static. Generate semantic graph data before deploying:
 
 ```bash
 scripts/build_site.sh
 ```
 
-For a full scientific embedding build, install the semantic dependencies listed in `README.md` and run:
+By default this uses deterministic lexical hash embeddings. For a full local scientific embedding build, install the semantic dependencies listed in `README.md` and run:
 
 ```bash
 ICML_SEMANTIC_ARGS="" scripts/build_site.sh
 ```
+
+The deployed Map UI uses `force-graph` on Canvas for zooming, panning, dragging, hover labels, and focused local-graph filtering.
 
 ## Local Preview
 
