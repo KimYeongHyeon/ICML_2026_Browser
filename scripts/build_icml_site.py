@@ -11,7 +11,14 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 MATERIALS = ROOT / "icml_2026_materials"
-OUT = ROOT / os.environ.get("ICML_SITE_INDEX", "site/data/icml2026_index.json")
+OUT = ROOT / os.environ.get("ICML_SITE_INDEX", "docs/site/data/icml2026_index.json")
+GENERIC_WORKSHOP_TITLES = {
+    "call for papers",
+    "official workshop page",
+    "program",
+    "schedule",
+    "workshop program or schedule page",
+}
 
 
 CATEGORIES: list[tuple[str, tuple[str, ...]]] = [
@@ -85,13 +92,18 @@ def infer_categories(title: str, group: str) -> list[str]:
 
 def should_include_workshop_row(source: dict[str, Any]) -> bool:
     source_type = source.get("source_type")
-    return source_type == "openreview_submission" and source.get("status") == "accepted_public"
+    title = str(source.get("title") or "").strip().lower()
+    return (
+        source_type == "openreview_submission"
+        and source.get("status") == "accepted_public"
+        and title not in GENERIC_WORKSHOP_TITLES
+    )
 
 
 def should_include_paper_row(source: dict[str, Any]) -> bool:
     page_url = str(source.get("paper_url") or "")
     has_public_pdf = bool(source.get("local_pdf_path") or source.get("pdf_url"))
-    return has_public_pdf or "/poster/" not in page_url
+    return has_public_pdf and "/poster/" not in page_url
 
 
 def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[str, Any]:
@@ -183,6 +195,8 @@ def build() -> dict[str, Any]:
         records.append(compact_record(row, "paper", "Main Conference"))
 
     for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):
+        if row.get("source_type") and row.get("source_type") != "official_icml_virtual_poster":
+            continue
         records.append(compact_record(row, "poster", "Main Conference"))
 
     workshop_root = MATERIALS / "workshops"
@@ -204,7 +218,7 @@ def build() -> dict[str, Any]:
         item_type = record["type"]
         type_counts[item_type] = type_counts.get(item_type, 0) + 1
         availability_counts[record["availabilityStatus"]] = availability_counts.get(record["availabilityStatus"], 0) + 1
-        categories.add(record["category"])
+        categories.update(record.get("categoryTags") or [record["category"]])
         groups[item_type].add(record["group"])
         if record["hasPdf"]:
             asset_counts["pdf"] += 1

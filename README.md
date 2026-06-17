@@ -4,7 +4,7 @@ Static browser for the locally archived ICML 2026 materials.
 
 ## Website
 
-The GitHub Pages site is served from `docs/`.
+The public GitHub Pages site is served from the `gh-pages` branch. The source files on `main` live under `docs/`.
 
 It provides:
 
@@ -14,6 +14,8 @@ It provides:
 - group/workshop filters
 - asset filters for PDF, poster image, slide deck, or metadata-only records
 - in-page viewer for collected PDF, slide PDF, and poster image files
+
+The Papers tab is hidden when no public main-conference paper PDF is available. ICML virtual poster pages are not treated as paper records.
 
 ## Data Layout
 
@@ -32,7 +34,13 @@ docs/site/data/icml2026_index.json
 Rebuild it after updating manifests or adding downloaded files:
 
 ```bash
-python3 scripts/build_icml_site.py
+scripts/build_site.sh
+```
+
+Validate the site data contract without rebuilding:
+
+```bash
+scripts/verify_site_contract.sh
 ```
 
 ## Local Preview
@@ -49,4 +57,4 @@ http://localhost:8787/docs/
 
 ## Notes
 
-The main-conference paper PDFs were not public in the collected official sources at the time of archiving, so the Papers tab is metadata-first until those files become publicly available. Poster images, slide decks, and workshop PDFs open directly when local files are present.
+The main-conference paper PDFs were not public in the collected official sources at the time of archiving, so paper records are excluded until a public PDF is available. Poster images render directly. Local PDF and slide files render through PDF.js so GitHub Pages does not trigger browser downloads.

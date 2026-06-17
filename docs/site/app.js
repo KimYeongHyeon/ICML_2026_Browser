@@ -2,7 +2,6 @@ const DATA_URL = "site/data/icml2026_index.json";
 const PAGE_SIZE = 80;
 const REPO_RAW_BASE = "https://raw.githubusercontent.com/KimYeongHyeon/icml-2026-materials-browser/main/";
 const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
-const ASSET_BASE = window.location.hostname.endsWith("github.io") ? REPO_RAW_BASE : LOCAL_ASSET_PREFIX;
 const MATHJAX_RETRY_LIMIT = 40;
 const PDFJS_VIEWER_BASE = "https://mozilla.github.io/pdf.js/web/viewer.html";
 
@@ -222,10 +221,26 @@ function actionLink(href, label, primary = false) {
   return `<a class="action ${primary ? "primary" : ""}" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
 }
 
+function assetActionHref(record, path) {
+  if (!path) return "";
+  if (record.bestAssetKind === "pdf" || record.bestAssetKind === "slide") {
+    return pdfViewerUrl(path);
+  }
+  return assetUrl(path);
+}
+
+function assetActionLabel(record) {
+  if (record.bestAssetKind === "pdf") return "Preview PDF";
+  if (record.bestAssetKind === "slide") return "Preview slides";
+  if (record.bestAssetKind === "poster") return "Open poster";
+  return "Open asset";
+}
+
 function assetUrl(path) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  return `${ASSET_BASE}${path}`;
+  if (window.location.hostname.endsWith("github.io")) return `${REPO_RAW_BASE}${path}`;
+  return new URL(`${LOCAL_ASSET_PREFIX}${path}`, window.location.href).href;
 }
 
 function pdfViewerUrl(path) {
@@ -332,11 +347,11 @@ function renderViewer(record) {
   const preferred = record.bestAsset;
   const localAsset = record.localPdfPath || record.localSlidePath || record.localPosterPath;
   const actions = [
-    actionLink(assetUrl(localAsset), "Open asset", true),
+    actionLink(assetActionHref(record, localAsset), assetActionLabel(record), true),
     actionLink(record.pageUrl, "Official page"),
     actionLink(record.openreviewUrl, "OpenReview"),
     actionLink(record.projectPageUrl, "Project"),
-    actionLink(record.pdfUrl && !record.localPdfPath ? record.pdfUrl : "", "Remote PDF"),
+    actionLink(record.pdfUrl && !record.localPdfPath ? record.pdfUrl : "", "Open PDF"),
   ].join("");
   els.viewerActions.innerHTML = actions;
 

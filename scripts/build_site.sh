@@ -4,9 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-INDEX_PATH="${ICML_SITE_INDEX:-site/data/icml2026_index.json}"
+INDEX_PATH="${ICML_SITE_INDEX:-docs/site/data/icml2026_index.json}"
 
 python3 scripts/build_icml_site.py
+scripts/verify_site_contract.sh "$INDEX_PATH"
 
 python3 - "$INDEX_PATH" <<'PY'
 import json
