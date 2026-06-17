@@ -26,6 +26,22 @@ const state = {
   sigmaRenderer: null,
   cyGraph: null,
   mapHoverId: "",
+  mapInteraction: {
+    spaceDown: false,
+    pointerId: null,
+    mode: "",
+    moved: false,
+    suppressClickUntil: 0,
+    start: { x: 0, y: 0 },
+    last: { x: 0, y: 0 },
+    center: { x: 0, y: 0 },
+  },
+  mapSelection: {
+    active: false,
+    start: null,
+    end: null,
+    nodeIds: [],
+  },
 };
 
 const els = {
@@ -562,10 +578,282 @@ function renderMapLegend(visibleRecords) {
       const value = button.dataset.value || "";
       state.mapFilterValue = state.mapFilterValue === value ? "" : value || "";
       state.selectedId = "";
+      clearMapSelection();
       resetResultWindow();
       renderMap();
       renderViewer(null);
     });
+  });
+}
+
+function mapCanvasPoint(event) {
+  const rect = els.mapCanvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function forceGraphZoomAt(point, multiplier, duration = 180) {
+  const graph = state.mapGraph;
+  if (!graph || typeof graph.screen2GraphCoords !== "function") return;
+  const width = els.mapCanvas.clientWidth || 840;
+  const height = els.mapCanvas.clientHeight || 640;
+  const currentZoom = typeof graph.zoom === "function" ? graph.zoom() : 1;
+  const nextZoom = Math.max(0.08, Math.min(18, currentZoom * multiplier));
+  const graphPoint = graph.screen2GraphCoords(point.x, point.y);
+  const centerX = graphPoint.x - (point.x - width / 2) / nextZoom;
+  const centerY = graphPoint.y - (point.y - height / 2) / nextZoom;
+  graph.zoom?.(nextZoom, duration);
+  graph.centerAt?.(centerX, centerY, duration);
+  graph.resumeAnimation?.();
+}
+
+function forceGraphZoomToBox(start, end) {
+  const graph = state.mapGraph;
+  if (!graph || typeof graph.screen2GraphCoords !== "function") return;
+  const width = els.mapCanvas.clientWidth || 840;
+  const height = els.mapCanvas.clientHeight || 640;
+  const left = Math.min(start.x, end.x);
+  const right = Math.max(start.x, end.x);
+  const top = Math.min(start.y, end.y);
+  const bottom = Math.max(start.y, end.y);
+  const boxWidth = Math.max(8, right - left);
+  const boxHeight = Math.max(8, bottom - top);
+  const topLeft = graph.screen2GraphCoords(left, top);
+  const bottomRight = graph.screen2GraphCoords(right, bottom);
+  const spanX = Math.max(8, Math.abs(bottomRight.x - topLeft.x));
+  const spanY = Math.max(8, Math.abs(bottomRight.y - topLeft.y));
+  const nextZoom = Math.max(0.08, Math.min(18, Math.min(width / spanX, height / spanY) * 0.88));
+  const center = graph.screen2GraphCoords(left + boxWidth / 2, top + boxHeight / 2);
+  graph.centerAt?.(center.x, center.y, 240);
+  graph.zoom?.(nextZoom, 240);
+  graph.resumeAnimation?.();
+}
+
+function normalizedBox(start, end) {
+  return {
+    left: Math.min(start.x, end.x),
+    right: Math.max(start.x, end.x),
+    top: Math.min(start.y, end.y),
+    bottom: Math.max(start.y, end.y),
+  };
+}
+
+function mapNodesInBox(start, end) {
+  const graph = state.mapGraph;
+  if (!graph || typeof graph.graph2ScreenCoords !== "function") return [];
+  const box = normalizedBox(start, end);
+  return (state.mapGraphData?.nodes || []).filter((node) => {
+    const point = graph.graph2ScreenCoords(node.x || 0, node.y || 0);
+    return point.x >= box.left && point.x <= box.right && point.y >= box.top && point.y <= box.bottom;
+  });
+}
+
+function countLabels(values) {
+  const counts = new Map();
+  for (const value of values.flat().filter(Boolean)) {
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  return [...counts.entries()].sort((left, right) => right[1] - left[1]);
+}
+
+function renderMapSelectionSummary(nodes) {
+  const records = nodes.map((node) => node.record).filter(Boolean);
+  const areas = countLabels(records.map((record) => record.areaTags || []));
+  const groups = countLabels(records.map((record) => [record.group || record.clusterLabel || "Other"]));
+  const types = countLabels(records.map((record) => [typeLabel(record.type)]));
+  const sample = records.slice(0, 8);
+  els.mapDetail.innerHTML = `
+    <div class="map-detail-card">
+      <p class="eyebrow">BOX SELECTION</p>
+      <h3>${nodes.length.toLocaleString()} mapped records</h3>
+      <button class="action primary map-zoom-selection" type="button">Zoom to selection</button>
+      <div class="selection-stat-grid">
+        ${types.slice(0, 3).map(([label, count]) => `<span><strong>${count.toLocaleString()}</strong>${escapeHtml(label)}</span>`).join("")}
+      </div>
+      <div class="selection-stat-block">
+        <strong>Top areas</strong>
+        ${areas.slice(0, 6).map(([label, count]) => `<span><em>${escapeHtml(label)}</em><b>${count.toLocaleString()}</b></span>`).join("") || "<small>No area tags</small>"}
+      </div>
+      <div class="selection-stat-block">
+        <strong>Top groups</strong>
+        ${groups.slice(0, 5).map(([label, count]) => `<span><em>${escapeHtml(label)}</em><b>${count.toLocaleString()}</b></span>`).join("") || "<small>No groups</small>"}
+      </div>
+      <div class="selection-stat-block">
+        <strong>Sample records</strong>
+        ${sample.map((record) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(record.id)}"><strong>${escapeHtml(plainMathTitle(record.title))}</strong><span>${escapeHtml(record.group || typeLabel(record.type))}</span></button>`).join("") || "<small>No records inside the box</small>"}
+      </div>
+    </div>
+  `;
+  els.mapDetail.querySelector(".map-zoom-selection")?.addEventListener("click", () => zoomToMapSelection());
+  els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selected = state.data.records.find((item) => item.id === button.dataset.id);
+      if (!selected) return;
+      state.selectedId = selected.id;
+      refreshForceSelectionState();
+      renderMapDetail(selected);
+      renderViewer(selected);
+    });
+  });
+}
+
+function setMapSelection(start, end) {
+  const nodes = mapNodesInBox(start, end);
+  state.mapSelection = {
+    active: true,
+    start,
+    end,
+    nodeIds: nodes.map((node) => node.id),
+  };
+  updateMapSelectionBox(start, end);
+  renderMapSelectionSummary(nodes);
+}
+
+function clearMapSelection() {
+  state.mapSelection = { active: false, start: null, end: null, nodeIds: [] };
+  hideMapSelectionBox();
+}
+
+function zoomToMapSelection() {
+  if (!state.mapSelection.active || !state.mapSelection.start || !state.mapSelection.end) return false;
+  forceGraphZoomToBox(state.mapSelection.start, state.mapSelection.end);
+  clearMapSelection();
+  return true;
+}
+
+function ensureMapSelectionBox() {
+  let box = els.mapCanvas.querySelector(".map-selection-box");
+  if (!box) {
+    box = document.createElement("div");
+    box.className = "map-selection-box";
+    els.mapCanvas.appendChild(box);
+  }
+  return box;
+}
+
+function updateMapSelectionBox(start, current) {
+  const box = ensureMapSelectionBox();
+  const left = Math.min(start.x, current.x);
+  const top = Math.min(start.y, current.y);
+  const width = Math.abs(current.x - start.x);
+  const height = Math.abs(current.y - start.y);
+  box.style.transform = `translate(${left}px, ${top}px)`;
+  box.style.width = `${width}px`;
+  box.style.height = `${height}px`;
+  box.hidden = false;
+}
+
+function hideMapSelectionBox() {
+  const box = els.mapCanvas.querySelector(".map-selection-box");
+  if (box) box.hidden = true;
+}
+
+function graphClickSuppressed() {
+  return performance.now() < state.mapInteraction.suppressClickUntil;
+}
+
+function refreshForceSelectionState() {
+  if (!state.mapGraphData?.nodes?.length) return;
+  const mapById = mapRecordById();
+  const selectedNeighbors = selectedNeighborIds(mapById);
+  for (const node of state.mapGraphData.nodes) {
+    node.selected = node.id === state.selectedId;
+    node.adjacent = selectedNeighbors.has(node.id);
+  }
+  for (const link of state.mapGraphData.links || []) {
+    const source = typeof link.source === "object" ? link.source.id : link.source;
+    const target = typeof link.target === "object" ? link.target.id : link.target;
+    link.selected = source === state.selectedId || target === state.selectedId;
+  }
+  state.mapGraph?.refresh?.();
+}
+
+function isTypingTarget(target) {
+  return ["INPUT", "SELECT", "TEXTAREA", "BUTTON", "A"].includes(target?.tagName);
+}
+
+function installMapPointerInteractions() {
+  document.addEventListener("keydown", (event) => {
+    if (event.code !== "Space" || isTypingTarget(event.target)) return;
+    if (state.tab !== "map" || state.mapEngine !== "force") return;
+    event.preventDefault();
+    state.mapInteraction.spaceDown = true;
+    els.mapCanvas.classList.add("is-space-ready");
+  });
+
+  document.addEventListener("keyup", (event) => {
+    if (event.code !== "Space") return;
+    state.mapInteraction.spaceDown = false;
+    els.mapCanvas.classList.remove("is-space-ready", "is-panning");
+  });
+
+  els.mapCanvas.addEventListener("pointerdown", (event) => {
+    if (state.tab !== "map" || state.mapEngine !== "force" || event.button !== 0 || !state.mapGraph) return;
+    const point = mapCanvasPoint(event);
+    const interaction = state.mapInteraction;
+    interaction.pointerId = event.pointerId;
+    interaction.mode = interaction.spaceDown ? "pan" : "box";
+    interaction.moved = false;
+    interaction.start = point;
+    interaction.last = point;
+    interaction.center = state.mapGraph.centerAt?.() || { x: 0, y: 0 };
+    els.mapCanvas.setPointerCapture?.(event.pointerId);
+    if (interaction.mode === "pan") {
+      els.mapCanvas.classList.add("is-panning");
+      clearMapSelection();
+    } else {
+      updateMapSelectionBox(point, point);
+    }
+    event.preventDefault();
+  });
+
+  els.mapCanvas.addEventListener("pointermove", (event) => {
+    const interaction = state.mapInteraction;
+    if (interaction.pointerId !== event.pointerId || !interaction.mode || !state.mapGraph) return;
+    const point = mapCanvasPoint(event);
+    const dx = point.x - interaction.start.x;
+    const dy = point.y - interaction.start.y;
+    if (Math.hypot(dx, dy) > 4) interaction.moved = true;
+    if (interaction.mode === "pan") {
+      const zoom = typeof state.mapGraph.zoom === "function" ? state.mapGraph.zoom() : 1;
+      state.mapGraph.centerAt?.(
+        interaction.center.x - dx / zoom,
+        interaction.center.y - dy / zoom,
+        0,
+      );
+    } else {
+      updateMapSelectionBox(interaction.start, point);
+    }
+    interaction.last = point;
+    event.preventDefault();
+  });
+
+  els.mapCanvas.addEventListener("pointerup", (event) => {
+    const interaction = state.mapInteraction;
+    if (interaction.pointerId !== event.pointerId || !interaction.mode) return;
+    els.mapCanvas.releasePointerCapture?.(event.pointerId);
+    els.mapCanvas.classList.remove("is-panning");
+    const mode = interaction.mode;
+    const moved = interaction.moved;
+    const start = interaction.start;
+    const end = mapCanvasPoint(event);
+    interaction.pointerId = null;
+    interaction.mode = "";
+    hideMapSelectionBox();
+    if (mode === "box" && moved && Math.hypot(end.x - start.x, end.y - start.y) > 10) {
+      interaction.suppressClickUntil = performance.now() + 300;
+      setMapSelection(start, end);
+    }
+    event.preventDefault();
+  });
+
+  els.mapCanvas.addEventListener("pointercancel", () => {
+    state.mapInteraction.pointerId = null;
+    state.mapInteraction.mode = "";
+    els.mapCanvas.classList.remove("is-panning");
+    clearMapSelection();
   });
 }
 
@@ -577,9 +865,9 @@ function ensureForceGraph() {
     .nodeId("id")
     .nodeLabel((node) => node.title)
     .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : node.depth === 2 ? 2.3 : node.type === "workshop" ? 1.9 : 1.5)
-    .enableZoomInteraction(true)
-    .enablePanInteraction(true)
-    .enableNodeDrag(true)
+    .enableZoomInteraction(false)
+    .enablePanInteraction(false)
+    .enableNodeDrag(false)
     .linkCurvature(0.06)
     .linkWidth((link) => link.selected ? 1.25 : Math.max(0.18, Number(link.value || 0) * (state.mapMode === "focused" ? 1.1 : 1.45)))
     .linkColor((link) => link.selected ? "rgba(148,196,255,0.48)" : state.mapMode === "focused" ? "rgba(148,163,184,0.13)" : "rgba(148,163,184,0.07)")
@@ -591,15 +879,22 @@ function ensureForceGraph() {
     .d3VelocityDecay(0.38)
     .onNodeHover((node) => {
       state.mapHoverId = node?.id || "";
-      els.mapCanvas.style.cursor = node ? "pointer" : "grab";
+      els.mapCanvas.style.cursor = node && !state.mapInteraction.spaceDown ? "pointer" : "";
       state.mapGraph?.refresh?.();
     })
-    .onNodeClick((node) => {
-      if (!node?.record) return;
+    .onNodeClick((node, event) => {
+      if (graphClickSuppressed() || !node?.record) return;
+      if (!event?.shiftKey && zoomToMapSelection()) return;
       state.selectedId = node.id;
-      renderMap();
+      refreshForceSelectionState();
       renderMapDetail(node.record);
       renderViewer(node.record);
+      forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
+    })
+    .onBackgroundClick((event) => {
+      if (graphClickSuppressed()) return;
+      if (!event?.shiftKey && zoomToMapSelection()) return;
+      forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
     })
     .nodeCanvasObject((node, ctx, globalScale) => {
       const color = colorForValue(node.group);
@@ -624,8 +919,7 @@ function ensureForceGraph() {
       ctx.stroke();
       const shouldLabel = isHover
         || isSelected
-        || (state.mapMode === "focused" && node.depth === 1 && node.focusRank < 1 && globalScale > 0.78)
-        || (state.mapMode !== "focused" && globalScale > 1.9);
+        || (state.mapMode === "focused" && node.depth === 1 && node.focusRank < 1 && globalScale > 0.78);
       if (!shouldLabel) return;
       const maxLabelLength = state.mapMode === "focused" ? 28 : 58;
       const label = node.title.length > maxLabelLength ? `${node.title.slice(0, maxLabelLength - 3)}...` : node.title;
@@ -933,6 +1227,7 @@ function renderForceGraph(graphData) {
   destroyGraphEngine("force");
   const graph = ensureForceGraph();
   if (!graph) return false;
+  ensureMapSelectionBox();
   state.mapGraphData = graphData;
   graph
     .width(els.mapCanvas.clientWidth || 840)
@@ -1317,8 +1612,9 @@ async function init() {
       state.category = "all";
       state.group = "all";
       state.asset = "all";
-      state.mapFilterValue = "";
-      els.asset.value = "all";
+    state.mapFilterValue = "";
+    clearMapSelection();
+    els.asset.value = "all";
       resetResultWindow();
       renderAll();
     });
@@ -1328,6 +1624,7 @@ async function init() {
     state.query = event.target.value;
     state.selectedId = "";
     state.mapFilterValue = "";
+    clearMapSelection();
     resetResultWindow();
     renderResults();
     renderMap();
@@ -1337,6 +1634,7 @@ async function init() {
     state.category = event.target.value;
     state.selectedId = "";
     state.mapFilterValue = "";
+    clearMapSelection();
     resetResultWindow();
     renderResults();
     renderMap();
@@ -1346,6 +1644,7 @@ async function init() {
     state.group = event.target.value;
     state.selectedId = "";
     state.mapFilterValue = "";
+    clearMapSelection();
     resetResultWindow();
     renderResults();
     renderMap();
@@ -1355,6 +1654,7 @@ async function init() {
     state.asset = event.target.value;
     state.selectedId = "";
     state.mapFilterValue = "";
+    clearMapSelection();
     resetResultWindow();
     renderResults();
     renderMap();
@@ -1363,15 +1663,22 @@ async function init() {
   els.mapColor.addEventListener("change", (event) => {
     state.mapColor = event.target.value;
     state.mapFilterValue = "";
+    clearMapSelection();
     renderMap();
   });
   els.mapEngine.addEventListener("change", (event) => {
     state.mapEngine = event.target.value;
+    state.mapInteraction.spaceDown = false;
+    state.mapInteraction.pointerId = null;
+    state.mapInteraction.mode = "";
+    els.mapCanvas.classList.remove("is-space-ready", "is-panning");
+    clearMapSelection();
     destroyGraphEngine();
     renderMap();
   });
   els.mapMode.addEventListener("change", (event) => {
     state.mapMode = event.target.value;
+    clearMapSelection();
     renderMap();
   });
   els.mapLive?.addEventListener("click", () => {
@@ -1409,6 +1716,7 @@ async function init() {
       state.mapGraph.resumeAnimation?.();
     }
   });
+  installMapPointerInteractions();
 }
 
 init().catch((error) => {
