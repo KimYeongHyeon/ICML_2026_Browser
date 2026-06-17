@@ -576,7 +576,7 @@ function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
   ctx.stroke();
   const shouldLabel = isHover
-    || isSelected
+    || (isSelected && !options.hideSelectedLabel)
     || (mode === "focused" && node.depth === 1 && node.focusRank < (options.neighborLabelCount ?? 1) && globalScale > (options.labelScaleThreshold ?? 0.78));
   if (!shouldLabel) return;
   const maxLabelLength = options.maxLabelLength || (mode === "focused" ? 28 : 58);
@@ -1283,12 +1283,12 @@ function renderForceGraph(graphData) {
     applyForceAnchors(graph, 0.04);
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
-        fitForceGraph(graph, graphData, { duration: 420, padding: 118 });
+        fitForceGraph(graph, graphData, { duration: 420, padding: 160 });
       }
     }, 450);
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
-        fitForceGraph(graph, graphData, { duration: 360, padding: 118 });
+        fitForceGraph(graph, graphData, { duration: 360, padding: 170 });
       }
     }, 1100);
   }
@@ -1615,9 +1615,10 @@ function mountMiniGraph(graphData, selectedId) {
         mode: "focused",
         selectedId,
         hoverId: "",
-        neighborLabelCount: 3,
+        hideSelectedLabel: true,
+        neighborLabelCount: 0,
         labelScaleThreshold: 0.35,
-        maxLabelLength: 34,
+        maxLabelLength: 42,
         baseFontSize: 10,
         maxFontSize: 12,
       });
@@ -1657,6 +1658,7 @@ function renderMiniMap(record) {
           <span>top similarity</span>
         </div>
       </div>
+      <div class="mini-selected-title">${escapeHtml(plainMathTitle(record.title))}</div>
       <div class="mini-tag-summary">
         ${topTags.map(([tag, count]) => `<span><i style="background:${colorForValue(tag)}"></i>${escapeHtml(tag)} <b>${count}</b></span>`).join("")}
       </div>
