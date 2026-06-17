@@ -75,28 +75,62 @@
 
         <div class="results" id="results" tabindex="0" aria-label="Filtered results"></div>
         <div class="map-view" id="mapView" hidden>
-          <div class="map-toolbar">
-            <label>
-              <span>Color</span>
-              <select id="mapColorSelect">
-                <option value="area">Area</option>
-                <option value="domain">Domain</option>
-                <option value="cluster">Cluster</option>
-                <option value="quality">Text quality</option>
-                <option value="availability">Availability</option>
-              </select>
-            </label>
-            <label>
-              <span>Scope</span>
-              <select id="mapModeSelect">
-                <option value="global">Global</option>
-                <option value="focused">Focused</option>
-              </select>
-            </label>
-            <div class="map-legend" id="mapLegend" aria-label="Map color legend"></div>
-          </div>
           <div class="map-body">
-            <div class="map-canvas" id="mapCanvas" aria-label="Semantic paper map"></div>
+            <div class="map-canvas-wrap">
+              <aside class="map-dock" aria-label="Graph settings">
+                <div class="map-dock-title">Graph settings</div>
+                <details class="map-section" open>
+                  <summary>Filters</summary>
+                  <div class="map-section-body">
+                    <label class="map-setting">
+                      <span>Engine</span>
+                      <select id="mapEngineSelect">
+                        <option value="force">ForceGraph</option>
+                        <option value="sigma">Sigma.js</option>
+                        <option value="cytoscape">Cytoscape.js</option>
+                      </select>
+                    </label>
+                    <label class="map-setting">
+                      <span>Color</span>
+                      <select id="mapColorSelect">
+                        <option value="area">Area</option>
+                        <option value="domain">Domain</option>
+                        <option value="cluster">Cluster</option>
+                        <option value="quality">Text quality</option>
+                        <option value="availability">Availability</option>
+                      </select>
+                    </label>
+                    <label class="map-setting">
+                      <span>Scope</span>
+                      <select id="mapModeSelect">
+                        <option value="global">Global</option>
+                        <option value="focused">Focused</option>
+                      </select>
+                    </label>
+                  </div>
+                </details>
+                <details class="map-section" open>
+                  <summary>Groups</summary>
+                  <div class="map-legend" id="mapLegend" aria-label="Map color legend"></div>
+                </details>
+                <details class="map-section" open>
+                  <summary>Display</summary>
+                  <div class="map-actions compact" aria-label="Map display controls">
+                    <button class="map-control" id="mapFitButton" type="button" title="Fit graph to view">Fit</button>
+                    <button class="map-control icon" id="mapZoomOutButton" type="button" title="Zoom out">-</button>
+                    <button class="map-control icon" id="mapZoomInButton" type="button" title="Zoom in">+</button>
+                  </div>
+                </details>
+                <details class="map-section" open>
+                  <summary>Forces</summary>
+                  <div class="map-actions" aria-label="Map force controls">
+                    <button class="map-control" id="mapLiveButton" type="button" aria-pressed="true" title="Pause or resume the force layout">Live: On</button>
+                    <button class="map-control" id="mapReflowButton" type="button" title="Restart the force layout">Reflow</button>
+                  </div>
+                </details>
+              </aside>
+              <div class="map-canvas" id="mapCanvas" aria-label="Semantic paper map"></div>
+            </div>
             <aside class="map-detail" id="mapDetail" aria-label="Selected map record"></aside>
           </div>
         </div>
@@ -120,6 +154,9 @@
       </aside>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/graphology@0.26.0/dist/graphology.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/3.0.2/sigma.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
     <script src="site/vendor/force-graph.min.js"></script>
     <script src="site/app.js" type="module"></script>
   </body>
