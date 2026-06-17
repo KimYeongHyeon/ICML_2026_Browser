@@ -29,6 +29,21 @@ This rewrites:
 
 ```text
 docs/site/data/icml2026_index.json
+docs/site/data/icml2026_map.json
+```
+
+## Semantic Map
+
+The Map tab is static. Generate semantic data before deploying:
+
+```bash
+scripts/build_site.sh
+```
+
+For a full scientific embedding build, install the semantic dependencies listed in `README.md` and run:
+
+```bash
+ICML_SEMANTIC_ARGS="" scripts/build_site.sh
 ```
 
 ## Local Preview

@@ -115,7 +115,7 @@ h2 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   padding: 10px;
   border-bottom: 1px solid var(--line);
@@ -192,6 +192,10 @@ a:focus-visible {
 .results {
   overflow: auto;
   padding: 8px;
+}
+
+.results[hidden] {
+  display: none;
 }
 
 .result-item {
@@ -376,6 +380,139 @@ a:focus-visible {
   background: white;
 }
 
+.map-view {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  flex: 1;
+}
+
+.map-view[hidden] {
+  display: none;
+}
+
+.map-toolbar {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.map-toolbar label {
+  min-width: 150px;
+}
+
+.map-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  min-height: 0;
+}
+
+.map-canvas {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.map-detail {
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.map-detail-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.map-detail-card h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.map-point {
+  position: absolute;
+  width: var(--point-size, 10px);
+  height: var(--point-size, 10px);
+  border: 1px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.22);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.map-point:hover,
+.map-point:focus-visible,
+.map-point.is-selected {
+  transform: translate(-50%, -50%) scale(1.35);
+  z-index: 200;
+}
+
+.mini-map-panel {
+  margin: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.mini-map-panel h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.mini-map {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.mini-map-point {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid white;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.mini-map-point.is-center {
+  width: 14px;
+  height: 14px;
+  background: var(--bad);
+}
+
+.neighbor-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.neighbor-item {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.neighbor-item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .empty-state {
   display: grid;
   place-items: center;
@@ -420,6 +557,15 @@ a:focus-visible {
   .browser-panel,
   .viewer-panel {
     min-height: 560px;
+  }
+
+  .map-body {
+    grid-template-columns: 1fr;
+  }
+
+  .map-detail {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 }
 

@@ -1,4 +1,5 @@
 const DATA_URL = "site/data/icml2026_index.json";
+const MAP_URL = "site/data/icml2026_map.json";
 const PAGE_SIZE = 80;
 const REPO_RAW_BASE = "https://raw.githubusercontent.com/KimYeongHyeon/icml-2026-materials-browser/main/";
 const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
@@ -14,6 +15,9 @@ const state = {
   selectedId: "",
   visibleCount: PAGE_SIZE,
   data: null,
+  mapData: null,
+  mapColor: "area",
+  mapMode: "2d",
 };
 
 const els = {
@@ -26,6 +30,11 @@ const els = {
   resultCount: document.querySelector("#resultCount"),
   activeSummary: document.querySelector("#activeSummary"),
   results: document.querySelector("#results"),
+  mapView: document.querySelector("#mapView"),
+  mapCanvas: document.querySelector("#mapCanvas"),
+  mapDetail: document.querySelector("#mapDetail"),
+  mapColor: document.querySelector("#mapColorSelect"),
+  mapMode: document.querySelector("#mapModeSelect"),
   viewerKind: document.querySelector("#viewerKind"),
   viewerTitle: document.querySelector("#viewerTitle"),
   viewerActions: document.querySelector("#viewerActions"),
@@ -83,6 +92,7 @@ function typeLabel(type) {
     paper: "Paper",
     poster: "Poster",
     workshop: "Workshop",
+    map: "Map",
   }[type] || type;
 }
 
@@ -114,7 +124,7 @@ function statusClass(record) {
 function getFilteredRecords() {
   const query = normalize(state.query);
   return state.data.records.filter((record) => {
-    if (record.type !== state.tab) return false;
+    if (state.tab !== "map" && record.type !== state.tab) return false;
     if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
     if (state.group !== "all" && record.group !== state.group) return false;
     if (state.asset === "local" && !(record.hasPdf || record.hasPoster || record.hasSlide)) return false;
@@ -125,7 +135,7 @@ function getFilteredRecords() {
     if (state.asset === "metadata" && record.availabilityStatus !== "metadata") return false;
     if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
     if (!query) return true;
-    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${categoryTags(record).join(" ")}`);
+    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""}`);
     return haystack.includes(query);
   });
 }
@@ -151,7 +161,7 @@ function option(value, label) {
 }
 
 function updateSelects() {
-  const recordsForTab = state.data.records.filter((record) => record.type === state.tab);
+  const recordsForTab = state.tab === "map" ? state.data.records : state.data.records.filter((record) => record.type === state.tab);
   const categories = [...new Set(recordsForTab.flatMap((record) => categoryTags(record)))].sort();
   const groups = [...new Set(recordsForTab.map((record) => record.group))].sort();
 
@@ -203,6 +213,118 @@ function renderResults() {
   });
 
   queueMathTypeset(els.results);
+}
+
+function mapRecordById() {
+  const records = state.mapData?.records || [];
+  return new Map(records.map((record) => [record.id, record]));
+}
+
+function mapColorValue(record) {
+  if (state.mapColor === "domain") return (record.domainTags || ["General"])[0] || "General";
+  if (state.mapColor === "cluster") return record.clusterLabel || "Cluster";
+  if (state.mapColor === "quality") return record.embeddingTextQuality || "unavailable";
+  if (state.mapColor === "availability") return record.availabilityLabel || "Metadata";
+  return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
+}
+
+function colorForValue(value) {
+  let hash = 0;
+  for (const char of String(value)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const hue = hash % 360;
+  return `hsl(${hue} 68% 42%)`;
+}
+
+function scaleMapValue(value, min, max) {
+  return max === min ? 50 : 5 + ((value - min) / (max - min)) * 90;
+}
+
+function renderMapDetail(record) {
+  if (!record) {
+    els.mapDetail.innerHTML = `<div class="empty-state compact"><strong>Select a point</strong><span>Click a mapped record to inspect it.</span></div>`;
+    return;
+  }
+  const mapById = mapRecordById();
+  const map = mapById.get(record.id);
+  const neighbors = (map?.nearestNeighbors || []).slice(0, 8)
+    .map((neighbor) => ({ score: neighbor.score, record: state.data.records.find((item) => item.id === neighbor.id) }))
+    .filter((item) => item.record);
+  els.mapDetail.innerHTML = `
+    <div class="map-detail-card">
+      <p class="eyebrow">${escapeHtml(typeLabel(record.type))} · ${escapeHtml(record.clusterLabel || "Mapped record")}</p>
+      <h3>${escapeHtml(plainMathTitle(record.title))}</h3>
+      <div class="badges">
+        ${(record.areaTags || []).slice(0, 3).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
+        ${(record.domainTags || []).slice(0, 2).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
+        <span class="badge">${escapeHtml(record.embeddingTextQuality || "unavailable")}</span>
+      </div>
+      <button class="action primary map-open-record" type="button">Open in viewer</button>
+      <div class="neighbor-list">
+        ${neighbors.map((item) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(item.record.id)}"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Number(item.score || 0).toFixed(2)} similarity</span></button>`).join("")}
+      </div>
+    </div>
+  `;
+  els.mapDetail.querySelector(".map-open-record")?.addEventListener("click", () => renderViewer(record));
+  els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedId = button.dataset.id;
+      const selected = state.data.records.find((item) => item.id === state.selectedId);
+      renderMap();
+      renderMapDetail(selected);
+      renderViewer(selected);
+    });
+  });
+}
+
+function renderMap() {
+  if (state.tab !== "map") return;
+  if (!state.mapData?.records?.length) {
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No map data</strong><span>Run the semantic map builder.</span></div>`;
+    renderMapDetail(null);
+    return;
+  }
+  const mapById = mapRecordById();
+  const visibleRecords = getFilteredRecords().filter((record) => record.mapAvailable && mapById.has(record.id));
+  els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
+  els.activeSummary.textContent = `Map · ${state.category === "all" ? "all fields" : state.category} · ${state.mapMode.toUpperCase()}`;
+  if (!visibleRecords.length) {
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No mapped records</strong><span>Adjust the filters.</span></div>`;
+    renderMapDetail(null);
+    return;
+  }
+  const points = visibleRecords.map((record) => ({ record, map: mapById.get(record.id) }));
+  const xs = points.map((item) => item.map.x);
+  const ys = points.map((item) => item.map.y);
+  const zs = points.map((item) => Number.isFinite(item.map.z) ? item.map.z : 0);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
+  els.mapCanvas.innerHTML = points.map(({ record, map }) => {
+    const colorValue = mapColorValue(record);
+    const left = scaleMapValue(map.x, minX, maxX);
+    const depth = scaleMapValue(Number.isFinite(map.z) ? map.z : 0, minZ, maxZ);
+    const depthOffset = state.mapMode === "3d" ? (depth - 50) * 0.12 : 0;
+    const top = 100 - scaleMapValue(map.y, minY, maxY) + depthOffset;
+    const pointSize = state.mapMode === "3d" ? 7 + depth / 10 : 10;
+    const opacity = state.mapMode === "3d" ? 0.48 + depth / 180 : 0.82;
+    const zIndex = state.mapMode === "3d" ? Math.round(depth) : 1;
+    const selected = record.id === state.selectedId ? " is-selected" : "";
+    return `<button class="map-point${selected}" type="button" data-id="${escapeHtml(record.id)}" style="left:${left}%;top:${Math.max(2, Math.min(98, top))}%;background:${colorForValue(colorValue)};--point-size:${pointSize}px;opacity:${opacity};z-index:${zIndex}" title="${escapeHtml(plainMathTitle(record.title))}"></button>`;
+  }).join("");
+  els.mapCanvas.querySelectorAll(".map-point").forEach((point) => {
+    point.addEventListener("click", () => {
+      state.selectedId = point.dataset.id;
+      const selected = state.data.records.find((record) => record.id === state.selectedId);
+      renderMap();
+      renderMapDetail(selected);
+      renderViewer(selected);
+    });
+  });
+  const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
+  renderMapDetail(selected || visibleRecords[0]);
 }
 
 function resetResultWindow() {
@@ -316,6 +438,33 @@ function renderAssetOpenFallback(record, assetPath) {
   `;
 }
 
+function renderMiniMap(record) {
+  if (!record?.mapAvailable || !state.mapData?.records?.length) return "";
+  const mapById = mapRecordById();
+  const center = mapById.get(record.id);
+  if (!center) return "";
+  const neighborIds = (center.nearestNeighbors || []).slice(0, 6).map((item) => item.id);
+  const neighbors = neighborIds
+    .map((id) => ({
+      record: state.data.records.find((item) => item.id === id),
+      map: mapById.get(id),
+      score: (center.nearestNeighbors || []).find((item) => item.id === id)?.score,
+    }))
+    .filter((item) => item.record && item.map);
+  const points = [{ record, map: center, score: 1, center: true }, ...neighbors];
+  return `
+    <section class="mini-map-panel">
+      <h3>Related papers</h3>
+      <div class="mini-map">
+        ${points.map((item) => `<button class="mini-map-point ${item.center ? "is-center" : ""}" type="button" data-id="${escapeHtml(item.record.id)}" style="left:${Math.max(5, Math.min(95, 50 + (item.map.x - center.x) * 18))}%;top:${Math.max(5, Math.min(95, 50 - (item.map.y - center.y) * 18))}%;" title="${escapeHtml(plainMathTitle(item.record.title))}"></button>`).join("")}
+      </div>
+      <div class="neighbor-list">
+        ${neighbors.map((item) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(item.record.id)}"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Number(item.score || 0).toFixed(2)} similarity</span></button>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderViewer(record) {
   if (!record) {
     els.viewerKind.textContent = "No selection";
@@ -376,19 +525,36 @@ function renderViewer(record) {
     }
     els.viewerFrame.innerHTML = `<div class="empty-state status-${escapeHtml(record.availabilityStatus || "metadata")}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   }
+  const miniMap = renderMiniMap(record);
+  if (miniMap) {
+    els.viewerFrame.insertAdjacentHTML("beforeend", miniMap);
+    els.viewerFrame.querySelectorAll(".mini-map-point, .neighbor-item").forEach((button) => {
+      button.addEventListener("click", () => {
+        const selected = state.data.records.find((item) => item.id === button.dataset.id);
+        state.selectedId = button.dataset.id;
+        renderResults();
+        renderMap();
+        renderViewer(selected);
+      });
+    });
+  }
   queueMathTypeset(document.body);
 }
 
 function renderAll() {
   els.tabs.forEach((button) => {
-    const count = state.data?.summary?.typeCounts?.[button.dataset.tab] || 0;
+    const count = button.dataset.tab === "map" ? state.mapData?.records?.length || 0 : state.data?.summary?.typeCounts?.[button.dataset.tab] || 0;
     button.hidden = count === 0;
     button.classList.toggle("is-active", button.dataset.tab === state.tab);
   });
   updateSelects();
   state.selectedId = "";
   resetResultWindow();
+  const isMap = state.tab === "map";
+  els.results.hidden = isMap;
+  els.mapView.hidden = !isMap;
   renderResults();
+  renderMap();
   renderViewer(null);
 }
 
@@ -396,6 +562,12 @@ async function init() {
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
   const response = await fetch(DATA_URL);
   state.data = await response.json();
+  try {
+    const mapResponse = await fetch(MAP_URL);
+    state.mapData = mapResponse.ok ? await mapResponse.json() : null;
+  } catch {
+    state.mapData = null;
+  }
   updateHeader();
   renderAll();
 
@@ -437,7 +609,16 @@ async function init() {
     state.selectedId = "";
     resetResultWindow();
     renderResults();
+    renderMap();
     renderViewer(null);
+  });
+  els.mapColor.addEventListener("change", (event) => {
+    state.mapColor = event.target.value;
+    renderMap();
+  });
+  els.mapMode.addEventListener("change", (event) => {
+    state.mapMode = event.target.value;
+    renderMap();
   });
   els.results.addEventListener("scroll", () => {
     const distanceFromBottom = els.results.scrollHeight - els.results.scrollTop - els.results.clientHeight;

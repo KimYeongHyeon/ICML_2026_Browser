@@ -12,6 +12,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 MATERIALS = ROOT / "icml_2026_materials"
 OUT = ROOT / os.environ.get("ICML_SITE_INDEX", "docs/site/data/icml2026_index.json")
+SEMANTIC_SIDECAR = ROOT / "docs" / "site" / "data" / "icml2026_semantic_sidecar.json"
 GENERIC_WORKSHOP_TITLES = {
     "call for papers",
     "official workshop page",
@@ -48,6 +49,14 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
             if line:
                 rows.append(json.loads(line))
     return rows
+
+
+def read_semantic_sidecar() -> dict[str, dict[str, Any]]:
+    if not SEMANTIC_SIDECAR.exists():
+        return {}
+    payload = json.loads(SEMANTIC_SIDECAR.read_text(encoding="utf-8"))
+    records = payload.get("records", {})
+    return records if isinstance(records, dict) else {}
 
 
 def as_author_string(value: Any) -> str:
@@ -106,7 +115,7 @@ def should_include_paper_row(source: dict[str, Any]) -> bool:
     return has_public_pdf and "/poster/" not in page_url
 
 
-def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[str, Any]:
+def compact_record(source: dict[str, Any], item_type: str, group: str, semantic: dict[str, dict[str, Any]]) -> dict[str, Any]:
     title = str(source.get("title") or "Untitled")
     local_pdf = rel(source.get("local_pdf_path"))
     local_poster = rel(source.get("local_poster_path"))
@@ -120,6 +129,7 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
         item_id = str(source.get("icml_poster_id") or source.get("poster_page_url") or title)
     else:
         item_id = str(source.get("openreview_id") or source.get("paper_url") or title)
+    semantic_fields = semantic.get(item_id, {})
 
     has_pdf = bool(local_pdf)
     has_poster = bool(local_poster)
@@ -164,6 +174,14 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
         "group": group,
         "category": category_tags[0],
         "categoryTags": category_tags,
+        "areaTags": semantic_fields.get("areaTags", []),
+        "domainTags": semantic_fields.get("domainTags", []),
+        "clusterId": semantic_fields.get("clusterId"),
+        "clusterLabel": semantic_fields.get("clusterLabel"),
+        "classificationConfidence": semantic_fields.get("classificationConfidence"),
+        "classificationReason": semantic_fields.get("classificationReason", ""),
+        "embeddingTextQuality": semantic_fields.get("embeddingTextQuality", "unavailable"),
+        "mapAvailable": bool(semantic_fields.get("mapAvailable", False)),
         "status": status,
         "sourceType": str(source.get("source_type") or ""),
         "failureReason": failure_reason,
@@ -188,16 +206,17 @@ def compact_record(source: dict[str, Any], item_type: str, group: str) -> dict[s
 
 def build() -> dict[str, Any]:
     records: list[dict[str, Any]] = []
+    semantic = read_semantic_sidecar()
 
     for row in read_jsonl(MATERIALS / "papers" / "manifest.jsonl"):
         if not should_include_paper_row(row):
             continue
-        records.append(compact_record(row, "paper", "Main Conference"))
+        records.append(compact_record(row, "paper", "Main Conference", semantic))
 
     for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):
         if row.get("source_type") and row.get("source_type") != "official_icml_virtual_poster":
             continue
-        records.append(compact_record(row, "poster", "Main Conference"))
+        records.append(compact_record(row, "poster", "Main Conference", semantic))
 
     workshop_root = MATERIALS / "workshops"
     for manifest in sorted(workshop_root.glob("*/manifest.jsonl")):
@@ -206,7 +225,7 @@ def build() -> dict[str, Any]:
             if not should_include_workshop_row(row):
                 continue
             group = str(row.get("workshop_name") or slug)
-            records.append(compact_record(row, "workshop", group))
+            records.append(compact_record(row, "workshop", group, semantic))
 
     type_counts: dict[str, int] = {}
     asset_counts = {"pdf": 0, "poster": 0, "slide": 0}

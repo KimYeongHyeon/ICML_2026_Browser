@@ -43,6 +43,32 @@ Validate the site data contract without rebuilding:
 scripts/verify_site_contract.sh
 ```
 
+## Semantic Map Build
+
+The Map tab is generated offline and served as static JSON. The default build uses deterministic smoke embeddings so the site remains rebuildable without model downloads:
+
+```bash
+scripts/build_site.sh
+```
+
+For real local scientific embeddings, install:
+
+```bash
+python3 -m pip install sentence-transformers umap-learn scikit-learn numpy
+```
+
+Then run:
+
+```bash
+ICML_SEMANTIC_ARGS="" scripts/build_site.sh
+```
+
+The semantic verifier checks map/index consistency:
+
+```bash
+python3 scripts/verify_embedding_map.py
+```
+
 ## Local Preview
 
 ```bash
