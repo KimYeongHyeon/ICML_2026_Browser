@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ICML 2026 Materials Browser</title>
+    <link rel="stylesheet" href="site/styles.css" />
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["$", "$"], ["\\(", "\\)"]],
+          processEscapes: true
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code", "select", "option"]
+        },
+        startup: {
+          typeset: false
+        }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">ICML 2026 Archive</p>
+        <h1>Materials Browser</h1>
+      </div>
+      <div class="header-stats" id="headerStats" aria-live="polite"></div>
+    </header>
+
+    <main class="workspace">
+      <section class="browser-panel" aria-label="ICML material browser">
+        <nav class="tabs" aria-label="Material type">
+          <button class="tab" data-tab="paper" type="button">Papers</button>
+          <button class="tab is-active" data-tab="poster" type="button">Posters</button>
+          <button class="tab" data-tab="workshop" type="button">Workshops</button>
+        </nav>
+
+        <div class="filters">
+          <label>
+            <span>Search</span>
+            <input id="searchInput" type="search" placeholder="Title, author, keyword" autocomplete="off" />
+          </label>
+          <label>
+            <span>Field</span>
+            <select id="categorySelect"></select>
+          </label>
+          <label>
+            <span>Group</span>
+            <select id="groupSelect"></select>
+          </label>
+          <label>
+            <span>Asset</span>
+            <select id="assetSelect">
+              <option value="all">All records</option>
+              <option value="local">Downloaded locally</option>
+              <option value="pdf">Has PDF</option>
+              <option value="poster">Has poster image</option>
+              <option value="slide">Has slide deck</option>
+              <option value="blocked">Blocked</option>
+              <option value="metadata">Metadata only</option>
+              <option value="unavailable">Unavailable / skipped</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="result-bar">
+          <strong id="resultCount">0 results</strong>
+          <span id="activeSummary"></span>
+        </div>
+
+        <div class="results" id="results" tabindex="0" aria-label="Filtered results"></div>
+      </section>
+
+      <aside class="viewer-panel" aria-label="Selected material viewer">
+        <div class="viewer-header">
+          <div>
+            <p class="eyebrow" id="viewerKind">No selection</p>
+            <h2 id="viewerTitle">Select a record</h2>
+          </div>
+          <div class="viewer-actions" id="viewerActions"></div>
+        </div>
+        <div class="viewer-meta" id="viewerMeta"></div>
+        <div class="viewer-frame" id="viewerFrame">
+          <div class="empty-state">
+            <strong>Pick a paper, poster, or workshop item.</strong>
+            <span>PDFs, slide decks, and poster images open here when a public local file exists.</span>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="site/app.js" type="module"></script>
+  </body>
+</html>
