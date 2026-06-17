@@ -364,7 +364,14 @@ function renderMapLegend(visibleRecords) {
   const items = [...counts.entries()]
     .sort((left, right) => right[1] - left[1])
     .slice(0, 12);
-  els.mapLegend.innerHTML = items.map(([value, count]) => `
+  const allCount = visibleRecords.length;
+  els.mapLegend.innerHTML = `
+    <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
+      <span class="legend-swatch legend-swatch-all"></span>
+      <span>All</span>
+      <strong>${allCount.toLocaleString()}</strong>
+    </button>
+  ` + items.map(([value, count]) => `
     <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(value)}">
       <span class="legend-swatch" style="background:${colorForValue(value)}"></span>
       <span>${escapeHtml(value)}</span>
@@ -373,7 +380,7 @@ function renderMapLegend(visibleRecords) {
   `).join("");
   els.mapLegend.querySelectorAll(".legend-item").forEach((button) => {
     button.addEventListener("click", () => {
-      const value = button.dataset.value;
+      const value = button.dataset.value || "";
       state.mapFilterValue = state.mapFilterValue === value ? "" : value || "";
       state.selectedId = "";
       resetResultWindow();

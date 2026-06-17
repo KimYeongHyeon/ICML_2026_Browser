@@ -400,26 +400,25 @@ a:focus-visible {
 }
 
 .map-toolbar {
-  display: flex;
-  align-items: end;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(170px, 240px) minmax(170px, 240px) minmax(0, 1fr);
+  align-items: start;
   gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
 }
 
 .map-toolbar label {
-  min-width: 150px;
+  min-width: 0;
 }
 
 .map-legend {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
-  flex: 1;
-  min-width: 320px;
-  overflow-x: auto;
-  padding-bottom: 1px;
+  min-width: 0;
+  overflow: visible;
 }
 
 .legend-item {
@@ -427,7 +426,7 @@ a:focus-visible {
   align-items: center;
   gap: 6px;
   min-width: max-content;
-  height: 40px;
+  min-height: 40px;
   padding: 6px 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -436,6 +435,7 @@ a:focus-visible {
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .legend-item:hover,
@@ -450,6 +450,10 @@ a:focus-visible {
   height: 11px;
   border-radius: 50%;
   box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9), 0 0 0 3px rgb(15 23 42 / 0.12);
+}
+
+.legend-swatch-all {
+  background: conic-gradient(from 90deg, #60a5fa, #22d3ee, #34d399, #f59e0b, #f472b6, #60a5fa);
 }
 
 .legend-item strong {
@@ -625,6 +629,14 @@ a:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .map-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .map-legend {
+    grid-column: 1 / -1;
+  }
+
   .map-detail {
     border-left: 0;
     border-top: 1px solid var(--line);
@@ -642,6 +654,14 @@ a:focus-visible {
 
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .map-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .map-legend {
+    grid-column: auto;
   }
 
   .result-bar,
