@@ -391,11 +391,43 @@ a:focus-visible {
   font-size: 18px;
 }
 
-.viewer-frame img {
+.poster-preview {
+  display: grid;
+  justify-items: center;
+  padding: 12px;
+  background: #e5e7eb;
+}
+
+.poster-zoom-toggle {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.poster-zoom-toggle img,
+.viewer-frame > img {
   display: block;
   max-width: 100%;
   margin: 0 auto;
   background: white;
+}
+
+.poster-preview.is-zoomed {
+  justify-items: start;
+}
+
+.poster-preview.is-zoomed .poster-zoom-toggle {
+  max-width: none;
+  cursor: zoom-out;
+}
+
+.poster-preview.is-zoomed img {
+  width: auto;
+  max-width: none;
+  max-height: none;
 }
 
 .map-view {

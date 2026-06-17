@@ -1455,6 +1455,16 @@ function renderAssetOpenFallback(record, assetPath) {
   `;
 }
 
+function renderPosterPreview(record, assetPath) {
+  return `
+    <div class="poster-preview" id="posterPreview">
+      <button class="poster-zoom-toggle" type="button" aria-pressed="false" title="Click poster to enlarge. Click again to return.">
+        <img src="${escapeHtml(assetUrl(assetPath))}" alt="${escapeHtml(record.title)} poster" />
+      </button>
+    </div>
+  `;
+}
+
 function renderMiniMap(record) {
   if (!record?.mapAvailable || !state.mapData?.records?.length) return "";
   const mapById = mapRecordById();
@@ -1579,7 +1589,7 @@ function renderViewer(record) {
   els.viewerActions.innerHTML = actions;
 
   if (preferred && record.bestAssetKind === "poster") {
-    els.viewerFrame.innerHTML = `<img src="${escapeHtml(assetUrl(preferred))}" alt="${escapeHtml(record.title)} poster" />`;
+    els.viewerFrame.innerHTML = renderPosterPreview(record, preferred);
   } else if (preferred && (record.bestAssetKind === "pdf" || record.bestAssetKind === "slide")) {
     els.viewerFrame.innerHTML = renderAssetOpenFallback(record, preferred);
   } else if (fallbackPageUrl(record)) {
@@ -1603,6 +1613,14 @@ function renderViewer(record) {
     }
     els.viewerFrame.innerHTML = `<div class="empty-state status-${escapeHtml(record.availabilityStatus || "metadata")}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   }
+  els.viewerFrame.querySelector(".poster-zoom-toggle")?.addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    const preview = button.closest(".poster-preview");
+    const zoomed = !preview.classList.contains("is-zoomed");
+    preview.classList.toggle("is-zoomed", zoomed);
+    button.setAttribute("aria-pressed", String(zoomed));
+    if (!zoomed) preview.scrollIntoView({ block: "start" });
+  });
   const miniMap = renderMiniMap(record);
   if (miniMap) {
     els.viewerFrame.insertAdjacentHTML("beforeend", miniMap);
