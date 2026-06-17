@@ -22,6 +22,7 @@ const state = {
   mapFilterValue: "",
   mapGraph: null,
   mapGraphData: null,
+  miniGraph: null,
   sigmaGraph: null,
   sigmaRenderer: null,
   cyGraph: null,
@@ -397,18 +398,19 @@ function projectedGraphPosition(mapPoint, id, record) {
   };
 }
 
-function selectedNeighborIds(mapById) {
-  const selected = mapById.get(state.selectedId);
+function selectedNeighborIds(mapById, selectedId = state.selectedId, limit = 12) {
+  const selected = mapById.get(selectedId);
   if (!selected) return new Set();
-  return new Set((selected.nearestNeighbors || []).slice(0, 12).map((item) => item.id));
+  return new Set((selected.nearestNeighbors || []).slice(0, limit).map((item) => item.id));
 }
 
-function focusedGraphIds(visibleIds, mapById) {
-  if (!visibleIds.has(state.selectedId)) {
+function focusedGraphIds(visibleIds, mapById, selectedId = state.selectedId) {
+  if (selectedId === state.selectedId && !visibleIds.has(state.selectedId)) {
     state.selectedId = [...visibleIds][0] || "";
+    selectedId = state.selectedId;
   }
-  const ids = new Set([state.selectedId]);
-  const selected = mapById.get(state.selectedId);
+  const ids = new Set([selectedId]);
+  const selected = mapById.get(selectedId);
   const firstHop = (selected?.nearestNeighbors || [])
     .filter((item) => visibleIds.has(item.id))
     .slice(0, 10);
@@ -416,16 +418,16 @@ function focusedGraphIds(visibleIds, mapById) {
   for (const neighbor of firstHop) {
     const neighborMap = mapById.get(neighbor.id);
     for (const secondHop of (neighborMap?.nearestNeighbors || []).slice(0, 4)) {
-      if (visibleIds.has(secondHop.id) && secondHop.id !== state.selectedId) ids.add(secondHop.id);
+      if (visibleIds.has(secondHop.id) && secondHop.id !== selectedId) ids.add(secondHop.id);
     }
   }
   return ids;
 }
 
-function focusDepth(id, selectedNeighbors, mapById) {
-  if (id === state.selectedId) return 0;
+function focusDepth(id, selectedNeighbors, mapById, selectedId = state.selectedId) {
+  if (id === selectedId) return 0;
   if (selectedNeighbors.has(id)) return 1;
-  const selected = mapById.get(state.selectedId);
+  const selected = mapById.get(selectedId);
   const firstHop = (selected?.nearestNeighbors || []).slice(0, 12).map((item) => item.id);
   return firstHop.some((neighborId) => (mapById.get(neighborId)?.nearestNeighbors || []).some((item) => item.id === id)) ? 2 : 3;
 }
@@ -436,11 +438,11 @@ function graphNodeIds(visibleRecords, mapById) {
   return focusedGraphIds(visibleIds, mapById);
 }
 
-function focusedLayoutContext(ids, mapById) {
-  const selected = mapById.get(state.selectedId);
+function focusedLayoutContext(ids, mapById, selectedId = state.selectedId, firstHopLimit = 10) {
+  const selected = mapById.get(selectedId);
   const firstHop = (selected?.nearestNeighbors || [])
     .filter((item) => ids.has(item.id))
-    .slice(0, 10);
+    .slice(0, firstHopLimit);
   const firstHopIndex = new Map(firstHop.map((item, index) => [item.id, index]));
   const firstHopScore = new Map(firstHop.map((item) => [item.id, Number(item.score || 0)]));
   const angles = new Map();
@@ -453,7 +455,7 @@ function focusedLayoutContext(ids, mapById) {
   firstHop.forEach((item, firstIndex) => {
     const neighborMap = mapById.get(item.id);
     (neighborMap?.nearestNeighbors || []).slice(0, 5).forEach((secondHop, secondIndex) => {
-      if (!ids.has(secondHop.id) || secondHop.id === state.selectedId || firstHopIndex.has(secondHop.id)) return;
+      if (!ids.has(secondHop.id) || secondHop.id === selectedId || firstHopIndex.has(secondHop.id)) return;
       const score = Number(secondHop.score || 0);
       const previous = secondAnchors.get(secondHop.id);
       if (!previous || score > previous.score) {
@@ -470,8 +472,8 @@ function focusedLayoutContext(ids, mapById) {
   return { firstHopIndex, firstHopScore, angles, secondAnchors };
 }
 
-function focusedGraphPosition(id, record, context) {
-  if (id === state.selectedId) return { x: 0, y: 0 };
+function focusedGraphPosition(id, record, context, selectedId = state.selectedId) {
+  if (id === selectedId) return { x: 0, y: 0 };
   if (context.firstHopIndex.has(id)) {
     const rank = context.firstHopIndex.get(id);
     const score = context.firstHopScore.get(id) || 0.5;
@@ -486,7 +488,7 @@ function focusedGraphPosition(id, record, context) {
   const secondAnchor = context.secondAnchors.get(id);
   if (secondAnchor) {
     const anchorAngle = context.angles.get(secondAnchor.anchorId) || 0;
-    const anchorPosition = focusedGraphPosition(secondAnchor.anchorId, record, context);
+    const anchorPosition = focusedGraphPosition(secondAnchor.anchorId, record, context, selectedId);
     const side = secondAnchor.secondIndex % 2 === 0 ? -1 : 1;
     const angle = anchorAngle + side * (0.62 + seededUnit(id, 4) * 0.34);
     const radius = 72 + seededUnit(id, 5) * 44;
@@ -549,6 +551,51 @@ function buildGraphData(visibleRecords, mapById) {
   return { nodes, links };
 }
 
+function drawForceGraphNode(node, ctx, globalScale, options = {}) {
+  const mode = options.mode || state.mapMode;
+  const selectedId = options.selectedId || state.selectedId;
+  const hoverId = options.hoverId ?? state.mapHoverId;
+  const color = colorForValue(node.group);
+  const isSelected = node.id === selectedId || node.selected;
+  const isHover = node.id === hoverId;
+  const isAdjacent = node.adjacent;
+  const radius = isSelected ? 6.6 : isHover ? 5.6 : isAdjacent ? 4.1 : node.depth === 2 ? 3.1 : 2.5;
+  if (isSelected || isHover) {
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius + (isSelected ? 8 : 5), 0, 2 * Math.PI);
+    ctx.fillStyle = isSelected ? "rgba(96,165,250,0.14)" : "rgba(255,255,255,0.10)";
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+  ctx.fillStyle = isSelected ? "#60a5fa" : color;
+  ctx.globalAlpha = isSelected || isAdjacent || isHover ? 0.98 : mode === "focused" ? 0.78 : 0.82;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = isSelected ? 1.5 : 0.7;
+  ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
+  ctx.stroke();
+  const shouldLabel = isHover
+    || isSelected
+    || (mode === "focused" && node.depth === 1 && node.focusRank < (options.neighborLabelCount ?? 1) && globalScale > (options.labelScaleThreshold ?? 0.78));
+  if (!shouldLabel) return;
+  const maxLabelLength = options.maxLabelLength || (mode === "focused" ? 28 : 58);
+  const label = node.title.length > maxLabelLength ? `${node.title.slice(0, maxLabelLength - 3)}...` : node.title;
+  const fontSize = Math.min(options.maxFontSize || 13, Math.max(options.minFontSize || 9, (options.baseFontSize || 11) / globalScale));
+  ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+  const labelOnLeft = mode === "focused" && node.x > 0;
+  ctx.textAlign = labelOnLeft ? "right" : "left";
+  ctx.textBaseline = "middle";
+  const textX = labelOnLeft ? node.x - radius - 5 : node.x + radius + 5;
+  const textY = node.y;
+  const metrics = ctx.measureText(label);
+  ctx.fillStyle = "rgba(17,24,39,0.78)";
+  const boxX = labelOnLeft ? textX - metrics.width - 3 : textX - 3;
+  ctx.fillRect(boxX, textY - fontSize * 0.7, metrics.width + 6, fontSize * 1.35);
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText(label, textX, textY);
+}
+
 function renderMapLegend(visibleRecords) {
   if (!els.mapLegend) return;
   const counts = new Map();
@@ -591,6 +638,13 @@ function mapCanvasPoint(event) {
   return {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top,
+  };
+}
+
+function mapCanvasCenter() {
+  return {
+    x: (els.mapCanvas.clientWidth || 840) / 2,
+    y: (els.mapCanvas.clientHeight || 640) / 2,
   };
 }
 
@@ -638,6 +692,12 @@ function normalizedBox(start, end) {
     top: Math.min(start.y, end.y),
     bottom: Math.max(start.y, end.y),
   };
+}
+
+function pointInActiveSelection(point) {
+  if (!state.mapSelection.active || !state.mapSelection.start || !state.mapSelection.end) return false;
+  const box = normalizedBox(state.mapSelection.start, state.mapSelection.end);
+  return point.x >= box.left && point.x <= box.right && point.y >= box.top && point.y <= box.bottom;
 }
 
 function mapNodesInBox(start, end) {
@@ -770,13 +830,13 @@ function refreshForceSelectionState() {
   state.mapGraph?.refresh?.();
 }
 
-function isTypingTarget(target) {
-  return ["INPUT", "SELECT", "TEXTAREA", "BUTTON", "A"].includes(target?.tagName);
+function isTextEntryTarget(target) {
+  return ["INPUT", "SELECT", "TEXTAREA"].includes(target?.tagName) || target?.isContentEditable;
 }
 
 function installMapPointerInteractions() {
   document.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || isTypingTarget(event.target)) return;
+    if (event.code !== "Space" || isTextEntryTarget(event.target)) return;
     if (state.tab !== "map" || state.mapEngine !== "force") return;
     event.preventDefault();
     state.mapInteraction.spaceDown = true;
@@ -785,6 +845,9 @@ function installMapPointerInteractions() {
 
   document.addEventListener("keyup", (event) => {
     if (event.code !== "Space") return;
+    if (state.tab === "map" && state.mapEngine === "force" && !isTextEntryTarget(event.target)) {
+      event.preventDefault();
+    }
     state.mapInteraction.spaceDown = false;
     els.mapCanvas.classList.remove("is-space-ready", "is-panning");
   });
@@ -794,16 +857,18 @@ function installMapPointerInteractions() {
     const point = mapCanvasPoint(event);
     const interaction = state.mapInteraction;
     interaction.pointerId = event.pointerId;
-    interaction.mode = interaction.spaceDown ? "pan" : "box";
+    interaction.mode = interaction.spaceDown ? "pan" : pointInActiveSelection(point) ? "selection-click" : "box";
     interaction.moved = false;
     interaction.start = point;
     interaction.last = point;
-    interaction.center = state.mapGraph.centerAt?.() || { x: 0, y: 0 };
+    interaction.center = typeof state.mapGraph.screen2GraphCoords === "function"
+      ? state.mapGraph.screen2GraphCoords(mapCanvasCenter().x, mapCanvasCenter().y)
+      : { x: 0, y: 0 };
     els.mapCanvas.setPointerCapture?.(event.pointerId);
     if (interaction.mode === "pan") {
       els.mapCanvas.classList.add("is-panning");
       clearMapSelection();
-    } else {
+    } else if (interaction.mode === "box") {
       updateMapSelectionBox(point, point);
     }
     event.preventDefault();
@@ -823,7 +888,7 @@ function installMapPointerInteractions() {
         interaction.center.y - dy / zoom,
         0,
       );
-    } else {
+    } else if (interaction.mode === "box") {
       updateMapSelectionBox(interaction.start, point);
     }
     interaction.last = point;
@@ -841,7 +906,13 @@ function installMapPointerInteractions() {
     const end = mapCanvasPoint(event);
     interaction.pointerId = null;
     interaction.mode = "";
-    hideMapSelectionBox();
+    if (mode === "selection-click" && !moved) {
+      interaction.suppressClickUntil = performance.now() + 300;
+      zoomToMapSelection();
+      event.preventDefault();
+      return;
+    }
+    if (mode === "box") hideMapSelectionBox();
     if (mode === "box" && moved && Math.hypot(end.x - start.x, end.y - start.y) > 10) {
       interaction.suppressClickUntil = performance.now() + 300;
       setMapSelection(start, end);
@@ -897,45 +968,7 @@ function ensureForceGraph() {
       forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
     })
     .nodeCanvasObject((node, ctx, globalScale) => {
-      const color = colorForValue(node.group);
-      const isSelected = node.id === state.selectedId;
-      const isHover = node.id === state.mapHoverId;
-      const isAdjacent = node.adjacent;
-      const radius = isSelected ? 6.6 : isHover ? 5.6 : isAdjacent ? 4.1 : node.depth === 2 ? 3.1 : 2.5;
-      if (isSelected || isHover) {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, radius + (isSelected ? 8 : 5), 0, 2 * Math.PI);
-        ctx.fillStyle = isSelected ? "rgba(96,165,250,0.14)" : "rgba(255,255,255,0.10)";
-        ctx.fill();
-      }
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = isSelected ? "#60a5fa" : color;
-      ctx.globalAlpha = isSelected || isAdjacent || isHover ? 0.98 : state.mapMode === "focused" ? 0.78 : 0.82;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.lineWidth = isSelected ? 1.5 : 0.7;
-      ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
-      ctx.stroke();
-      const shouldLabel = isHover
-        || isSelected
-        || (state.mapMode === "focused" && node.depth === 1 && node.focusRank < 1 && globalScale > 0.78);
-      if (!shouldLabel) return;
-      const maxLabelLength = state.mapMode === "focused" ? 28 : 58;
-      const label = node.title.length > maxLabelLength ? `${node.title.slice(0, maxLabelLength - 3)}...` : node.title;
-      const fontSize = Math.min(13, Math.max(9, 11 / globalScale));
-      ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
-      const labelOnLeft = state.mapMode === "focused" && node.x > 0;
-      ctx.textAlign = labelOnLeft ? "right" : "left";
-      ctx.textBaseline = "middle";
-      const textX = labelOnLeft ? node.x - radius - 5 : node.x + radius + 5;
-      const textY = node.y;
-      const metrics = ctx.measureText(label);
-      ctx.fillStyle = "rgba(17,24,39,0.78)";
-      const boxX = labelOnLeft ? textX - metrics.width - 3 : textX - 3;
-      ctx.fillRect(boxX, textY - fontSize * 0.7, metrics.width + 6, fontSize * 1.35);
-      ctx.fillStyle = "#f8fafc";
-      ctx.fillText(label, textX, textY);
+      drawForceGraphNode(node, ctx, globalScale);
     });
   applyMapMotionSettings(state.mapGraph);
   return state.mapGraph;
@@ -1465,11 +1498,11 @@ function renderPosterPreview(record, assetPath) {
   `;
 }
 
-function renderMiniMap(record) {
+function semanticNeighborhood(record) {
   if (!record?.mapAvailable || !state.mapData?.records?.length) return "";
   const mapById = mapRecordById();
   const center = mapById.get(record.id);
-  if (!center) return "";
+  if (!center) return null;
   const centerAreas = new Set(record.areaTags || []);
   const neighbors = (center.nearestNeighbors || []).slice(0, 8)
     .map((neighbor, index) => ({
@@ -1477,8 +1510,49 @@ function renderMiniMap(record) {
       score: neighbor.score,
       rank: index + 1,
     }))
-    .filter((item) => item.record);
-  if (!neighbors.length) return "";
+    .filter((item) => item.record && mapById.has(item.record.id));
+  if (!neighbors.length) return null;
+  const ids = new Set([record.id, ...neighbors.map((item) => item.record.id)]);
+  const context = focusedLayoutContext(ids, mapById, record.id, 8);
+  const selectedNeighbors = selectedNeighborIds(mapById, record.id, 8);
+  const recordsById = new Map([record, ...neighbors.map((item) => item.record)].map((item) => [item.id, item]));
+  const nodes = [...ids].map((id) => {
+    const item = recordsById.get(id);
+    const position = focusedGraphPosition(id, item, context, record.id);
+    return {
+      id,
+      record: item,
+      title: plainMathTitle(item?.title || ""),
+      group: mapColorValue(item || {}),
+      selected: id === record.id,
+      adjacent: selectedNeighbors.has(id),
+      depth: focusDepth(id, selectedNeighbors, mapById, record.id),
+      type: item?.type || "record",
+      focusRank: context.firstHopIndex.get(id) ?? 99,
+      seedX: position.x,
+      seedY: position.y,
+      x: position.x,
+      y: position.y,
+    };
+  }).filter((node) => node.record);
+  const links = [];
+  const seen = new Set();
+  for (const node of nodes) {
+    const map = mapById.get(node.id);
+    for (const neighbor of (map?.nearestNeighbors || []).slice(0, 5)) {
+      if (!ids.has(neighbor.id)) continue;
+      const key = [node.id, neighbor.id].sort().join("::");
+      if (seen.has(key) || node.id === neighbor.id) continue;
+      seen.add(key);
+      links.push({
+        source: node.id,
+        target: neighbor.id,
+        value: Number(neighbor.score || 0),
+        selected: node.id === record.id || neighbor.id === record.id,
+        depth: node.id === record.id || neighbor.id === record.id ? 1 : 2,
+      });
+    }
+  }
   const scores = neighbors.map((item) => Number(item.score || 0));
   const minScore = Math.min(...scores);
   const maxScore = Math.max(...scores);
@@ -1486,49 +1560,102 @@ function renderMiniMap(record) {
   const similarityPercent = (score) => Math.max(0.08, Math.min(1, (Number(score || 0) - minScore) / scoreRange));
   const sharedTags = (neighborRecord) => (neighborRecord.areaTags || []).filter((tag) => centerAreas.has(tag));
   const topTags = countLabels(neighbors.map((item) => item.record.areaTags || [])).slice(0, 4);
-  const nodeButtons = neighbors.map((item, index) => {
-    const strength = similarityPercent(item.score);
-    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / neighbors.length;
-    const radius = 18 + (1 - strength) * 28 + (index % 2) * 4;
-    const left = 50 + Math.cos(angle) * radius;
-    const top = 50 + Math.sin(angle) * radius;
-    const size = 11 + strength * 9;
-    const color = colorForValue((item.record.areaTags || item.record.domainTags || [item.record.group || "Other"])[0]);
-    const labelSide = left > 62 ? " is-left" : "";
-    const label = index < 3 ? `<span class="mini-graph-label${labelSide}">${escapeHtml(plainMathTitle(item.record.title))}</span>` : "";
-    return `
-      <button class="mini-graph-node" type="button" data-id="${escapeHtml(item.record.id)}" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;background:${color};" title="${escapeHtml(plainMathTitle(item.record.title))}">
-        <span class="mini-rank">${item.rank}</span>
-        ${label}
-      </button>
-    `;
-  }).join("");
-  const edges = neighbors.map((item, index) => {
-    const strength = similarityPercent(item.score);
-    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / neighbors.length;
-    const radius = 18 + (1 - strength) * 28 + (index % 2) * 4;
-    const x = 50 + Math.cos(angle) * radius;
-    const y = 50 + Math.sin(angle) * radius;
-    return `<line x1="50" y1="50" x2="${x}" y2="${y}" style="stroke-width:${0.55 + strength * 1.9};opacity:${0.28 + strength * 0.55}" />`;
-  }).join("");
+  return { neighbors, topTags, maxScore, similarityPercent, sharedTags, graphData: { nodes, links } };
+}
+
+function destroyMiniGraph() {
+  state.miniGraph?.pauseAnimation?.();
+  state.miniGraph = null;
+}
+
+function fitGraphToElement(graph, graphData, element, options = {}) {
+  if (!graph || !graphData?.nodes?.length || !element) return;
+  const bounds = graphData.nodes.reduce((box, node) => ({
+    minX: Math.min(box.minX, Number(node.x) || 0),
+    maxX: Math.max(box.maxX, Number(node.x) || 0),
+    minY: Math.min(box.minY, Number(node.y) || 0),
+    maxY: Math.max(box.maxY, Number(node.y) || 0),
+  }), {
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+  });
+  const width = element.clientWidth || 720;
+  const height = element.clientHeight || 240;
+  const padding = options.padding ?? 48;
+  const spanX = Math.max(60, bounds.maxX - bounds.minX);
+  const spanY = Math.max(60, bounds.maxY - bounds.minY);
+  const zoom = Math.max(0.24, Math.min(options.maxZoom ?? 2.6, Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY)));
+  graph.centerAt?.((bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2, options.duration ?? 260);
+  graph.zoom?.(zoom, options.duration ?? 260);
+}
+
+function mountMiniGraph(graphData, selectedId) {
+  destroyMiniGraph();
+  const container = els.viewerFrame.querySelector(".mini-graph");
+  if (!container || typeof window.ForceGraph !== "function") return;
+  state.miniGraph = window.ForceGraph()(container)
+    .backgroundColor("#111827")
+    .nodeId("id")
+    .nodeLabel("")
+    .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : 2.3)
+    .enableZoomInteraction(false)
+    .enablePanInteraction(false)
+    .enableNodeDrag(false)
+    .linkCurvature(0.06)
+    .linkWidth((link) => link.selected ? 1.25 : Math.max(0.18, Number(link.value || 0) * 1.1))
+    .linkColor((link) => link.selected ? "rgba(148,196,255,0.48)" : "rgba(148,163,184,0.13)")
+    .linkDirectionalParticles(0)
+    .d3AlphaMin(0.001)
+    .d3AlphaDecay(0.018)
+    .d3VelocityDecay(0.42)
+    .nodeCanvasObject((node, ctx, globalScale) => {
+      drawForceGraphNode(node, ctx, globalScale, {
+        mode: "focused",
+        selectedId,
+        hoverId: "",
+        neighborLabelCount: 3,
+        labelScaleThreshold: 0.35,
+        maxLabelLength: 34,
+        baseFontSize: 10,
+        maxFontSize: 12,
+      });
+    })
+    .onNodeClick((node) => {
+      if (!node?.record) return;
+      state.selectedId = node.id;
+      renderResults();
+      renderMap();
+      renderViewer(node.record);
+    })
+    .width(container.clientWidth || 720)
+    .height(container.clientHeight || 240)
+    .graphData(graphData);
+  state.miniGraph.d3Force("charge")?.strength((node) => node.selected ? -128 : -54);
+  state.miniGraph.d3Force("link")?.distance((link) => link.selected ? 56 : 66);
+  applyForceAnchors(state.miniGraph, 0.05);
+  state.miniGraph.cooldownTime?.(3200);
+  state.miniGraph.resumeAnimation?.();
+  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 42, maxZoom: 2.8 }), 80);
+  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 44, maxZoom: 2.8, duration: 220 }), 700);
+}
+
+function renderMiniMap(record) {
+  const neighborhood = semanticNeighborhood(record);
+  if (!neighborhood) return "";
+  const { neighbors, topTags, maxScore, similarityPercent, sharedTags } = neighborhood;
   return `
-    <section class="mini-map-panel">
+    <section class="mini-map-panel" data-mini-graph-record="${escapeHtml(record.id)}">
       <div class="mini-map-heading">
         <h3>Semantic neighborhood</h3>
         <span>${neighbors.length} nearest mapped records</span>
       </div>
-      <div class="mini-graph" aria-label="Semantic neighborhood: closer nodes are more similar and colors represent areas">
+      <div class="mini-graph" aria-label="Semantic neighborhood graph using the same ForceGraph renderer as the main map">
         <div class="mini-graph-caption">
           <strong>${Number(maxScore || 0).toFixed(2)}</strong>
           <span>top similarity</span>
         </div>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <circle cx="50" cy="50" r="18" />
-          <circle cx="50" cy="50" r="36" />
-          ${edges}
-        </svg>
-        <span class="mini-graph-node is-center" style="left:50%;top:50%;" title="${escapeHtml(plainMathTitle(record.title))}"></span>
-        ${nodeButtons}
       </div>
       <div class="mini-tag-summary">
         ${topTags.map(([tag, count]) => `<span><i style="background:${colorForValue(tag)}"></i>${escapeHtml(tag)} <b>${count}</b></span>`).join("")}
@@ -1554,6 +1681,7 @@ function renderMiniMap(record) {
 }
 
 function renderViewer(record) {
+  destroyMiniGraph();
   if (!record) {
     els.viewerKind.textContent = "No selection";
     els.viewerTitle.textContent = "Select a record";
@@ -1624,7 +1752,9 @@ function renderViewer(record) {
   const miniMap = renderMiniMap(record);
   if (miniMap) {
     els.viewerFrame.insertAdjacentHTML("beforeend", miniMap);
-    els.viewerFrame.querySelectorAll(".mini-graph-node[data-id], .neighbor-item").forEach((button) => {
+    const neighborhood = semanticNeighborhood(record);
+    if (neighborhood) mountMiniGraph(neighborhood.graphData, record.id);
+    els.viewerFrame.querySelectorAll(".neighbor-item").forEach((button) => {
       button.addEventListener("click", () => {
         const selected = state.data.records.find((item) => item.id === button.dataset.id);
         state.selectedId = button.dataset.id;
