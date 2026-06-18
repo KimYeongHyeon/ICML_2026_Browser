@@ -157,8 +157,17 @@ async function renderGraph() {
     simulationRepulsion: 0.35,
     simulationLinkDistance: 18,
     simulationFriction: 0.84,
-    onClick: (point) => {
-      if (point?.id) setDetailById(point.id);
+    onClick: (index) => {
+      // Cosmograph's click callback passes (index, position, event), not a point
+      // object. Map the index back to the original point id via the bundle (same
+      // order as the points array passed to prepareCosmographData); a background
+      // click (no index) clears the detail panel, matching the canvas fallback.
+      const node = typeof index === "number" ? state.bundle?.nodes[index] : null;
+      if (node?.id) {
+        setDetailById(node.id);
+      } else {
+        els.detail.innerHTML = renderDetailHtml(null);
+      }
     },
   });
   els.detail.innerHTML = renderDetailHtml(null);
