@@ -180,7 +180,7 @@ h2 {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1.25fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(210px, 1.05fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 1.15fr);
   gap: 10px;
   padding: 12px;
   border-bottom: 1px solid var(--line);
