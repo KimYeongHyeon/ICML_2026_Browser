@@ -27,6 +27,10 @@
       <div>
         <p class="eyebrow">ICML 2026 Archive</p>
         <h1>Materials Browser</h1>
+        <nav class="page-links" aria-label="Graph experiments">
+          <a href="cosmograph.html">Cosmograph</a>
+          <a href="sigma.html">Sigma.js</a>
+        </nav>
       </div>
       <div class="header-stats" id="headerStats" aria-live="polite"></div>
     </header>
@@ -97,9 +101,10 @@
                     <label class="map-setting">
                       <span>Color</span>
                       <select id="mapColorSelect">
-                        <option value="area">Area</option>
+                        <option value="area-domain">Area + Domain</option>
+                        <option value="area">Research area</option>
                         <option value="domain">Domain</option>
-                        <option value="cluster">Cluster</option>
+                        <option value="cluster">Embedding cluster</option>
                         <option value="quality">Text quality</option>
                         <option value="availability">Availability</option>
                       </select>

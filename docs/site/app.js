@@ -19,7 +19,7 @@ const state = {
   data: null,
   mapData: null,
   mapEngine: "force",
-  mapColor: "area",
+  mapColor: "area-domain",
   mapMode: "global",
   mapLive: true,
   mapFilterValue: "",
@@ -152,14 +152,39 @@ const CLUSTER_AREA_HINTS = {
   "cluster-systems": "Systems",
   "cluster-vision": "Vision",
   "cluster-multimodal": "Multimodal Learning",
+  "cluster-multimodal-learning": "Multimodal Learning",
   "cluster-generative": "Generative Models",
+  "cluster-generative-models": "Generative Models",
   "cluster-optimization": "Optimization",
   "cluster-theory": "Theory",
   "cluster-probabilistic": "Probabilistic Methods",
+  "cluster-probabilistic-methods": "Probabilistic Methods",
   "cluster-rl": "Reinforcement Learning",
+  "cluster-reinforcement-learning": "Reinforcement Learning",
   "cluster-safety": "Safety",
   "cluster-evaluation": "Evaluation",
+  "cluster-other": "Other",
 };
+
+const CLUSTER_ORDER = [
+  "cluster-llms",
+  "cluster-agents",
+  "cluster-systems",
+  "cluster-vision",
+  "cluster-multimodal",
+  "cluster-multimodal-learning",
+  "cluster-generative",
+  "cluster-generative-models",
+  "cluster-optimization",
+  "cluster-theory",
+  "cluster-probabilistic",
+  "cluster-probabilistic-methods",
+  "cluster-rl",
+  "cluster-reinforcement-learning",
+  "cluster-safety",
+  "cluster-evaluation",
+  "cluster-other",
+];
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
@@ -200,8 +225,10 @@ function plainMathTitle(value) {
   let title = String(value || "");
   title = title.replaceAll("\\mathbb{R}", "ℝ");
   title = title.replaceAll("\\mathcal{O}", "O");
+  title = title.replace(/\\(?:texttt|textbf|textit|mathrm|mathbf|mathsf|operatorname)\{([^{}]+)\}/g, "$1");
   title = title.replace(/\\([a-zA-Z]+)/g, (_, command) => greek[command] || command);
   title = title.replace(/\$([^$]+)\$/g, "$1");
+  title = title.replace(/:([A-Za-z])/g, ": $1");
   title = title.replace(/\s+/g, " ").trim();
   return title;
 }
@@ -219,9 +246,17 @@ function categoryTags(record) {
   return Array.isArray(record.categoryTags) && record.categoryTags.length ? record.categoryTags : [record.category || "Other"];
 }
 
+function paperPresentationKind(record) {
+  if (record.type !== "paper") return record.presentationType || "";
+  const labels = Array.isArray(record.presentationLabels) ? record.presentationLabels : [];
+  if (labels.includes("Oral")) return "Oral";
+  if (labels.includes("Spotlight")) return "Spotlight";
+  return "";
+}
+
 function viewerKindLabel(record) {
-  if (record.type === "paper" && record.presentationType) {
-    return `${typeLabel(record.type)} · ${record.presentationType}`;
+  if (record.type === "paper") {
+    return `${typeLabel(record.type)} · ${paperPresentationKind(record) || record.group || "Main Conference"}`;
   }
   return `${typeLabel(record.type)} · ${record.category}`;
 }
@@ -427,14 +462,23 @@ function mapRecordById() {
 
 function mapColorValue(record) {
   if (state.mapColor === "domain") return (record.domainTags || ["General"])[0] || "General";
-  if (state.mapColor === "cluster") return record.clusterLabel || "Cluster";
+  if (state.mapColor === "cluster") return clusterColorLabel(record);
   if (state.mapColor === "quality") return record.embeddingTextQuality || "unavailable";
   if (state.mapColor === "availability") return record.availabilityLabel || "Metadata";
   return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
 }
 
+function clusterColorLabel(record) {
+  const clusterId = record?.clusterId || "";
+  const rawLabel = record?.clusterLabel || CLUSTER_AREA_HINTS[clusterId] || "Cluster";
+  const knownIndex = CLUSTER_ORDER.indexOf(clusterId);
+  const ordinal = knownIndex >= 0 ? knownIndex + 1 : (stableHash(clusterId || rawLabel) % 90) + 10;
+  return `C${String(ordinal).padStart(2, "0")} · ${rawLabel}`;
+}
+
 function colorForValue(value) {
   const palette = {
+    "area-domain": AREA_COLORS,
     area: AREA_COLORS,
     domain: DOMAIN_COLORS,
     quality: QUALITY_COLORS,
@@ -445,6 +489,57 @@ function colorForValue(value) {
   for (const char of String(value)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   const hue = hash % 360;
   return `hsl(${hue} 72% 58%)`;
+}
+
+function areaColorValue(record) {
+  return (record?.areaTags || record?.categoryTags || ["Other"])[0] || "Other";
+}
+
+function domainColorValue(record) {
+  return (record?.domainTags || ["General"])[0] || "General";
+}
+
+function domainRingColor(record) {
+  return DOMAIN_COLORS[domainColorValue(record)] || colorForValue(domainColorValue(record));
+}
+
+function availabilityStatusKind(value) {
+  const key = String(value || "").toLowerCase();
+  if (key.includes("download")) return "ok";
+  if (key.includes("block")) return "warn";
+  if (key.includes("unavail") || key.includes("skip")) return "off";
+  return "meta";
+}
+
+// Structured tooltip markup with a clear hierarchy: bold title, muted authors,
+// color-dotted Area/Domain (the "Area:"/"Domain:" labels are kept for the spec
+// and smoke contract), a type chip, and a color-coded availability pill. All
+// user text is escaped.
+function graphTooltipHTML(node) {
+  const record = node?.record;
+  const title = node?.title || (record ? plainMathTitle(record.title) : "");
+  if (!record) return `<div class="gt-title">${escapeHtml(title)}</div>`;
+  const area = areaColorValue(record);
+  const domain = domainColorValue(record);
+  const authors = record.authors
+    ? (record.authors.length > 110 ? `${record.authors.slice(0, 107)}…` : record.authors)
+    : "";
+  const availability = record.availabilityLabel || record.bestAssetKind || record.status || "";
+  const parts = [`<div class="gt-title">${escapeHtml(title)}</div>`];
+  if (authors) parts.push(`<div class="gt-authors">${escapeHtml(authors)}</div>`);
+  parts.push(
+    `<div class="gt-meta">`
+    + `<span><i class="gt-dot" style="background:${escapeHtml(colorForValue(area))}"></i>Area: ${escapeHtml(area)}</span>`
+    + `<span><i class="gt-dot" style="background:${escapeHtml(domainRingColor(record))}"></i>Domain: ${escapeHtml(domain)}</span>`
+    + `</div>`,
+  );
+  const foot = [`<span class="gt-type">${escapeHtml(typeLabel(record.type))}</span>`];
+  if (record.clusterLabel) foot.push(`<span class="gt-cluster">${escapeHtml(record.clusterLabel)}</span>`);
+  if (availability) {
+    foot.push(`<span class="gt-status gt-status--${availabilityStatusKind(availability)}">${escapeHtml(String(availability))}</span>`);
+  }
+  parts.push(`<div class="gt-foot">${foot.join("")}</div>`);
+  return parts.join("");
 }
 
 function scaleMapValue(value, min, max) {
@@ -653,7 +748,11 @@ function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   const isSelected = node.id === selectedId || node.selected;
   const isHover = node.id === hoverId;
   const isAdjacent = node.adjacent;
-  const radius = isSelected ? 6.6 : isHover ? 5.6 : isAdjacent ? 4.1 : node.depth === 2 ? 3.1 : 2.5;
+  const isEmphasized = isSelected || isHover || isAdjacent;
+  // Particles, not stickers (spec 7.2 / 14.1): smaller default radius, no
+  // always-on outline. Emphasis is carried by size + halo + ring, applied only
+  // to hovered/selected/adjacent nodes so the 13k-node overview stays legible.
+  const radius = isSelected ? 7.4 : isHover ? 6.2 : isAdjacent ? 4.6 : node.depth === 2 ? 3.4 : 2.8;
   if (isSelected || isHover) {
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius + (isSelected ? 8 : 5), 0, 2 * Math.PI);
@@ -662,14 +761,36 @@ function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   }
   ctx.beginPath();
   ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-  ctx.fillStyle = isSelected ? "#60a5fa" : color;
-  ctx.globalAlpha = isSelected || isAdjacent || isHover ? 0.98 : mode === "focused" ? 0.78 : 0.82;
+  ctx.fillStyle = color;
+  ctx.globalAlpha = isEmphasized ? 0.98 : mode === "focused" ? 0.72 : 0.76;
   ctx.fill();
   ctx.globalAlpha = 1;
-  ctx.lineWidth = isSelected ? 1.5 : 0.7;
-  ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
-  ctx.stroke();
+  // Domain ring (the secondary "ring = domain" encoding) is detail, not
+  // overview: show it for emphasized nodes always, and for the whole field only
+  // once the user has zoomed in past the haze threshold.
+  // Default overview zoom sits near 0.16, so the threshold must be low enough to
+  // reach by ordinary scrolling. Below it the field stays clean particles;
+  // above it the "ring = domain" encoding the legend advertises comes in.
+  const showDomainRing = (options.showDomainRing ?? state.mapColor === "area-domain")
+    && node.record
+    && (isEmphasized || globalScale > 0.55);
+  if (showDomainRing) {
+    ctx.lineWidth = isSelected ? 2.8 : isHover ? 2.4 : isAdjacent ? 1.6 : 1.1;
+    ctx.strokeStyle = domainRingColor(node.record);
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius + (isSelected ? 2.2 : 1.4), 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+  // Light outline only on emphasized nodes; default particles carry no stroke.
+  if (isEmphasized) {
+    ctx.lineWidth = isSelected ? 1.5 : 0.7;
+    ctx.strokeStyle = isSelected ? "#bfdbfe" : "rgba(255,255,255,0.46)";
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
   const shouldLabel = isHover
+    && options.showCanvasHoverLabel
     || (isSelected && !options.hideSelectedLabel)
     || (mode === "focused" && node.depth === 1 && node.focusRank < (options.neighborLabelCount ?? 1) && globalScale > (options.labelScaleThreshold ?? 0.78));
   if (!shouldLabel) return;
@@ -702,13 +823,14 @@ function renderMapLegend(visibleRecords) {
     .slice(0, 12);
   const allCount = visibleRecords.length;
   els.mapLegend.innerHTML = `
+    ${state.mapColor === "area-domain" ? `<div class="legend-note">Fill = research area. Ring = domain. Click an area to filter.</div>` : ""}
     <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
       <span class="legend-swatch legend-swatch-all"></span>
       <span>All</span>
       <strong>${allCount.toLocaleString()}</strong>
     </button>
   ` + items.map(([value, count]) => `
-    <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(value)}">
+    <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(state.mapColor === "area-domain" ? `Filter area: ${value}` : value)}">
       <span class="legend-swatch" style="background:${colorForValue(value)}"></span>
       <span>${escapeHtml(value)}</span>
       <strong>${count.toLocaleString()}</strong>
@@ -802,6 +924,42 @@ function mapNodesInBox(start, end) {
     const point = graph.graph2ScreenCoords(node.x || 0, node.y || 0);
     return point.x >= box.left && point.x <= box.right && point.y >= box.top && point.y <= box.bottom;
   });
+}
+
+// Forgiving hover: find the node closest to the pointer within maxDist screen
+// pixels. Exact-hit detection breaks down at high zoom because nodes spread far
+// apart and the pointer usually lands in the empty space between them, so the
+// tooltip never appears. Snapping to the nearest node keeps hover useful at any
+// zoom. The graph->screen mapping is linear, so derive it from three reference
+// points once and apply it to every node with plain arithmetic (cheap enough to
+// run per pointer frame even at ~13k nodes).
+function nearestNodeAtScreen(point, maxDist = 24) {
+  const graph = state.mapGraph;
+  const nodes = state.mapGraphData?.nodes;
+  if (!graph || typeof graph.graph2ScreenCoords !== "function" || !nodes?.length) return null;
+  const origin = graph.graph2ScreenCoords(0, 0);
+  const unitX = graph.graph2ScreenCoords(1, 0);
+  const unitY = graph.graph2ScreenCoords(0, 1);
+  const axx = unitX.x - origin.x;
+  const axy = unitX.y - origin.y;
+  const ayx = unitY.x - origin.x;
+  const ayy = unitY.y - origin.y;
+  let best = null;
+  let bestDistSq = maxDist * maxDist;
+  for (const node of nodes) {
+    const nx = Number(node.x) || 0;
+    const ny = Number(node.y) || 0;
+    const sx = origin.x + axx * nx + ayx * ny;
+    const sy = origin.y + axy * nx + ayy * ny;
+    const dx = sx - point.x;
+    const dy = sy - point.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = node;
+    }
+  }
+  return best;
 }
 
 function countLabels(values) {
@@ -904,8 +1062,73 @@ function hideMapSelectionBox() {
   if (box) box.hidden = true;
 }
 
+function ensureGraphTooltip(container) {
+  let tooltip = container.querySelector(":scope > .graph-node-tooltip");
+  if (!tooltip) {
+    tooltip = document.createElement("div");
+    tooltip.className = "graph-node-tooltip";
+    tooltip.hidden = true;
+    container.appendChild(tooltip);
+  }
+  return tooltip;
+}
+
+function showGraphTooltip(container, node, point) {
+  if (!container || !node?.title || !point) return;
+  const tooltip = ensureGraphTooltip(container);
+  if (tooltip._hideTimer) {
+    window.clearTimeout(tooltip._hideTimer);
+    tooltip._hideTimer = null;
+  }
+  const rect = container.getBoundingClientRect();
+  tooltip.innerHTML = graphTooltipHTML(node);
+  // Anchor and clamp to the container bounds. The CSS centers the tooltip on the
+  // node (translateX(-50%)); without clamping, a node near the left/right edge
+  // pushes the tooltip off-canvas and its leading characters get cut off. Drive
+  // position from measured size instead and keep the box fully inside the canvas.
+  tooltip.style.transform = "none";
+  tooltip.hidden = false;
+  const pad = 8;
+  const gap = 12;
+  const width = tooltip.offsetWidth;
+  const height = tooltip.offsetHeight;
+  const anchorX = rect.left + point.x;
+  const anchorY = rect.top + point.y;
+  let left = anchorX - width / 2;
+  left = Math.max(rect.left + pad, Math.min(left, rect.right - width - pad));
+  let top = anchorY - height - gap;
+  if (top < rect.top + pad) top = anchorY + gap + 4; // flip below when no room above
+  top = Math.max(rect.top + pad, Math.min(top, rect.bottom - height - pad));
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(top)}px`;
+}
+
+function hideGraphTooltip(container, delay = 0) {
+  const tooltip = container?.querySelector(":scope > .graph-node-tooltip");
+  if (!tooltip) return;
+  if (tooltip._hideTimer) window.clearTimeout(tooltip._hideTimer);
+  if (delay > 0) {
+    tooltip._hideTimer = window.setTimeout(() => {
+      tooltip.hidden = true;
+      tooltip._hideTimer = null;
+    }, delay);
+  } else {
+    tooltip.hidden = true;
+    tooltip._hideTimer = null;
+  }
+}
+
 function graphClickSuppressed() {
   return performance.now() < state.mapInteraction.suppressClickUntil;
+}
+
+function selectMapNode(node, event) {
+  if (!node?.record) return;
+  state.selectedId = node.id;
+  refreshForceSelectionState();
+  renderMapDetail(node.record);
+  renderViewer(node.record);
+  forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
 }
 
 function refreshForceSelectionState() {
@@ -947,6 +1170,12 @@ function installMapPointerInteractions() {
   });
 
   els.mapCanvas.addEventListener("pointerdown", (event) => {
+    if (state.tab === "map" && state.mapEngine === "force" && event.button === 1 && state.mapGraph) {
+      event.preventDefault();
+      fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 280, padding: state.mapMode === "focused" ? 84 : 160 });
+      state.mapGraph.resumeAnimation?.();
+      return;
+    }
     if (state.tab !== "map" || state.mapEngine !== "force" || event.button !== 0 || !state.mapGraph) return;
     const point = mapCanvasPoint(event);
     const interaction = state.mapInteraction;
@@ -989,6 +1218,45 @@ function installMapPointerInteractions() {
     event.preventDefault();
   });
 
+  // Nearest-node hover (separate from the drag handler above). Owns the tooltip
+  // and hover highlight for the ForceGraph engine; throttled to one update per
+  // animation frame so a fast pointer can't flood refresh() at 13k nodes.
+  let hoverFrame = 0;
+  els.mapCanvas.addEventListener("pointermove", (event) => {
+    if (state.tab !== "map" || state.mapEngine !== "force" || !state.mapGraph) return;
+    const interaction = state.mapInteraction;
+    if (interaction.mode === "box" || interaction.mode === "pan" || interaction.spaceDown) {
+      hideGraphTooltip(els.mapCanvas, 0);
+      return;
+    }
+    const point = mapCanvasPoint(event);
+    if (hoverFrame) return;
+    hoverFrame = window.requestAnimationFrame(() => {
+      hoverFrame = 0;
+      if (state.mapInteraction.mode) return;
+      const node = nearestNodeAtScreen(point, 24);
+      const id = node?.id || "";
+      if (id !== state.mapHoverId) {
+        state.mapHoverId = id;
+        state.mapGraph?.refresh?.();
+      }
+      els.mapCanvas.style.cursor = node ? "pointer" : "crosshair";
+      if (node && typeof state.mapGraph?.graph2ScreenCoords === "function") {
+        showGraphTooltip(els.mapCanvas, node, state.mapGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
+      } else {
+        hideGraphTooltip(els.mapCanvas, 120);
+      }
+    });
+  }, { passive: true });
+
+  els.mapCanvas.addEventListener("pointerleave", () => {
+    if (state.mapHoverId) {
+      state.mapHoverId = "";
+      state.mapGraph?.refresh?.();
+    }
+    hideGraphTooltip(els.mapCanvas, 0);
+  });
+
   els.mapCanvas.addEventListener("pointerup", (event) => {
     const interaction = state.mapInteraction;
     if (interaction.pointerId !== event.pointerId || !interaction.mode) return;
@@ -1006,10 +1274,35 @@ function installMapPointerInteractions() {
       event.preventDefault();
       return;
     }
-    if (mode === "box") hideMapSelectionBox();
-    if (mode === "box" && moved && Math.hypot(end.x - start.x, end.y - start.y) > 10) {
-      interaction.suppressClickUntil = performance.now() + 300;
-      setMapSelection(start, end);
+    if (mode === "box") {
+      hideMapSelectionBox();
+      // Decide click vs box by one consistent distance threshold, NOT the
+      // `moved` flag: `moved` flips at 4px while a box needs 10px, so a 5-10px
+      // hand jitter previously fell between both branches and left a stale,
+      // invisible selection active. A drag >10px makes a box; anything smaller
+      // is a click/jitter that must dismiss any active box, then select or zoom.
+      const dragDistance = Math.hypot(end.x - start.x, end.y - start.y);
+      if (dragDistance > 10) {
+        interaction.suppressClickUntil = performance.now() + 300;
+        setMapSelection(start, end);
+      } else {
+        // Plain click (or jitter). This handler captures the pointer and
+        // preventDefaults, so ForceGraph's onNodeClick never fires — do the
+        // selection here. Snap to the nearest node (forgiving at any zoom);
+        // empty space falls back to zoom in / shift+zoom out.
+        const hadSelection = state.mapSelection.active;
+        if (hadSelection) clearMapSelection();
+        const node = nearestNodeAtScreen(end, 24);
+        if (node?.record && !event.shiftKey) {
+          selectMapNode(node, event);
+        } else {
+          if (hadSelection) {
+            const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
+            renderMapDetail(selected || null);
+          }
+          forceGraphZoomAt(end, event.shiftKey ? 0.72 : 1.34);
+        }
+      }
     }
     event.preventDefault();
   });
@@ -1020,47 +1313,65 @@ function installMapPointerInteractions() {
     els.mapCanvas.classList.remove("is-panning");
     clearMapSelection();
   });
+
+  els.mapCanvas.addEventListener("wheel", (event) => {
+    if (state.tab !== "map" || state.mapEngine !== "force" || !state.mapGraph) return;
+    event.preventDefault();
+    const multiplier = event.deltaY > 0 ? 0.86 : 1.16;
+    forceGraphZoomAt(mapCanvasPoint(event), multiplier, 70);
+  }, { passive: false });
+
+  els.mapCanvas.addEventListener("auxclick", (event) => {
+    if (state.tab !== "map" || event.button !== 1) return;
+    event.preventDefault();
+    if (state.mapEngine === "force" && state.mapGraph) {
+      fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 280, padding: state.mapMode === "focused" ? 84 : 160 });
+      state.mapGraph.resumeAnimation?.();
+    } else if (state.mapEngine === "cytoscape" && state.cyGraph) {
+      state.cyGraph.fit(undefined, 48);
+    }
+  });
 }
 
 function ensureForceGraph() {
   if (state.mapGraph || typeof window.ForceGraph !== "function") return state.mapGraph;
   els.mapCanvas.innerHTML = "";
   state.mapGraph = window.ForceGraph()(els.mapCanvas)
-    .backgroundColor("#111827")
+    .backgroundColor("rgba(0,0,0,0)")
     .nodeId("id")
     .nodeLabel("")
     .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : node.depth === 2 ? 2.3 : node.type === "workshop" ? 1.9 : 1.5)
+    .nodePointerAreaPaint((node, color, ctx, globalScale) => {
+      // Hit area is painted in graph coordinates, so at the default overview
+      // zoom (~0.16) a fixed graph-radius shrinks to ~1px on screen and hover
+      // almost never lands. Keep a constant minimum screen-space target (~9px)
+      // by inflating the radius inversely with zoom, so the title tooltip
+      // reliably appears when the pointer is over any node at any zoom.
+      const base = node.selected ? 13 : node.depth === 1 ? 10 : 8;
+      const minScreenRadius = (node.selected ? 11 : 9) / Math.max(globalScale || 1, 0.0001);
+      const radius = Math.max(base, minScreenRadius);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+      ctx.fill();
+    })
     .enableZoomInteraction(false)
     .enablePanInteraction(false)
     .enableNodeDrag(false)
     .linkCurvature(0.06)
-    .linkWidth((link) => link.selected ? 1.25 : Math.max(0.18, Number(link.value || 0) * (state.mapMode === "focused" ? 1.1 : 1.45)))
-    .linkColor((link) => link.selected ? "rgba(148,196,255,0.48)" : state.mapMode === "focused" ? "rgba(148,163,184,0.13)" : "rgba(148,163,184,0.07)")
+    .linkWidth((link) => link.selected ? 1.1 : Math.max(0.16, Number(link.value || 0) * (state.mapMode === "focused" ? 0.95 : 0.7)))
+    .linkColor((link) => link.selected ? "rgba(186,230,253,0.55)" : state.mapMode === "focused" ? "rgba(148,163,184,0.1)" : "rgba(148,163,184,0.045)")
     .linkDirectionalParticles((link) => link.selected && state.mapLive ? 1 : 0)
     .linkDirectionalParticleWidth(1)
     .linkDirectionalParticleSpeed(0.004)
     .d3AlphaMin(0.0006)
     .d3AlphaDecay(0.01)
     .d3VelocityDecay(0.38)
-    .onNodeHover((node) => {
-      state.mapHoverId = node?.id || "";
-      els.mapCanvas.style.cursor = node && !state.mapInteraction.spaceDown ? "pointer" : "";
-      state.mapGraph?.refresh?.();
-    })
-    .onNodeClick((node, event) => {
-      if (graphClickSuppressed() || !node?.record) return;
-      if (!event?.shiftKey && zoomToMapSelection()) return;
-      state.selectedId = node.id;
-      refreshForceSelectionState();
-      renderMapDetail(node.record);
-      renderViewer(node.record);
-      forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
-    })
-    .onBackgroundClick((event) => {
-      if (graphClickSuppressed()) return;
-      if (!event?.shiftKey && zoomToMapSelection()) return;
-      forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
-    })
+    // Hover/tooltip AND click selection are both driven by the custom pointer
+    // handlers in installMapPointerInteractions: that handler captures the
+    // pointer and preventDefaults, so ForceGraph's synthetic hover/click events
+    // never fire reliably. Leaving these as no-ops keeps the two paths from
+    // fighting over the tooltip and double-handling clicks.
     .nodeCanvasObject((node, ctx, globalScale) => {
       drawForceGraphNode(node, ctx, globalScale);
     });
@@ -1076,6 +1387,7 @@ function updateMapControlState() {
 }
 
 function destroyGraphEngine(except = "") {
+  hideGraphTooltip(els.mapCanvas);
   if (except !== "force" && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
     state.mapGraph = null;
@@ -1248,8 +1560,14 @@ function renderCytoscapeGraph(graphData) {
       data: {
         id: node.id,
         label: state.mapMode === "focused" && node.selected ? plainMathTitle(node.title).slice(0, 26) : "",
-        color: node.selected ? "#60a5fa" : colorForValue(node.group),
+        fullTitle: node.title,
+        area: areaColorValue(node.record),
+        domain: domainColorValue(node.record),
+        typeLabel: typeLabel(node.record?.type),
+        color: colorForValue(node.group),
+        ringColor: state.mapColor === "area-domain" ? domainRingColor(node.record) : "rgba(255,255,255,0.52)",
         size: node.selected ? 18 : node.depth === 1 ? 12 : node.depth === 2 ? 8 : 5,
+        record: node.record,
       },
       position: { x: node.x, y: node.y },
       classes: node.selected ? "selected" : node.depth === 1 ? "near" : node.depth === 2 ? "second" : "",
@@ -1272,11 +1590,23 @@ function renderCytoscapeGraph(graphData) {
     wheelSensitivity: 0.18,
     layout: { name: "preset", fit: true, padding: 56 },
     style: [
-      { selector: "node", style: { "background-color": "data(color)", width: "data(size)", height: "data(size)", "border-color": "rgba(255,255,255,0.52)", "border-width": 1, label: "data(label)", color: "#e5e7eb", "font-size": 10, "text-outline-color": "#111827", "text-outline-width": 3 } },
-      { selector: "node.selected", style: { width: 22, height: 22, "border-color": "#dbeafe", "border-width": 3 } },
+      { selector: "node", style: { "background-color": "data(color)", width: "data(size)", height: "data(size)", "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 2 : 1, label: "data(label)", color: "#e5e7eb", "font-size": 10, "text-outline-color": "#111827", "text-outline-width": 3 } },
+      { selector: "node.selected", style: { width: 22, height: 22, "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 4 : 3, "underlay-color": "#60a5fa", "underlay-opacity": 0.25, "underlay-padding": 8 } },
       { selector: "edge", style: { width: 0.28, "line-color": "#263244", opacity: 0.55, "curve-style": "haystack", "haystack-radius": 0 } },
       { selector: "edge.selected", style: { width: 0.9, "line-color": "#5f8fd3", opacity: 0.78 } },
     ],
+  });
+  state.cyGraph.on("mouseover", "node", (event) => {
+    const data = event.target.data();
+    showGraphTooltip(els.mapCanvas, {
+      title: data.fullTitle,
+      record: data.record,
+    }, event.renderedPosition);
+    els.mapCanvas.style.cursor = "pointer";
+  });
+  state.cyGraph.on("mouseout", "node", () => {
+    hideGraphTooltip(els.mapCanvas, 700);
+    els.mapCanvas.style.cursor = "";
   });
   state.cyGraph.on("tap", "node", (event) => {
     const id = event.target.id();
@@ -1332,7 +1662,7 @@ function renderForceGraph(graphData) {
 
 function renderMapDetail(record) {
   if (!record) {
-    els.mapDetail.innerHTML = `<div class="empty-state compact"><strong>Select a point</strong><span>Click a mapped record to inspect it.</span></div>`;
+    els.mapDetail.innerHTML = `<div class="empty-state compact"><strong>Select a paper from the map</strong><span>Hover to preview, click to inspect metadata and similar records.</span></div>`;
     return;
   }
   const mapById = mapRecordById();
@@ -1391,7 +1721,11 @@ async function renderMap() {
   const visibleRecords = getFilteredRecords().filter((record) => record.mapAvailable && mapById.has(record.id));
   renderMapLegend(legendRecords);
   els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
-  els.activeSummary.textContent = activeFilterSummary("Map", [state.mapMode, state.mapFilterValue]);
+  els.activeSummary.textContent = activeFilterSummary("Map", [
+    state.mapMode,
+    state.mapColor === "area-domain" ? "area + domain" : state.mapColor,
+    state.mapFilterValue,
+  ]);
   if (!visibleRecords.length) {
     destroyGraphEngine();
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No mapped records</strong><span>Adjust the filters.</span></div>`;
@@ -1418,8 +1752,10 @@ async function renderMap() {
     renderMapDetail(visibleRecords[0]);
     return;
   }
+  // Honor the empty state (spec 5.2): only populate the detail panel when the
+  // user has actually selected a record. Do not auto-open a random first record.
   const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
-  renderMapDetail(selected || visibleRecords[0]);
+  renderMapDetail(selected || null);
 }
 
 function resetResultWindow() {
@@ -1760,6 +2096,7 @@ function semanticNeighborhood(record) {
 function destroyMiniGraph() {
   state.miniGraph?.pauseAnimation?.();
   state.miniGraph = null;
+  hideGraphTooltip(els.viewerFrame.querySelector(".mini-graph"));
 }
 
 function fitGraphToElement(graph, graphData, element, options = {}) {
@@ -1789,11 +2126,19 @@ function mountMiniGraph(graphData, selectedId) {
   destroyMiniGraph();
   const container = els.viewerFrame.querySelector(".mini-graph");
   if (!container || typeof window.ForceGraph !== "function") return;
+  let miniHoverId = "";
   state.miniGraph = window.ForceGraph()(container)
     .backgroundColor("#111827")
     .nodeId("id")
     .nodeLabel("")
     .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : 2.3)
+    .nodePointerAreaPaint((node, color, ctx) => {
+      const radius = node.selected ? 18 : 14;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+      ctx.fill();
+    })
     .enableZoomInteraction(false)
     .enablePanInteraction(false)
     .enableNodeDrag(false)
@@ -1808,14 +2153,25 @@ function mountMiniGraph(graphData, selectedId) {
       drawForceGraphNode(node, ctx, globalScale, {
         mode: "focused",
         selectedId,
-        hoverId: "",
+        hoverId: miniHoverId,
         hideSelectedLabel: true,
         neighborLabelCount: 0,
         labelScaleThreshold: 0.35,
         maxLabelLength: 42,
         baseFontSize: 10,
         maxFontSize: 12,
+        showDomainRing: true,
       });
+    })
+    .onNodeHover((node) => {
+      miniHoverId = node?.id || "";
+      container.style.cursor = node ? "pointer" : "";
+      if (node && typeof state.miniGraph?.graph2ScreenCoords === "function") {
+        showGraphTooltip(container, node, state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
+      } else {
+        hideGraphTooltip(container, 700);
+      }
+      state.miniGraph?.refresh?.();
     })
     .onNodeClick((node) => {
       if (!node?.record) return;
@@ -1895,7 +2251,7 @@ function renderViewer(record) {
   els.viewerMeta.innerHTML = uniqueChipValues([
     ...(record.presentationLabels || []),
     record.decision,
-    record.presentationType,
+    paperPresentationKind(record),
     record.session,
     record.roomName,
     record.group,
@@ -1994,7 +2350,42 @@ function renderAll() {
   renderViewer(null);
 }
 
+function installMapDebugProbe() {
+  if (!new URLSearchParams(window.location.search).has("verify")) return;
+  window.__icmlMapDebug = {
+    forceZoom() {
+      return state.mapGraph?.zoom?.() || null;
+    },
+    forceProbePoints(limit = 80) {
+      if (!state.mapGraph || typeof state.mapGraph.graph2ScreenCoords !== "function") return [];
+      return (state.mapGraphData?.nodes || []).slice(0, limit).map((node) => {
+        const point = state.mapGraph.graph2ScreenCoords(node.x || 0, node.y || 0);
+        return {
+          x: point.x,
+          y: point.y,
+          title: node.title,
+        };
+      });
+    },
+    cytoscapeZoom() {
+      return state.cyGraph?.zoom?.() || null;
+    },
+    cytoscapeProbePoints(limit = 80) {
+      if (!state.cyGraph) return [];
+      return state.cyGraph.nodes().slice(0, limit).map((node) => {
+        const point = node.renderedPosition();
+        return {
+          x: point.x,
+          y: point.y,
+          title: node.data("fullTitle") || "",
+        };
+      });
+    },
+  };
+}
+
 async function init() {
+  installMapDebugProbe();
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
   const response = await fetch(DATA_URL);
   state.data = await response.json();
