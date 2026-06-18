@@ -6,6 +6,7 @@ const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" :
 const MATHJAX_RETRY_LIMIT = 40;
 const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+const CYTOSCAPE_URL = "https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js";
 
 const state = {
   tab: "poster",
@@ -25,10 +26,9 @@ const state = {
   mapGraph: null,
   mapGraphData: null,
   miniGraph: null,
-  sigmaGraph: null,
-  sigmaRenderer: null,
   cyGraph: null,
   mapHoverId: "",
+  mapRenderToken: 0,
   mapInteraction: {
     spaceDown: false,
     pointerId: null,
@@ -53,6 +53,7 @@ const state = {
 };
 
 let pdfJsPromise = null;
+const scriptPromises = new Map();
 
 const els = {
   headerStats: document.querySelector("#headerStats"),
@@ -219,8 +220,8 @@ function categoryTags(record) {
 }
 
 function viewerKindLabel(record) {
-  if (record.type === "paper" && /\/poster\//.test(record.pageUrl || "")) {
-    return `Poster · ${record.category}`;
+  if (record.type === "paper" && record.presentationType) {
+    return `${typeLabel(record.type)} · ${record.presentationType}`;
   }
   return `${typeLabel(record.type)} · ${record.category}`;
 }
@@ -252,8 +253,16 @@ function statusLabel(value) {
   return labels[value] || value;
 }
 
+function presentationBadges(record) {
+  const labels = Array.isArray(record.presentationLabels) ? record.presentationLabels : [];
+  return labels.map((label) => {
+    const className = label.toLowerCase() === "spotlight" ? "spotlight" : label.toLowerCase() === "oral" ? "oral" : "";
+    return `<span class="badge ${className}">${escapeHtml(label)}</span>`;
+  }).join("");
+}
+
 function resultDetails(record) {
-  return record.failureReason || "";
+  return [record.session, record.roomName, record.failureReason].filter(Boolean).join(" · ");
 }
 
 function getFilteredRecords(options = {}) {
@@ -272,7 +281,7 @@ function getFilteredRecords(options = {}) {
     if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
     if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
     if (!query) return true;
-    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""}`);
+    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${record.decision || ""} ${record.presentationType || ""} ${(record.presentationLabels || []).join(" ")} ${record.session || ""} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""}`);
     return haystack.includes(query);
   });
 }
@@ -374,12 +383,14 @@ function renderResults() {
   els.results.innerHTML = visible
     .map((record) => {
       const selected = record.id === state.selectedId ? " is-selected" : "";
+      const featured = (record.presentationLabels || []).includes("Spotlight") ? " is-spotlight" : (record.presentationLabels || []).includes("Oral") ? " is-oral" : "";
       const details = resultDetails(record);
       return `
-        <button class="result-item${selected}" type="button" data-id="${escapeHtml(record.id)}">
+        <button class="result-item${selected}${featured}" type="button" data-id="${escapeHtml(record.id)}">
           <span class="result-title">${escapeHtml(plainMathTitle(record.title))}</span>
           <span class="result-authors">${escapeHtml(record.authors || "Authors unavailable")}</span>
           <span class="badges">
+            ${presentationBadges(record)}
             ${categoryTags(record).slice(0, 3).map((category) => `<span class="badge">${escapeHtml(category)}</span>`).join("")}
             <span class="badge">${escapeHtml(record.group)}</span>
             <span class="badge">${assetLabel(record)}</span>
@@ -1069,16 +1080,11 @@ function destroyGraphEngine(except = "") {
     state.mapGraph = null;
     state.mapGraphData = null;
   }
-  if (except !== "sigma" && state.sigmaRenderer) {
-    state.sigmaRenderer.kill?.();
-    state.sigmaRenderer = null;
-    state.sigmaGraph = null;
-  }
   if (except !== "cytoscape" && state.cyGraph) {
     state.cyGraph.destroy?.();
     state.cyGraph = null;
   }
-  if (except !== "force" && except !== "sigma" && except !== "cytoscape") {
+  if (except !== "force" && except !== "cytoscape") {
     els.mapCanvas.innerHTML = "";
   }
 }
@@ -1163,11 +1169,6 @@ function applyMapMotionSettings(graph = state.mapGraph) {
 }
 
 function reflowMap(options = {}) {
-  if (state.mapEngine === "sigma" && state.sigmaRenderer) {
-    const camera = state.sigmaRenderer.getCamera?.();
-    camera?.animatedReset?.({ duration: 280 });
-    return;
-  }
   if (state.mapEngine === "cytoscape" && state.cyGraph) {
     if (options.fit) state.cyGraph.fit(undefined, 48);
     else state.cyGraph.layout({ name: "preset", fit: true, padding: 48 }).run();
@@ -1190,13 +1191,6 @@ function reflowMap(options = {}) {
 }
 
 function zoomMap(multiplier) {
-  if (state.mapEngine === "sigma" && state.sigmaRenderer) {
-    const camera = state.sigmaRenderer.getCamera?.();
-    if (!camera) return;
-    const nextRatio = Math.max(0.02, Math.min(8, camera.ratio / multiplier));
-    camera.animate?.({ ratio: nextRatio }, { duration: 180 });
-    return;
-  }
   if (state.mapEngine === "cytoscape" && state.cyGraph) {
     const current = state.cyGraph.zoom();
     state.cyGraph.zoom({
@@ -1214,80 +1208,37 @@ function zoomMap(multiplier) {
   }
 }
 
-function graphologyConstructor() {
-  return window.graphology?.Graph || window.Graphology?.Graph || window.graphology;
+function loadScriptOnce(src) {
+  if (scriptPromises.has(src)) return scriptPromises.get(src);
+  const promise = new Promise((resolve, reject) => {
+    const existing = [...document.scripts].find((item) => item.src === src);
+    if (existing?.dataset.loaded === "true") {
+      resolve();
+      return;
+    }
+    const script = existing || document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.dataset.dynamic = "true";
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "true";
+      resolve();
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    if (!existing) document.head.append(script);
+  });
+  scriptPromises.set(src, promise);
+  return promise;
 }
 
-function renderSigmaGraph(graphData) {
-  const Graph = graphologyConstructor();
-  if (!Graph || typeof window.Sigma !== "function") return false;
-  state.mapGraph?.pauseAnimation?.();
-  state.mapGraph = null;
-  state.cyGraph?.destroy?.();
-  state.cyGraph = null;
-  state.sigmaRenderer?.kill?.();
-  state.sigmaRenderer = null;
-  state.sigmaGraph = new Graph({ type: "undirected", multi: false });
-  const graph = state.sigmaGraph;
-  const selectedNeighbors = new Set(graphData.nodes.filter((node) => node.depth === 1).map((node) => node.id));
-  for (const node of graphData.nodes) {
-    graph.addNode(node.id, {
-      x: node.x,
-      y: node.y,
-      label: state.mapMode === "focused" && (node.selected || selectedNeighbors.has(node.id)) ? node.title : "",
-      size: node.selected ? 9 : node.depth === 1 ? 6.5 : node.depth === 2 ? 4.2 : 2.4,
-      color: node.selected ? "#60a5fa" : colorForValue(node.group),
-      record: node.record,
-      forceLabel: node.selected,
-    });
-  }
-  graphData.links.forEach((link, index) => {
-    const source = typeof link.source === "object" ? link.source.id : link.source;
-    const target = typeof link.target === "object" ? link.target.id : link.target;
-    if (graph.hasNode(source) && graph.hasNode(target) && !graph.hasEdge(source, target)) {
-      graph.addEdgeWithKey(`${source}->${target}-${index}`, source, target, {
-        size: link.selected ? 0.9 : 0.12,
-        color: link.selected ? "#5f8fd3" : "#263244",
-      });
-    }
-  });
-  els.mapCanvas.innerHTML = "";
-  state.sigmaRenderer = new window.Sigma(graph, els.mapCanvas, {
-    allowInvalidContainer: true,
-    defaultEdgeColor: "#263244",
-    defaultNodeColor: "#60a5fa",
-    labelColor: { color: "#e5e7eb" },
-    labelDensity: state.mapMode === "focused" ? 0.18 : 0.04,
-    labelRenderedSizeThreshold: state.mapMode === "focused" ? 7 : 11,
-    renderEdgeLabels: false,
-  });
-  state.sigmaRenderer.on?.("clickNode", ({ node }) => {
-    const record = graph.getNodeAttribute(node, "record");
-    if (!record) return;
-    state.selectedId = node;
-    renderMap();
-    renderMapDetail(record);
-    renderViewer(record);
-  });
-  state.sigmaRenderer.on?.("enterNode", ({ node }) => {
-    state.mapHoverId = node;
-    els.mapCanvas.style.cursor = "pointer";
-  });
-  state.sigmaRenderer.on?.("leaveNode", () => {
-    state.mapHoverId = "";
-    els.mapCanvas.style.cursor = "grab";
-  });
-  window.setTimeout(() => state.sigmaRenderer?.getCamera?.()?.animatedReset?.({ duration: 260 }), 80);
-  return true;
+async function ensureCytoscapeLibrary() {
+  await loadScriptOnce(CYTOSCAPE_URL);
 }
 
 function renderCytoscapeGraph(graphData) {
   if (typeof window.cytoscape !== "function") return false;
   state.mapGraph?.pauseAnimation?.();
   state.mapGraph = null;
-  state.sigmaRenderer?.kill?.();
-  state.sigmaRenderer = null;
-  state.sigmaGraph = null;
   state.cyGraph?.destroy?.();
   state.cyGraph = null;
   els.mapCanvas.innerHTML = "";
@@ -1425,8 +1376,9 @@ function renderMapDetail(record) {
   });
 }
 
-function renderMap() {
+async function renderMap() {
   if (state.tab !== "map") return;
+  const renderToken = ++state.mapRenderToken;
   if (!state.mapData?.records?.length) {
     state.mapGraph = null;
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No map data</strong><span>Run the semantic map builder.</span></div>`;
@@ -1446,14 +1398,22 @@ function renderMap() {
     return;
   }
   const graphData = buildGraphData(visibleRecords, mapById);
-  const rendered = state.mapEngine === "sigma"
-    ? renderSigmaGraph(graphData)
-    : state.mapEngine === "cytoscape"
-      ? renderCytoscapeGraph(graphData)
-      : renderForceGraph(graphData);
+  let rendered = false;
+  try {
+    if (state.mapEngine === "cytoscape") {
+      els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Loading Cytoscape.js</strong><span>Preparing the alternate graph engine.</span></div>`;
+      await ensureCytoscapeLibrary();
+      if (renderToken !== state.mapRenderToken || state.tab !== "map") return;
+      rendered = renderCytoscapeGraph(graphData);
+    } else {
+      rendered = renderForceGraph(graphData);
+    }
+  } catch {
+    rendered = false;
+  }
   if (!rendered) {
     destroyGraphEngine();
-    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>force-graph could not be loaded.</span></div>`;
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>The selected graph engine could not be loaded.</span></div>`;
     renderMapDetail(visibleRecords[0]);
     return;
   }
@@ -1932,6 +1892,11 @@ function renderViewer(record) {
   els.viewerKind.textContent = viewerKindLabel(record);
   els.viewerTitle.textContent = plainMathTitle(record.title);
   els.viewerMeta.innerHTML = uniqueChipValues([
+    ...(record.presentationLabels || []),
+    record.decision,
+    record.presentationType,
+    record.session,
+    record.roomName,
     record.group,
     record.authors,
     record.availabilityLabel,
