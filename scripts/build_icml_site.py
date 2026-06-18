@@ -107,6 +107,11 @@ def unique_values(values: list[str]) -> list[str]:
     return result
 
 
+def canonical_presentation_types(values: list[str]) -> list[str]:
+    priority = {"Oral": 0, "Poster": 1}
+    return sorted(unique_values(values), key=lambda value: (priority.get(value, 99), value.lower()))
+
+
 def event_presentation_labels(event: dict[str, Any]) -> list[str]:
     decision = str(event.get("decision") or "")
     event_type = str(event.get("event_type") or event.get("eventtype") or "")
@@ -147,7 +152,7 @@ def merge_meta(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
         *(merged.get("presentationLabels") or []),
         *(right.get("presentationLabels") or []),
     ])
-    types = unique_values([str(merged.get("presentationType") or ""), str(right.get("presentationType") or "")])
+    types = canonical_presentation_types([str(merged.get("presentationType") or ""), str(right.get("presentationType") or "")])
     if len(types) > 1:
         merged["presentationType"] = " + ".join(types)
     return merged
