@@ -17,7 +17,7 @@ data = json.loads(path.read_text(encoding="utf-8"))
 records = data.get("records", [])
 
 errors = []
-allowed_status = {"accepted_public", "metadata_only", "blocked", "unavailable", "downloaded", "failed", "skipped"}
+allowed_status = {"accepted_public", "metadata_only", "metadata_only_pdf_not_public", "blocked", "unavailable", "downloaded", "failed", "skipped"}
 generic_titles = {
     "call for papers",
     "official workshop page",
@@ -51,10 +51,10 @@ for record in records:
         errors.append(f"missing categoryTags for {record.get('id')}: {title}")
 
     if item_type == "paper":
-        if "/poster/" in page_url:
-            errors.append(f"poster URL leaked into paper tab: {record.get('id')} {title}")
-        if not (record.get("localPdfPath") or record.get("pdfUrl")):
-            errors.append(f"paper without public PDF: {record.get('id')} {title}")
+        if source_type != "official_icml_virtual_accepted_main_conference_metadata":
+            errors.append(f"non-official main-conference paper source: {record.get('id')} {source_type} {title}")
+        if status != "accepted_public":
+            errors.append(f"non-accepted paper source: {record.get('id')} {status} {title}")
 
     if item_type == "poster" and source_type != "official_icml_virtual_poster":
         errors.append(f"non-official poster source: {record.get('id')} {source_type}")
@@ -69,9 +69,9 @@ for record in records:
 
 matches = [record for record in records if plain_title(str(record.get("title") or "")) == target_title]
 if matches:
-    leaked = [record for record in matches if record.get("type") != "poster"]
-    if leaked:
-        errors.append(f"target title is not poster-only: {[(r.get('type'), r.get('id')) for r in leaked]}")
+    match_types = {record.get("type") for record in matches}
+    if "paper" not in match_types or "poster" not in match_types:
+        errors.append(f"target title should appear as both accepted paper and poster presentation: {[(r.get('type'), r.get('id')) for r in matches]}")
 
 counts = Counter(record.get("type") for record in records)
 summary_counts = data.get("summary", {}).get("typeCounts", {})

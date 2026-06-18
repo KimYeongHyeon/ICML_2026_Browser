@@ -42,7 +42,7 @@
 
         <div class="data-note" role="note">
           <strong>Unofficial public beta.</strong>
-          <span>Main-conference paper PDFs are hidden until public PDFs are available. Tags, groups, similarity, and map layout are heuristic discovery aids.</span>
+          <span>Papers show accepted main-conference metadata; PDFs preview only when public/local files are available. Tags, groups, similarity, and map layout are heuristic discovery aids.</span>
         </div>
 
         <div class="filters">
@@ -91,7 +91,6 @@
                       <span>Engine</span>
                       <select id="mapEngineSelect">
                         <option value="force">ForceGraph</option>
-                        <option value="sigma">Sigma.js</option>
                         <option value="cytoscape">Cytoscape.js</option>
                       </select>
                     </label>
@@ -159,9 +158,6 @@
       </aside>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/graphology@0.26.0/dist/graphology.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/3.0.2/sigma.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
     <script src="site/vendor/force-graph.min.js"></script>
     <script src="site/app.js" type="module"></script>
   </body>
