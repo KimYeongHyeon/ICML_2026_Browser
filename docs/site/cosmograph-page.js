@@ -1,10 +1,28 @@
 import {
   AREA_COLORS,
+  DOMAIN_COLORS,
+  TYPE_COLORS,
   buildSemanticGraph,
   escapeHtml,
   loadGraphBundle,
   renderDetailHtml,
 } from "./graph-data.js";
+
+// Cosmograph colors points by a data attribute + value→color map. Points carry
+// area / domain / type (typeLabel) attributes, so pick the attribute and map
+// that match the selected Color By mode. TYPE_COLORS is keyed by lowercase type,
+// but the point attribute is the capitalized typeLabel, hence this remap.
+const TYPE_LABEL_COLORS = {
+  Paper: TYPE_COLORS.paper,
+  Poster: TYPE_COLORS.poster,
+  Workshop: TYPE_COLORS.workshop,
+};
+
+function cosmographColorBy(mode) {
+  if (mode === "domain") return { by: "domain", map: DOMAIN_COLORS };
+  if (mode === "type") return { by: "type", map: TYPE_LABEL_COLORS };
+  return { by: "area", map: AREA_COLORS };
+}
 import { mountCanvasGraph } from "./graph-canvas-fallback.js";
 
 const state = {
@@ -111,13 +129,14 @@ async function renderGraph() {
     points: { pointIdBy: "id" },
     links: { linkSourceBy: "source", linkTargetsBy: ["target"] },
   }, points, links);
+  const colorBy = cosmographColorBy(els.color.value);
   state.graph = new state.Cosmograph(els.canvas, {
     points: prepared.points,
     links: prepared.links,
     ...prepared.cosmographConfig,
     backgroundColor: "#111827",
-    pointColorBy: "area",
-    pointColorByMap: AREA_COLORS,
+    pointColorBy: colorBy.by,
+    pointColorByMap: colorBy.map,
     pointSizeBy: "size",
     pointLabelBy: "title",
     linkWidthBy: "score",

@@ -10,7 +10,7 @@ const browser = await chromium.launch({
 
 async function scanTooltip(page) {
   const canvasBox = await page.locator("canvas").first().boundingBox();
-  if (!canvasBox) return "";
+  if (!canvasBox) return { text: "", rect: null, canvasBox: null };
   const points = [];
   for (const px of [0.18, 0.28, 0.38, 0.48, 0.58, 0.68, 0.78, 0.88]) {
     for (const py of [0.18, 0.28, 0.38, 0.48, 0.58, 0.68, 0.78, 0.88]) {
@@ -20,13 +20,15 @@ async function scanTooltip(page) {
   for (const [px, py] of points) {
     await page.mouse.move(canvasBox.x + canvasBox.width * px, canvasBox.y + canvasBox.height * py);
     await page.waitForTimeout(90);
-    const text = await page.evaluate(() => {
-      const tooltips = [...document.querySelectorAll(".graph-tooltip")].filter((item) => !item.hidden);
-      return tooltips.map((item) => item.textContent || "").find(Boolean) || "";
+    const hit = await page.evaluate(() => {
+      const tip = [...document.querySelectorAll(".graph-tooltip")].find((item) => !item.hidden && item.textContent);
+      if (!tip) return null;
+      const r = tip.getBoundingClientRect();
+      return { text: tip.textContent || "", left: r.left, top: r.top };
     });
-    if (text) return text;
+    if (hit?.text) return { text: hit.text, rect: { left: hit.left, top: hit.top }, canvasBox };
   }
-  return "";
+  return { text: "", rect: null, canvasBox };
 }
 
 async function verifyPage(path, expectedEngineText) {
@@ -67,7 +69,8 @@ async function verifyPage(path, expectedEngineText) {
   const fullReport = {
     path,
     ...report,
-    tooltip,
+    tooltip: tooltip.text,
+    tooltipRect: tooltip.rect,
     consoleErrors,
     failedRequests,
   };
@@ -80,8 +83,19 @@ async function verifyPage(path, expectedEngineText) {
   }
   if (report.areaOptions < 8) throw new Error(`${path} did not populate area filters`);
   if (!/Select a point|Paper|Poster|Workshop/i.test(report.detailText)) throw new Error(`${path} detail panel did not render`);
-  if (!tooltip.includes("Area:") || !tooltip.includes("Domain:")) {
-    throw new Error(`${path} hover tooltip did not expose title and area/domain: ${tooltip}`);
+  if (!tooltip.text.includes("Area:") || !tooltip.text.includes("Domain:")) {
+    throw new Error(`${path} hover tooltip did not expose title and area/domain: ${tooltip.text}`);
+  }
+  // Regression guard: the tooltip is position:fixed, so it must be anchored in
+  // viewport coordinates over the canvas — not offset toward the viewport origin
+  // by the left dock/header (the Sigma container-coordinate bug). For an interior
+  // hover the tooltip's left/top must sit within the canvas bounds.
+  if (tooltip.rect && tooltip.canvasBox) {
+    const { left, top } = tooltip.rect;
+    const cb = tooltip.canvasBox;
+    if (left < cb.x - 24 || top < cb.y - 24) {
+      throw new Error(`${path} tooltip not viewport-anchored over canvas (tooltip left=${Math.round(left)},top=${Math.round(top)} vs canvas x=${Math.round(cb.x)},y=${Math.round(cb.y)})`);
+    }
   }
   if (consoleErrors.length) throw new Error(`${path} console/page errors: ${consoleErrors.join(" | ")}`);
   if (failedRequests.length) throw new Error(`${path} same-origin request failures: ${failedRequests.join(" | ")}`);

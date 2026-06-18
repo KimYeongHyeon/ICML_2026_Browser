@@ -125,8 +125,18 @@ function seededGraphPosition(id, record) {
   };
 }
 
-function graphPosition(id, record) {
-  return seededGraphPosition(id, record);
+// Match the main Map tab (app.js projectedGraphPosition): use the real semantic
+// projection from icml2026_map.json when present, falling back to the seeded
+// area-cloud only for records with no/zero coordinates. Without this the
+// standalone Sigma/Cosmograph pages discarded the projection and rendered a
+// different layout than the main tab.
+function projectedGraphPosition(mapRecord, id, record) {
+  const x = Number(mapRecord?.x);
+  const y = Number(mapRecord?.y);
+  const hasProjection = Number.isFinite(x) && Number.isFinite(y)
+    && (Math.abs(x) > 1e-9 || Math.abs(y) > 1e-9);
+  if (!hasProjection) return seededGraphPosition(id, record);
+  return { x: x * 1500, y: -y * 1500 };
 }
 
 function typeLabel(type) {
@@ -187,7 +197,7 @@ export function buildSemanticGraph(index, map, options = {}) {
   const nodes = graphRecords.map((record) => {
     const isMatch = recordMatches(record, mapById, query, areaFilter, domainFilter, typeFilter);
     if (isMatch) matchedIds.add(record.id);
-    const position = graphPosition(record.id, record);
+    const position = projectedGraphPosition(mapById.get(record.id), record.id, record);
     const area = firstTag(record.areaTags, firstTag(record.categoryTags, "Other"));
     const domain = firstTag(record.domainTags, "General");
     return {

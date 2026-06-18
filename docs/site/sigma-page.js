@@ -81,8 +81,13 @@ function showTooltip(nodeKey, event) {
   const node = attrs?.sourceNode;
   if (!node) return;
   els.tooltip.textContent = graphTooltip(node);
-  els.tooltip.style.left = `${Math.round(event.event.x + 14)}px`;
-  els.tooltip.style.top = `${Math.round(event.event.y + 14)}px`;
+  // Sigma's event.event.x/y are relative to the graph container, but
+  // .graph-tooltip is position:fixed, so it must be placed in viewport
+  // coordinates. Add the container's bounding rect (as the canvas fallback does)
+  // or the tooltip is offset toward the viewport origin by the dock + header.
+  const rect = els.canvas.getBoundingClientRect();
+  els.tooltip.style.left = `${Math.round(rect.left + event.event.x + 14)}px`;
+  els.tooltip.style.top = `${Math.round(rect.top + event.event.y + 14)}px`;
   els.tooltip.hidden = false;
 }
 
