@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MATERIALS = ROOT / "icml_2026_materials"
 OUT = ROOT / os.environ.get("ICML_SITE_INDEX", "docs/site/data/icml2026_index.json")
 SEMANTIC_SIDECAR = ROOT / "docs" / "site" / "data" / "icml2026_semantic_sidecar.json"
+ICML_WEB = "https://icml.cc"
 GENERIC_WORKSHOP_TITLES = {
     "call for papers",
     "official workshop page",
@@ -59,6 +61,12 @@ def read_semantic_sidecar() -> dict[str, dict[str, Any]]:
     return records if isinstance(records, dict) else {}
 
 
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def as_author_string(value: Any) -> str:
     if isinstance(value, list):
         return ", ".join(str(v) for v in value if v)
@@ -69,6 +77,128 @@ def rel(path: str | None) -> str:
     if not path:
         return ""
     return path.replace("\\", "/").lstrip("/")
+
+
+def normalize_key(value: Any) -> str:
+    return " ".join(str(value or "").lower().split())
+
+
+def extract_openreview_id(value: Any) -> str:
+    text = str(value or "")
+    match = re.search(r"(?:openreview:|[?&]id=)([^;&\s]+)", text)
+    return match.group(1) if match else ""
+
+
+def extract_icml_id(value: Any) -> str:
+    text = str(value or "")
+    match = re.search(r"(?:icml:|/poster/|/oral/)(\d+)", text)
+    return match.group(1) if match else ""
+
+
+def unique_values(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        for part in re.split(r"\s+(?:·|\+)\s+", str(value or "")):
+            part = part.strip()
+            if part and part not in seen:
+                seen.add(part)
+                result.append(part)
+    return result
+
+
+def canonical_presentation_types(values: list[str]) -> list[str]:
+    priority = {"Oral": 0, "Poster": 1}
+    return sorted(unique_values(values), key=lambda value: (priority.get(value, 99), value.lower()))
+
+
+def event_presentation_labels(event: dict[str, Any]) -> list[str]:
+    decision = str(event.get("decision") or "")
+    event_type = str(event.get("event_type") or event.get("eventtype") or "")
+    labels: list[str] = []
+    if "spotlight" in decision.lower():
+        labels.append("Spotlight")
+    if event_type.lower() == "oral":
+        labels.append("Oral")
+    return labels
+
+
+def event_meta(event: dict[str, Any]) -> dict[str, Any]:
+    virtual_path = str(event.get("virtualsite_url") or "")
+    openreview_url = str(event.get("paper_url") or "")
+    return {
+        "decision": str(event.get("decision") or ""),
+        "presentationType": str(event.get("event_type") or event.get("eventtype") or ""),
+        "presentationLabels": event_presentation_labels(event),
+        "session": str(event.get("session") or ""),
+        "roomName": str(event.get("room_name") or ""),
+        "startTime": str(event.get("starttime") or ""),
+        "endTime": str(event.get("endtime") or ""),
+        "officialPageUrl": f"{ICML_WEB}{virtual_path}" if virtual_path.startswith("/") else virtual_path,
+        "openreviewUrl": openreview_url if "openreview.net/" in openreview_url else "",
+    }
+
+
+def merge_meta(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
+    if not left:
+        return dict(right)
+    merged = dict(left)
+    for key in ("decision", "presentationType", "officialPageUrl", "openreviewUrl"):
+        if not merged.get(key) and right.get(key):
+            merged[key] = right[key]
+    for key in ("session", "roomName", "startTime", "endTime"):
+        merged[key] = " · ".join(unique_values([str(merged.get(key) or ""), str(right.get(key) or "")]))
+    merged["presentationLabels"] = unique_values([
+        *(merged.get("presentationLabels") or []),
+        *(right.get("presentationLabels") or []),
+    ])
+    types = canonical_presentation_types([str(merged.get("presentationType") or ""), str(right.get("presentationType") or "")])
+    if len(types) > 1:
+        merged["presentationType"] = " + ".join(types)
+    return merged
+
+
+def read_paper_event_metadata() -> dict[str, dict[str, Any]]:
+    payload = read_json(MATERIALS / "papers" / "source_icml_2026_orals_posters.json")
+    indexes: dict[str, dict[str, Any]] = {}
+    for event in payload.get("results", []):
+        meta = event_meta(event)
+        keys = [
+            f"icml:{event.get('id')}",
+            f"title:{normalize_key(event.get('name'))}",
+        ]
+        openreview_id = extract_openreview_id(event.get("paper_url"))
+        if openreview_id:
+            keys.append(f"openreview:{openreview_id}")
+        for key in keys:
+            indexes[key] = merge_meta(indexes.get(key, {}), meta)
+    return indexes
+
+
+def enrich_paper_row(source: dict[str, Any], paper_events: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    meta: dict[str, Any] = {}
+    openreview_id = extract_openreview_id(source.get("openreview_id_or_icml_id"))
+    icml_id = extract_icml_id(source.get("openreview_id_or_icml_id")) or extract_icml_id(source.get("paper_url"))
+    for key in (
+        f"title:{normalize_key(source.get('title'))}",
+        f"openreview:{openreview_id}" if openreview_id else "",
+        f"icml:{icml_id}" if icml_id else "",
+    ):
+        if key:
+            meta = merge_meta(meta, paper_events.get(key, {}))
+    enriched = dict(source)
+    enriched["status"] = "accepted_public"
+    enriched["decision"] = meta.get("decision") or "Accept"
+    enriched["presentation_type"] = meta.get("presentationType") or ""
+    enriched["presentation_labels"] = meta.get("presentationLabels") or []
+    enriched["session"] = meta.get("session") or ""
+    enriched["room_name"] = meta.get("roomName") or ""
+    enriched["start_time"] = meta.get("startTime") or ""
+    enriched["end_time"] = meta.get("endTime") or ""
+    enriched["openreview_url"] = meta.get("openreviewUrl") or (f"https://openreview.net/forum?id={openreview_id}" if openreview_id else "")
+    if meta.get("officialPageUrl"):
+        enriched["paper_url"] = meta["officialPageUrl"]
+    return enriched
 
 
 def classify_availability(
@@ -110,6 +240,8 @@ def should_include_workshop_row(source: dict[str, Any]) -> bool:
 
 
 def should_include_paper_row(source: dict[str, Any]) -> bool:
+    if source.get("source_type") == "official_icml_virtual_accepted_main_conference_metadata":
+        return True
     page_url = str(source.get("paper_url") or "")
     has_public_pdf = bool(source.get("local_pdf_path") or source.get("pdf_url"))
     return has_public_pdf and "/poster/" not in page_url
@@ -201,17 +333,25 @@ def compact_record(source: dict[str, Any], item_type: str, group: str, semantic:
         "hasPoster": has_poster,
         "hasSlide": has_slide,
         "sourceCheckedAt": str(source.get("source_checked_at") or ""),
+        "decision": str(source.get("decision") or ""),
+        "presentationType": str(source.get("presentation_type") or ""),
+        "presentationLabels": source.get("presentation_labels") or [],
+        "session": str(source.get("session") or ""),
+        "roomName": str(source.get("room_name") or ""),
+        "startTime": str(source.get("start_time") or ""),
+        "endTime": str(source.get("end_time") or ""),
     }
 
 
 def build() -> dict[str, Any]:
     records: list[dict[str, Any]] = []
     semantic = read_semantic_sidecar()
+    paper_events = read_paper_event_metadata()
 
     for row in read_jsonl(MATERIALS / "papers" / "manifest.jsonl"):
         if not should_include_paper_row(row):
             continue
-        records.append(compact_record(row, "paper", "Main Conference", semantic))
+        records.append(compact_record(enrich_paper_row(row, paper_events), "paper", "Main Conference", semantic))
 
     for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):
         if row.get("source_type") and row.get("source_type") != "official_icml_virtual_poster":
