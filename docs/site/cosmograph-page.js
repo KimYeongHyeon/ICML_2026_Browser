@@ -23,6 +23,19 @@ function cosmographColorBy(mode) {
   if (mode === "type") return { by: "type", map: TYPE_LABEL_COLORS };
   return { by: "area", map: AREA_COLORS };
 }
+
+// luma.gl (Cosmograph's WebGL layer) emits a benign multiple-version console
+// error asynchronously during WebGL init when 9.2.x copies collide. It is the
+// documented "Cosmograph blocked → canvas fallback" condition (MAP_SPEC §12.4),
+// not an application error, and it can fire *after* the dynamic import resolves —
+// so filter just that noise for the page lifetime rather than only during the
+// import window. Every other console error passes through untouched.
+const baseConsoleError = console.error.bind(console);
+console.error = (...args) => {
+  const text = args.map((item) => String(item)).join(" ");
+  if (/luma\.gl/i.test(text) && /multiple versions|Found luma\.gl|yarn why/i.test(text)) return;
+  baseConsoleError(...args);
+};
 import { mountCanvasGraph } from "./graph-canvas-fallback.js";
 
 const state = {
@@ -198,13 +211,7 @@ function installEvents() {
 async function init() {
   try {
     status("Loading semantic map data");
-    let originalConsoleError = console.error;
     try {
-      console.error = (...args) => {
-        const text = args.map((item) => String(item)).join(" ");
-        if (/luma\.gl/i.test(text) && /multiple versions|Found luma\.gl|yarn why/i.test(text)) return;
-        originalConsoleError(...args);
-      };
       const module = await Promise.race([
         import("https://cdn.jsdelivr.net/npm/@cosmograph/cosmograph@2.3.2/+esm"),
         new Promise((_, reject) => window.setTimeout(() => reject(new Error("Cosmograph module timed out")), 4500)),
@@ -213,8 +220,6 @@ async function init() {
       state.prepareCosmographData = module.prepareCosmographData;
     } catch (error) {
       console.warn("Cosmograph module unavailable; using canvas fallback", error);
-    } finally {
-      console.error = originalConsoleError;
     }
     const [indexResponse, mapResponse] = await Promise.all([
       fetch("site/data/icml2026_index.json"),
