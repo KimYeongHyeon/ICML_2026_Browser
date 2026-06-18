@@ -1,28 +1,13 @@
 import {
-  AREA_COLORS,
-  DOMAIN_COLORS,
-  TYPE_COLORS,
   buildSemanticGraph,
   escapeHtml,
   loadGraphBundle,
   renderDetailHtml,
 } from "./graph-data.js";
 
-// Cosmograph colors points by a data attribute + value→color map. Points carry
-// area / domain / type (typeLabel) attributes, so pick the attribute and map
-// that match the selected Color By mode. TYPE_COLORS is keyed by lowercase type,
-// but the point attribute is the capitalized typeLabel, hence this remap.
-const TYPE_LABEL_COLORS = {
-  Paper: TYPE_COLORS.paper,
-  Poster: TYPE_COLORS.poster,
-  Workshop: TYPE_COLORS.workshop,
-};
-
-function cosmographColorBy(mode) {
-  if (mode === "domain") return { by: "domain", map: DOMAIN_COLORS };
-  if (mode === "type") return { by: "type", map: TYPE_LABEL_COLORS };
-  return { by: "area", map: AREA_COLORS };
-}
+// Unmatched points when a search/filter is active are rendered in this muted
+// color (and at reduced size), mirroring the canvas fallback / Sigma dimming.
+const DIM_POINT = "rgba(148, 163, 184, 0.16)";
 
 // luma.gl (Cosmograph's WebGL layer) emits a benign multiple-version console
 // error asynchronously during WebGL init when 9.2.x copies collide. It is the
@@ -78,17 +63,23 @@ function populateSelect(select, values, label) {
 }
 
 function cosmographPoints(bundle) {
-  return bundle.nodes.map((node) => ({
-    id: node.id,
-    title: node.title,
-    area: node.area,
-    domain: node.domain,
-    type: node.typeLabel,
-    color: node.color,
-    size: node.size,
-    x: node.x,
-    y: node.y,
-  }));
+  // node.color already encodes the selected Color By mode. When a filter/search
+  // is active, dim unmatched points (muted color + smaller size) so the runtime
+  // gives the same filter affordance as the canvas fallback and Sigma path.
+  return bundle.nodes.map((node) => {
+    const dimmed = bundle.isFiltered && !node.isMatch;
+    return {
+      id: node.id,
+      title: node.title,
+      area: node.area,
+      domain: node.domain,
+      type: node.typeLabel,
+      color: dimmed ? DIM_POINT : node.color,
+      size: dimmed ? Math.max(0.4, node.size * 0.55) : node.size,
+      x: node.x,
+      y: node.y,
+    };
+  });
 }
 
 function cosmographLinks(bundle) {
@@ -137,15 +128,18 @@ async function renderGraph() {
     status(`Preparing ${bundle.nodes.length.toLocaleString()} Cosmograph points`);
     const points = cosmographPoints(bundle);
     const links = cosmographLinks(bundle);
+    // Color by the per-point color column, which already encodes both the
+    // selected Color By mode and the dimming of unmatched points. The identity
+    // map makes Cosmograph use those literal color values verbatim.
     // Cosmograph's Data Kit only prepares the columns declared here, so every
     // field the runtime config consumes (color/size/label/position/width) must
-    // be declared before prepareCosmographData runs — otherwise Domain/Type
-    // colors and the projected x/y layout point at columns never ingested.
-    const colorBy = cosmographColorBy(els.color.value);
+    // be declared before prepareCosmographData runs — otherwise the colors and
+    // the projected x/y layout point at columns that were never ingested.
+    const colorMap = Object.fromEntries([...new Set(points.map((point) => point.color))].map((color) => [color, color]));
     const prepared = await state.prepareCosmographData({
       points: {
         pointIdBy: "id",
-        pointColorBy: colorBy.by,
+        pointColorBy: "color",
         pointSizeBy: "size",
         pointLabelBy: "title",
         pointXBy: "x",
@@ -162,7 +156,7 @@ async function renderGraph() {
       links: prepared.links,
       ...prepared.cosmographConfig,
       backgroundColor: "#111827",
-      pointColorByMap: colorBy.map,
+      pointColorByMap: colorMap,
       showLabels: false,
       showDynamicLabels: false,
       showHoveredPointLabel: true,
