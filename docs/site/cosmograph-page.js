@@ -126,66 +126,85 @@ async function renderGraph() {
   });
   state.bundle = bundle;
   if (!state.Cosmograph || !state.prepareCosmographData) {
-    state.fallback = mountCanvasGraph(els.canvas, bundle, {
-      detail: els.detail,
-      onSelect: (node) => {
-        els.detail.innerHTML = renderDetailHtml(node, state.bundle?.links || []);
+    mountCosmographFallback(bundle);
+    return;
+  }
+  // The CDN module can load while the WebGL/luma runtime still fails to
+  // initialize (the documented Cosmograph-blocked condition, MAP_SPEC §12.4/§13).
+  // Wrap prep + construction so any such throw falls back to the canvas graph
+  // instead of dropping the whole page into an error state with no graph.
+  try {
+    status(`Preparing ${bundle.nodes.length.toLocaleString()} Cosmograph points`);
+    const points = cosmographPoints(bundle);
+    const links = cosmographLinks(bundle);
+    // Cosmograph's Data Kit only prepares the columns declared here, so every
+    // field the runtime config consumes (color/size/label/position/width) must
+    // be declared before prepareCosmographData runs — otherwise Domain/Type
+    // colors and the projected x/y layout point at columns never ingested.
+    const colorBy = cosmographColorBy(els.color.value);
+    const prepared = await state.prepareCosmographData({
+      points: {
+        pointIdBy: "id",
+        pointColorBy: colorBy.by,
+        pointSizeBy: "size",
+        pointLabelBy: "title",
+        pointXBy: "x",
+        pointYBy: "y",
+      },
+      links: {
+        linkSourceBy: "source",
+        linkTargetsBy: ["target"],
+        linkWidthBy: "score",
+      },
+    }, points, links);
+    state.graph = new state.Cosmograph(els.canvas, {
+      points: prepared.points,
+      links: prepared.links,
+      ...prepared.cosmographConfig,
+      backgroundColor: "#111827",
+      pointColorByMap: colorBy.map,
+      showLabels: false,
+      showDynamicLabels: false,
+      showHoveredPointLabel: true,
+      hoveredPointCursor: "pointer",
+      simulationRepulsion: 0.35,
+      simulationLinkDistance: 18,
+      simulationFriction: 0.84,
+      onClick: (index) => {
+        // Cosmograph's click callback passes (index, position, event), not a
+        // point object. Map the index back to the original point id via the
+        // bundle (same order as the points passed to prepareCosmographData);
+        // a background click (no index) clears the detail panel.
+        const node = typeof index === "number" ? state.bundle?.nodes[index] : null;
+        if (node?.id) {
+          setDetailById(node.id);
+        } else {
+          els.detail.innerHTML = renderDetailHtml(null);
+        }
       },
     });
     els.detail.innerHTML = renderDetailHtml(null);
-    status(graphHud(bundle, "Cosmograph blocked, canvas fallback"), "ready");
-    return;
+    status(graphHud(bundle, "Cosmograph runtime"), "ready");
+  } catch (error) {
+    console.warn("Cosmograph runtime init failed; using canvas fallback", error);
+    state.graph?.destroy?.();
+    state.graph = null;
+    els.canvas.innerHTML = "";
+    mountCosmographFallback(bundle);
   }
-  status(`Preparing ${bundle.nodes.length.toLocaleString()} Cosmograph points`);
-  const points = cosmographPoints(bundle);
-  const links = cosmographLinks(bundle);
-  // Cosmograph's Data Kit only prepares the columns declared here, so every
-  // field the runtime config consumes (color/size/label/position/width) must be
-  // declared before prepareCosmographData runs — otherwise Domain/Type colors
-  // and the projected x/y layout point at columns that were never ingested.
-  const colorBy = cosmographColorBy(els.color.value);
-  const prepared = await state.prepareCosmographData({
-    points: {
-      pointIdBy: "id",
-      pointColorBy: colorBy.by,
-      pointSizeBy: "size",
-      pointLabelBy: "title",
-      pointXBy: "x",
-      pointYBy: "y",
-    },
-    links: {
-      linkSourceBy: "source",
-      linkTargetsBy: ["target"],
-      linkWidthBy: "score",
-    },
-  }, points, links);
-  state.graph = new state.Cosmograph(els.canvas, {
-    points: prepared.points,
-    links: prepared.links,
-    ...prepared.cosmographConfig,
-    backgroundColor: "#111827",
-    pointColorByMap: colorBy.map,
-    showLabels: false,
-    showDynamicLabels: false,
-    hoveredPointCursor: "pointer",
-    simulationRepulsion: 0.35,
-    simulationLinkDistance: 18,
-    simulationFriction: 0.84,
-    onClick: (index) => {
-      // Cosmograph's click callback passes (index, position, event), not a point
-      // object. Map the index back to the original point id via the bundle (same
-      // order as the points array passed to prepareCosmographData); a background
-      // click (no index) clears the detail panel, matching the canvas fallback.
-      const node = typeof index === "number" ? state.bundle?.nodes[index] : null;
-      if (node?.id) {
-        setDetailById(node.id);
-      } else {
-        els.detail.innerHTML = renderDetailHtml(null);
-      }
+}
+
+// Mount the local canvas graph that honestly renders the same semantic data
+// whenever the Cosmograph runtime is unavailable or fails to initialize.
+function mountCosmographFallback(bundle) {
+  state.fallback = mountCanvasGraph(els.canvas, bundle, {
+    detail: els.detail,
+    onSelect: (node) => {
+      els.detail.innerHTML = renderDetailHtml(node, state.bundle?.links || []);
     },
   });
   els.detail.innerHTML = renderDetailHtml(null);
-  status(graphHud(bundle, "Cosmograph runtime"), "ready");
+  status(graphHud(bundle, "Cosmograph blocked, canvas fallback"), "ready");
 }
 
 function scheduleRender() {
