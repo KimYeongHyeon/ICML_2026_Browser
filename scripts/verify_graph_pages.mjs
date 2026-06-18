@@ -63,6 +63,7 @@ async function verifyPage(path, expectedEngineText) {
       canvasHeight: box?.height || 0,
       areaOptions: document.querySelector("#areaFilter")?.options.length || 0,
       detailText: document.querySelector("#graphDetail")?.innerText || "",
+      hasFit: Boolean(document.querySelector("#fitGraph")),
     };
   });
   const tooltip = await scanTooltip(page);
@@ -82,6 +83,11 @@ async function verifyPage(path, expectedEngineText) {
     throw new Error(`${path} graph canvas is missing or too small: ${JSON.stringify(report)}`);
   }
   if (report.areaOptions < 8) throw new Error(`${path} did not populate area filters`);
+  // MAP_SPEC §9.2: every separate graph page must expose a Fit graph control to
+  // reset the camera, and clicking it must not error.
+  if (!report.hasFit) throw new Error(`${path} is missing the Fit graph control (MAP_SPEC §9.2)`);
+  await page.click("#fitGraph");
+  await page.waitForTimeout(200);
   if (!/Select a point|Paper|Poster|Workshop/i.test(report.detailText)) throw new Error(`${path} detail panel did not render`);
   if (!tooltip.text.includes("Area:") || !tooltip.text.includes("Domain:")) {
     throw new Error(`${path} hover tooltip did not expose title and area/domain: ${tooltip.text}`);

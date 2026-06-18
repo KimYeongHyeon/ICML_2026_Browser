@@ -56,6 +56,7 @@ const els = {
   type: document.querySelector("#typeFilter"),
   color: document.querySelector("#colorMode"),
   reset: document.querySelector("#resetFilters"),
+  fit: document.querySelector("#fitGraph"),
   canvas: document.querySelector("#graphCanvas"),
   detail: document.querySelector("#graphDetail"),
   status: document.querySelector("#graphStatus"),
@@ -192,6 +193,16 @@ function scheduleRender() {
   state.renderTimer = window.setTimeout(() => void renderGraph(), 200);
 }
 
+// Reset the camera to the full graph view (MAP_SPEC §9.2). Works for both the
+// Cosmograph runtime (fitView) and the canvas fallback (.fit()).
+function fitGraph() {
+  if (state.fallback) {
+    state.fallback.fit();
+    return;
+  }
+  state.graph?.fitView?.();
+}
+
 function installEvents() {
   for (const input of [els.search, els.area, els.domain, els.type, els.color]) {
     input.addEventListener("input", scheduleRender);
@@ -206,6 +217,7 @@ function installEvents() {
     els.color.value = "area";
     void renderGraph();
   });
+  els.fit.addEventListener("click", fitGraph);
 }
 
 async function init() {
