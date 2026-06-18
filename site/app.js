@@ -2043,7 +2043,13 @@ async function init() {
 
   els.tabs.forEach((button) => {
     button.addEventListener("click", () => {
-      state.tab = button.dataset.tab;
+      const nextTab = button.dataset.tab;
+      const tabChanged = nextTab !== state.tab;
+      state.tab = nextTab;
+      if (tabChanged) {
+        state.query = "";
+        els.search.value = "";
+      }
       state.category = "all";
       state.group = "all";
       state.asset = "all";
