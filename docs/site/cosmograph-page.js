@@ -1,7 +1,6 @@
 import {
   buildSemanticGraph,
   escapeHtml,
-  loadGraphBundle,
   renderDetailHtml,
 } from "./graph-data.js";
 
@@ -252,7 +251,7 @@ async function init() {
     ]);
     state.rawIndex = await indexResponse.json();
     state.rawMap = await mapResponse.json();
-    const bundle = await loadGraphBundle({ neighborLimit: 2 });
+    const bundle = buildSemanticGraph(state.rawIndex, state.rawMap, { neighborLimit: 2 });
     populateSelect(els.area, bundle.areas, "areas");
     populateSelect(els.domain, bundle.domains, "domains");
     populateSelect(els.type, bundle.types.map(([label, count]) => [label.toLowerCase(), count]), "types");
