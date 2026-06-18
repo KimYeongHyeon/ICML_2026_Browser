@@ -1274,29 +1274,34 @@ function installMapPointerInteractions() {
       event.preventDefault();
       return;
     }
-    if (mode === "box") hideMapSelectionBox();
-    if (mode === "box" && moved && Math.hypot(end.x - start.x, end.y - start.y) > 10) {
-      interaction.suppressClickUntil = performance.now() + 300;
-      setMapSelection(start, end);
-    } else if (mode === "box" && !moved) {
-      // A plain click. This handler captures the pointer and preventDefaults, so
-      // the synthetic click event never reaches ForceGraph's onNodeClick; do the
-      // selection here instead. Snap to the nearest node (forgiving at any zoom);
-      // clicking empty space falls back to zoom in / shift+zoom out.
-      // Either way, clear any active box selection first: hideMapSelectionBox()
-      // only hides the overlay, so leaving state.mapSelection active would let a
-      // later click inside the old (invisible) rectangle hijack as selection-click.
-      const hadSelection = state.mapSelection.active;
-      if (hadSelection) clearMapSelection();
-      const node = nearestNodeAtScreen(end, 24);
-      if (node?.record && !event.shiftKey) {
-        selectMapNode(node, event);
+    if (mode === "box") {
+      hideMapSelectionBox();
+      // Decide click vs box by one consistent distance threshold, NOT the
+      // `moved` flag: `moved` flips at 4px while a box needs 10px, so a 5-10px
+      // hand jitter previously fell between both branches and left a stale,
+      // invisible selection active. A drag >10px makes a box; anything smaller
+      // is a click/jitter that must dismiss any active box, then select or zoom.
+      const dragDistance = Math.hypot(end.x - start.x, end.y - start.y);
+      if (dragDistance > 10) {
+        interaction.suppressClickUntil = performance.now() + 300;
+        setMapSelection(start, end);
       } else {
-        if (hadSelection) {
-          const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
-          renderMapDetail(selected || null);
+        // Plain click (or jitter). This handler captures the pointer and
+        // preventDefaults, so ForceGraph's onNodeClick never fires — do the
+        // selection here. Snap to the nearest node (forgiving at any zoom);
+        // empty space falls back to zoom in / shift+zoom out.
+        const hadSelection = state.mapSelection.active;
+        if (hadSelection) clearMapSelection();
+        const node = nearestNodeAtScreen(end, 24);
+        if (node?.record && !event.shiftKey) {
+          selectMapNode(node, event);
+        } else {
+          if (hadSelection) {
+            const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
+            renderMapDetail(selected || null);
+          }
+          forceGraphZoomAt(end, event.shiftKey ? 0.72 : 1.34);
         }
-        forceGraphZoomAt(end, event.shiftKey ? 0.72 : 1.34);
       }
     }
     event.preventDefault();
