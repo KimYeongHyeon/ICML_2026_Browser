@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ICML 2026 Sigma.js Map</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="site/styles.css" />
+    <link rel="stylesheet" href="site/graph-pages.css" />
+  </head>
+  <body class="graph-page">
+    <header class="graph-header">
+      <div>
+        <p class="eyebrow">ICML 2026 Archive</p>
+        <h1>Sigma.js Graphology Map</h1>
+      </div>
+      <nav class="page-links" aria-label="Navigation">
+        <a href="index.html">Browser</a>
+        <a href="cosmograph.html">Cosmograph</a>
+      </nav>
+    </header>
+    <main class="graph-shell">
+      <aside class="graph-controls" aria-label="Sigma controls">
+        <label>
+          <span>Search</span>
+          <input id="graphSearch" type="search" placeholder="Title, author, keyword" autocomplete="off" />
+        </label>
+        <label>
+          <span>Area</span>
+          <select id="areaFilter"></select>
+        </label>
+        <label>
+          <span>Domain</span>
+          <select id="domainFilter"></select>
+        </label>
+        <label>
+          <span>Type</span>
+          <select id="typeFilter"></select>
+        </label>
+        <label>
+          <span>Color</span>
+          <select id="colorMode">
+            <option value="area">Area</option>
+            <option value="domain">Domain</option>
+            <option value="type">Type</option>
+          </select>
+        </label>
+        <button id="fitGraph" class="graph-action" type="button">Fit graph</button>
+        <button id="resetFilters" class="graph-action" type="button">Reset filters</button>
+        <div class="graph-note">Sigma.js renderer backed by Graphology. Scroll to zoom, drag to pan, hover for titles.</div>
+      </aside>
+      <section class="graph-stage" aria-label="Sigma semantic map">
+        <div class="graph-status" id="graphStatus" data-state="loading">Loading Sigma.js</div>
+        <div class="sigma-container" id="graphCanvas"></div>
+        <div class="graph-tooltip" id="graphTooltip" hidden></div>
+      </section>
+      <aside class="graph-detail" id="graphDetail" aria-label="Selected record"></aside>
+    </main>
+    <script src="site/sigma-page.js" type="module"></script>
+  </body>
+</html>
