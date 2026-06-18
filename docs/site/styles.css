@@ -161,9 +161,26 @@ h2 {
   color: var(--accent-strong);
 }
 
+.data-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.data-note strong {
+  flex: 0 0 auto;
+  color: var(--text);
+}
+
 .filters {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 0.9fr;
+  grid-template-columns: minmax(220px, 1.25fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(210px, 1.05fr);
   gap: 10px;
   padding: 12px;
   border-bottom: 1px solid var(--line);
