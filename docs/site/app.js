@@ -1283,11 +1283,19 @@ function installMapPointerInteractions() {
       // the synthetic click event never reaches ForceGraph's onNodeClick; do the
       // selection here instead. Snap to the nearest node (forgiving at any zoom);
       // clicking empty space falls back to zoom in / shift+zoom out.
+      // Either way, clear any active box selection first: hideMapSelectionBox()
+      // only hides the overlay, so leaving state.mapSelection active would let a
+      // later click inside the old (invisible) rectangle hijack as selection-click.
+      const hadSelection = state.mapSelection.active;
+      if (hadSelection) clearMapSelection();
       const node = nearestNodeAtScreen(end, 24);
       if (node?.record && !event.shiftKey) {
-        if (state.mapSelection.active) clearMapSelection();
         selectMapNode(node, event);
       } else {
+        if (hadSelection) {
+          const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
+          renderMapDetail(selected || null);
+        }
         forceGraphZoomAt(end, event.shiftKey ? 0.72 : 1.34);
       }
     }
