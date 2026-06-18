@@ -307,7 +307,8 @@ function option(value, label) {
 }
 
 function assetOption(value, label, count, disabled = false) {
-  return `<option value="${escapeHtml(value)}"${disabled ? " disabled" : ""}>${escapeHtml(`${label} (${count.toLocaleString()})`)}</option>`;
+  const suffix = value !== "all" && disabled ? " (0)" : "";
+  return `<option value="${escapeHtml(value)}"${disabled ? " disabled" : ""}>${escapeHtml(`${label}${suffix}`)}</option>`;
 }
 
 function updateAssetOptions(recordsForTab) {
