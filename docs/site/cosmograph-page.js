@@ -125,21 +125,32 @@ async function renderGraph() {
   status(`Preparing ${bundle.nodes.length.toLocaleString()} Cosmograph points`);
   const points = cosmographPoints(bundle);
   const links = cosmographLinks(bundle);
-  const prepared = await state.prepareCosmographData({
-    points: { pointIdBy: "id" },
-    links: { linkSourceBy: "source", linkTargetsBy: ["target"] },
-  }, points, links);
+  // Cosmograph's Data Kit only prepares the columns declared here, so every
+  // field the runtime config consumes (color/size/label/position/width) must be
+  // declared before prepareCosmographData runs — otherwise Domain/Type colors
+  // and the projected x/y layout point at columns that were never ingested.
   const colorBy = cosmographColorBy(els.color.value);
+  const prepared = await state.prepareCosmographData({
+    points: {
+      pointIdBy: "id",
+      pointColorBy: colorBy.by,
+      pointSizeBy: "size",
+      pointLabelBy: "title",
+      pointXBy: "x",
+      pointYBy: "y",
+    },
+    links: {
+      linkSourceBy: "source",
+      linkTargetsBy: ["target"],
+      linkWidthBy: "score",
+    },
+  }, points, links);
   state.graph = new state.Cosmograph(els.canvas, {
     points: prepared.points,
     links: prepared.links,
     ...prepared.cosmographConfig,
     backgroundColor: "#111827",
-    pointColorBy: colorBy.by,
     pointColorByMap: colorBy.map,
-    pointSizeBy: "size",
-    pointLabelBy: "title",
-    linkWidthBy: "score",
     showLabels: false,
     showDynamicLabels: false,
     hoveredPointCursor: "pointer",

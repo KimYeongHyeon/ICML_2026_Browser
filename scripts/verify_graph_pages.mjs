@@ -97,6 +97,23 @@ async function verifyPage(path, expectedEngineText) {
       throw new Error(`${path} tooltip not viewport-anchored over canvas (tooltip left=${Math.round(left)},top=${Math.round(top)} vs canvas x=${Math.round(cb.x)},y=${Math.round(cb.y)})`);
     }
   }
+  // Regression guard for soft-filter styling: applying an Area filter must
+  // re-render the runtime graph (dimming unmatched nodes/edges) without errors.
+  // This exercises the Sigma dim-color path; a bad color string would surface as
+  // a console error caught below.
+  if (path.startsWith("sigma") && report.areaOptions > 1) {
+    await page.selectOption("#areaFilter", { index: 1 });
+    await page.waitForFunction(
+      () => document.querySelector("#graphStatus")?.dataset.state === "ready",
+      null,
+      { timeout: 20000 },
+    );
+    await page.waitForTimeout(400);
+    const filteredState = await page.evaluate(() => document.querySelector("#graphStatus")?.dataset.state || "");
+    if (filteredState !== "ready") {
+      throw new Error(`${path} did not return to ready after applying an area filter`);
+    }
+  }
   if (consoleErrors.length) throw new Error(`${path} console/page errors: ${consoleErrors.join(" | ")}`);
   if (failedRequests.length) throw new Error(`${path} same-origin request failures: ${failedRequests.join(" | ")}`);
   await page.close();

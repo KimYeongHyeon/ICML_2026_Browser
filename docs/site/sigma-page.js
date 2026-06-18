@@ -50,14 +50,21 @@ function populateSelect(select, values, label) {
 function buildGraphology(bundle) {
   if (!state.Graph || !state.Sigma) throw new Error("Sigma.js modules are unavailable");
   const graph = new state.Graph({ type: "undirected", multi: false, allowSelfLoops: false });
+  // Soft filtering: when a search/filter is active, dim unmatched nodes and
+  // edges instead of removing them, so the Area/Domain/Type/Search controls
+  // actually guide the eye in the Sigma runtime (the canvas fallback already
+  // does this; the Sigma path previously styled every node identically).
+  const DIM_NODE = "rgba(148, 163, 184, 0.16)";
+  const DIM_EDGE = "rgba(39, 52, 73, 0.22)";
   for (const node of bundle.nodes) {
+    const dimmed = bundle.isFiltered && !node.isMatch;
     graph.addNode(node.id, {
       label: node.title,
       x: node.x,
       y: node.y,
-      size: node.size,
-      color: node.color,
-      borderColor: node.domainColor,
+      size: dimmed ? Math.max(0.4, node.size * 0.55) : node.size,
+      color: dimmed ? DIM_NODE : node.color,
+      borderColor: dimmed ? DIM_NODE : node.domainColor,
       title: node.title,
       area: node.area,
       domain: node.domain,
@@ -67,9 +74,10 @@ function buildGraphology(bundle) {
   }
   for (const link of bundle.links) {
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
+    const dimmed = bundle.isFiltered && !link.isMatch;
     graph.mergeEdge(link.source, link.target, {
-      size: Math.max(0.03, Number(link.score || 0) * 0.16),
-      color: "#273449",
+      size: dimmed ? 0.02 : Math.max(0.03, Number(link.score || 0) * 0.16),
+      color: dimmed ? DIM_EDGE : "#273449",
       score: link.score,
     });
   }
