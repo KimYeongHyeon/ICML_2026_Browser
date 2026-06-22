@@ -317,7 +317,9 @@ function presentationBadges(record) {
 }
 
 function resultDetails(record) {
-  return [record.session, record.roomName, record.failureReason].filter(Boolean).join(" · ");
+  // Keep the result card scannable: show presentation location only. The long
+  // failureReason (PDF-availability prose) stays in the viewer, not the list.
+  return [record.session, record.roomName].filter(Boolean).join(" · ");
 }
 
 function icmlPresentationId(record) {

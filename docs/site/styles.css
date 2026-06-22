@@ -213,6 +213,15 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+#searchInput {
+  font-weight: 500;
+}
+
+#searchInput::placeholder {
+  color: #98a2b3;
+  font-weight: 400;
+}
+
 .result-bar {
   display: flex;
   align-items: center;
@@ -235,19 +244,26 @@ a:focus-visible {
 
 .result-item {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   margin: 0 0 8px;
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.result-item:hover,
+.result-item:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgb(15 23 42 / 0.06);
+}
+
 .result-item.is-selected {
   border-color: #93c5fd;
   background: #f8fbff;
@@ -277,8 +293,10 @@ a:focus-visible {
 
 .result-title {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .result-authors,
@@ -289,9 +307,9 @@ a:focus-visible {
 }
 
 .result-abstract {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.55;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -391,6 +409,15 @@ a:focus-visible {
   color: white;
 }
 
+.action.saved-toggle {
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.action.saved-toggle:hover {
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
 .action.saved-toggle.is-saved {
   background: #fffbeb;
   border-color: #fcd34d;
@@ -403,6 +430,11 @@ button.stat-pill.saved-pill {
   color: inherit;
   border: 1px solid var(--line);
   background: var(--surface);
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+button.stat-pill.saved-pill:hover {
+  border-color: #fcd34d;
 }
 
 .stat-pill.saved-pill.is-active {
