@@ -1542,8 +1542,8 @@ function ensureForceGraph() {
     .enablePanInteraction(false)
     .enableNodeDrag(false)
     .linkCurvature(0.06)
-    .linkWidth((link) => link.selected ? 1.1 : Math.max(0.16, Number(link.value || 0) * (state.mapMode === "focused" ? 0.95 : 0.7)))
-    .linkColor((link) => link.selected ? "rgba(186,230,253,0.55)" : state.mapMode === "focused" ? "rgba(148,163,184,0.1)" : "rgba(148,163,184,0.045)")
+    .linkWidth((link) => link.selected ? 1.2 : Math.max(0.3, Number(link.value || 0) * (state.mapMode === "focused" ? 0.95 : 0.85)))
+    .linkColor((link) => link.selected ? "rgba(186,230,253,0.6)" : state.mapMode === "focused" ? "rgba(148,163,184,0.12)" : "rgba(130,165,220,0.18)")
     .linkDirectionalParticles((link) => link.selected && state.mapLive ? 1 : 0)
     .linkDirectionalParticleWidth(1)
     .linkDirectionalParticleSpeed(0.004)
@@ -1828,14 +1828,18 @@ function renderForceGraph(graphData) {
   const graph = ensureForceGraph();
   if (!graph) return false;
   ensureMapSelectionBox();
-  // Global mode pins nodes to normalized UMAP coordinates so the force engine
-  // shows the same cluster geography as Cytoscape (no force-driven scatter).
-  // Focused mode keeps the dynamic force layout (releases any pins).
+  // Seed nodes from normalized UMAP coordinates (compact start = fast, stable
+  // convergence) but leave them FREE so the force simulation relaxes the cramped
+  // raw UMAP shape into a balanced, spread-out cloud.
   if (state.mapMode !== "focused") {
-    const pinPos = normalizedGraphPositionFn(graphData.nodes);
+    const seedPos = normalizedGraphPositionFn(graphData.nodes);
     for (const node of graphData.nodes) {
-      const p = pinPos(node);
-      node.x = p.x; node.y = p.y; node.fx = p.x; node.fy = p.y;
+      const p = seedPos(node);
+      node.x = p.x; node.y = p.y;
+      // anchor pulls toward seedX/seedY — must be the NORMALIZED position, not the
+      // raw UMAP*1500 (which would scatter nodes across a huge range).
+      node.seedX = p.x; node.seedY = p.y;
+      delete node.fx; delete node.fy;
     }
   } else {
     for (const node of graphData.nodes) { delete node.fx; delete node.fy; }
@@ -1858,11 +1862,12 @@ function renderForceGraph(graphData) {
       }
     }, 350);
   } else {
-    // Nodes are pinned to UMAP coordinates; neutralize forces so the layout
-    // stays exactly on the semantic projection (parity with the Cytoscape engine).
-    graph.d3Force("charge")?.strength(0);
-    graph.d3Force("link")?.strength(0);
-    applyForceAnchors(graph, 0);
+    // Pure force-directed: charge spreads nodes apart, similarity links pull
+    // related papers together (higher score -> shorter link), and a weak anchor
+    // keeps the whole cloud cohesive. Seeded from UMAP, free to relax.
+    graph.d3Force("charge")?.strength(-10);
+    graph.d3Force("link")?.distance((link) => 10 + (1 - Math.min(1, Number(link.value) || 0)) * 22)?.strength?.(0.85);
+    applyForceAnchors(graph, 0.07);
     const firstFitScheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= firstFitScheduledAt) {
@@ -2048,6 +2053,9 @@ async function loadPdfJs() {
 }
 
 function fallbackPageUrl(record) {
+  // Workshop papers have a public OpenReview PDF (pdfUrl); prefer it over the
+  // generic workshop group page so "open source" lands on the actual paper.
+  if (record.type === "workshop" && record.pdfUrl) return record.pdfUrl;
   return record.pageUrl || record.openreviewUrl || record.projectPageUrl || record.pdfUrl || "";
 }
 
@@ -2507,7 +2515,10 @@ function renderViewer(record) {
     .map((value) => `<span class="chip">${escapeHtml(value)}</span>`)
     .join("");
 
-  const preferred = record.bestAsset;
+  // Local assets live under icml_2026_materials/ which is NOT deployed to gh-pages,
+  // so embedding them 404s. Only treat deployable assets as previewable; otherwise
+  // fall back to remote URLs (e.g. workshop OpenReview PDFs).
+  const preferred = record.bestAsset && !String(record.bestAsset).startsWith("icml_2026_materials") ? record.bestAsset : "";
   const localAsset = record.localPdfPath || record.localSlidePath || record.localPosterPath;
   const actions = [
     actionLink(assetActionHref(record, localAsset), assetActionLabel(record), true),
@@ -2533,6 +2544,8 @@ function renderViewer(record) {
     const sourceUrl = fallbackPageUrl(record);
     const message = record.type === "paper" && openReviewPdfUrl(record)
       ? "OpenReview PDF may open in your browser session. It cannot be embedded here because OpenReview blocks framing and cross-origin preview."
+      : record.type === "workshop" && record.pdfUrl
+      ? "This workshop paper PDF is hosted on OpenReview and opens in a new tab — it can't be embedded here due to OpenReview's framing policy."
       : record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is used instead.";
     els.viewerFrame.innerHTML = renderSourcePageFallback(record, sourceUrl, message);
   } else {
