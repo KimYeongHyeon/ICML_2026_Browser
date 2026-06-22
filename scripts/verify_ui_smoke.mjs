@@ -83,8 +83,12 @@ await page.waitForSelector(".result-item", { timeout: 30000 });
 
 const initial = await page.evaluate(() => ({
   note: document.querySelector(".data-note")?.innerText || "",
+  headerStats: document.querySelector("#headerStats")?.innerText || "",
   paperHidden: document.querySelector('.tab[data-tab="paper"]')?.hidden || false,
+  paperActive: document.querySelector('.tab[data-tab="paper"]')?.classList.contains("is-active") || false,
+  posterTabExists: Boolean(document.querySelector('.tab[data-tab="poster"]')),
   resultCount: document.querySelector("#resultCount")?.innerText || "",
+  hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
 }));
 
 await page.locator('.tab[data-tab="paper"]').click();
@@ -110,11 +114,16 @@ const paperLatex = await page.evaluate(() => ({
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
+  viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
+  actionLabels: [...document.querySelectorAll("#viewerActions .action")].map((item) => item.textContent || ""),
+  openReviewPdfHref: [...document.querySelectorAll("#viewerActions .action")]
+    .find((item) => (item.textContent || "").includes("OpenReview PDF"))?.href || "",
 }));
 await page.waitForSelector(".mini-graph canvas", { timeout: 30000 });
 await page.evaluate(() => document.querySelector(".mini-graph")?.scrollIntoView({ block: "center" }));
 await page.waitForTimeout(900);
-const miniTooltip = await scanGraphTooltip(".mini-graph", centerGrid);
+const miniProbePoints = await page.evaluate(() => window.__icmlMapDebug?.miniProbePoints?.(40) || []);
+const miniTooltip = await scanGraphTooltipAtPoints(".mini-graph", miniProbePoints) || await scanGraphTooltip(".mini-graph", centerGrid);
 
 await page.locator("#searchInput").fill("zzzz-no-records");
 await page.waitForTimeout(100);
@@ -187,14 +196,23 @@ const report = {
 
 console.log(JSON.stringify(report, null, 2));
 
-if (!initial.note.includes("Unofficial public beta") || !initial.note.includes("accepted main-conference metadata")) {
+if (!initial.note.includes("Unofficial public beta") || !initial.note.includes("Poster, Spotlight, and Oral are presentation badges")) {
   throw new Error("missing beta/data limitation note");
 }
-if (initial.paperHidden) {
-  throw new Error("Paper tab should be visible for accepted main-conference metadata");
+if (initial.posterTabExists) {
+  throw new Error("Poster should not be a top-level tab; it is a paper presentation badge");
+}
+if (initial.paperHidden || !initial.paperActive) {
+  throw new Error("Paper tab should be the visible default");
 }
 if (!/^6,343 results/.test(initial.resultCount)) {
-  throw new Error(`unexpected initial poster count: ${initial.resultCount}`);
+  throw new Error(`unexpected initial paper count: ${initial.resultCount}`);
+}
+if (!initial.hasPosterSessionBadge) {
+  throw new Error("Paper results should show poster presentation badges");
+}
+if (!initial.headerStats.includes("OpenReview PDFs") || initial.headerStats.includes("Blocked") || initial.headerStats.includes("PDF pending")) {
+  throw new Error(`paper PDF state should expose OpenReview PDF access, not raw Blocked: ${initial.headerStats}`);
 }
 if (!/^6,343 results/.test(paper.resultCount)) {
   throw new Error(`unexpected paper count: ${paper.resultCount}`);
@@ -202,8 +220,23 @@ if (!/^6,343 results/.test(paper.resultCount)) {
 if (!paperSpotlight.hasSpotlightBadge || /^0 results/.test(paperSpotlight.resultCount)) {
   throw new Error(`Paper tab should expose searchable Spotlight badges: ${JSON.stringify(paperSpotlight)}`);
 }
-if (paperLatex.viewerKind.includes("Paper · Poster") || paperLatex.viewerMeta.split("\n").includes("Poster")) {
+if (paperLatex.viewerKind.includes("Paper · Poster")) {
   throw new Error(`regular poster presentation leaked into paper identity: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.viewerKind.includes("PAPER · MAIN CONFERENCE")) {
+  throw new Error(`paper identity should stay main-conference even when ICML source URL is /poster/{id}: ${JSON.stringify(paperLatex)}`);
+}
+if (/Poster source page/i.test(paperLatex.viewerFrameText) || !/Official paper presentation page/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`paper /poster/{id} source page should be labeled as a paper presentation page: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta)) {
+  throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked: ${JSON.stringify(paperLatex)}`);
+}
+if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
+  throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO")) {
+  throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
 }
 if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.viewerTitle}`)) {
   throw new Error(`raw LaTeX command leaked into paper title: ${JSON.stringify(paperLatex)}`);

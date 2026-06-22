@@ -79,6 +79,9 @@ async function verifyPage(path, expectedEngineText) {
 
   if (report.state !== "ready") throw new Error(`${path} did not reach ready state: ${report.status}`);
   if (!report.status.includes(expectedEngineText)) throw new Error(`${path} did not report expected engine text: ${report.status}`);
+  if (!report.status.includes("7,066") || report.status.includes("13,409")) {
+    throw new Error(`${path} should report logical paper/workshop graph counts, not raw poster-duplicated counts: ${report.status}`);
+  }
   if (report.canvasCount < 1 || report.canvasWidth < 500 || report.canvasHeight < 500) {
     throw new Error(`${path} graph canvas is missing or too small: ${JSON.stringify(report)}`);
   }

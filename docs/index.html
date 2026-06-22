@@ -38,15 +38,14 @@
     <main class="workspace">
       <section class="browser-panel" aria-label="ICML material browser">
         <nav class="tabs" aria-label="Material type">
-          <button class="tab" data-tab="paper" type="button">Papers</button>
-          <button class="tab is-active" data-tab="poster" type="button">Posters</button>
+          <button class="tab is-active" data-tab="paper" type="button">Papers</button>
           <button class="tab" data-tab="workshop" type="button">Workshops</button>
           <button class="tab" data-tab="map" type="button">Map</button>
         </nav>
 
         <div class="data-note" role="note">
           <strong>Unofficial public beta.</strong>
-          <span>Papers show accepted main-conference metadata; PDFs preview only when public/local files are available. Tags, groups, similarity, and map layout are heuristic discovery aids.</span>
+          <span>Papers and workshops are separated at the top level. Poster, Spotlight, and Oral are presentation badges on paper records; PDFs preview only when public/local files are available.</span>
         </div>
 
         <div class="filters">
@@ -70,7 +69,7 @@
               <option value="pdf">Has PDF</option>
               <option value="poster">Has poster image</option>
               <option value="slide">Has slide deck</option>
-              <option value="blocked">Blocked</option>
+              <option value="blocked">PDF pending / blocked</option>
               <option value="metadata">Metadata only</option>
               <option value="unavailable">Unavailable / skipped</option>
             </select>
@@ -156,7 +155,7 @@
         <div class="viewer-meta" id="viewerMeta"></div>
         <div class="viewer-frame" id="viewerFrame">
           <div class="empty-state">
-            <strong>Pick a paper, poster, or workshop item.</strong>
+            <strong>Pick a paper or workshop item.</strong>
             <span>PDFs, slide decks, and poster images open here when a public local file exists.</span>
           </div>
         </div>

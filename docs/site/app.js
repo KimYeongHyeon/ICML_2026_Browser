@@ -9,12 +9,14 @@ const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/
 const CYTOSCAPE_URL = "https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js";
 
 const state = {
-  tab: "poster",
+  tab: "paper",
   query: "",
   category: "all",
   group: "all",
   asset: "all",
   selectedId: "",
+  savedIds: new Set(),
+  savedOnly: false,
   visibleCount: PAGE_SIZE,
   data: null,
   mapData: null,
@@ -29,6 +31,7 @@ const state = {
   cyGraph: null,
   mapHoverId: "",
   mapRenderToken: 0,
+  mapLastUserInteraction: 0,
   mapInteraction: {
     spaceDown: false,
     pointerId: null,
@@ -254,6 +257,12 @@ function paperPresentationKind(record) {
   return "";
 }
 
+function paperPresentationMode(record) {
+  if (record.type !== "paper") return "";
+  const value = `${record.presentationType || ""} ${record.session || ""}`;
+  return /poster/i.test(value) ? "Poster session" : "";
+}
+
 function viewerKindLabel(record) {
   if (record.type === "paper") {
     return `${typeLabel(record.type)} · ${paperPresentationKind(record) || record.group || "Main Conference"}`;
@@ -268,8 +277,14 @@ function assetLabel(record) {
   return "Metadata";
 }
 
+function displayAvailabilityLabel(record) {
+  if (record.type === "paper" && record.availabilityStatus === "blocked") return openReviewPdfUrl(record) ? "OpenReview PDF" : "PDF pending";
+  return record.availabilityLabel || "Metadata only";
+}
+
 function statusClass(record) {
   if (record.availabilityStatus === "downloaded") return "good";
+  if (record.type === "paper" && record.availabilityStatus === "blocked") return "warn";
   if (record.availabilityStatus === "blocked") return "bad";
   if (record.availabilityStatus === "unavailable") return "warn";
   return "";
@@ -290,21 +305,156 @@ function statusLabel(value) {
 
 function presentationBadges(record) {
   const labels = Array.isArray(record.presentationLabels) ? record.presentationLabels : [];
-  return labels.map((label) => {
+  const badges = labels.map((label) => {
     const className = label.toLowerCase() === "spotlight" ? "spotlight" : label.toLowerCase() === "oral" ? "oral" : "";
-    return `<span class="badge ${className}">${escapeHtml(label)}</span>`;
-  }).join("");
+    return { label, className };
+  });
+  const mode = paperPresentationMode(record);
+  if (mode) badges.push({ label: mode, className: "poster-session" });
+  return badges
+    .map((badge) => `<span class="badge ${badge.className}">${escapeHtml(badge.label)}</span>`)
+    .join("");
 }
 
 function resultDetails(record) {
   return [record.session, record.roomName, record.failureReason].filter(Boolean).join(" · ");
 }
 
+function icmlPresentationId(record) {
+  const values = [record.id, record.pageUrl].filter(Boolean);
+  for (const value of values) {
+    const match = String(value).match(/(?:icml:|\/poster\/)(\d+)/);
+    if (match) return match[1];
+  }
+  return "";
+}
+
+function openReviewForumId(record) {
+  const values = [record.openreviewUrl, record.id].filter(Boolean);
+  for (const value of values) {
+    const match = String(value).match(/(?:[?&]id=|openreview:)([^;&]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return "";
+}
+
+function openReviewPdfUrl(record) {
+  if (record.pdfUrl) return record.pdfUrl;
+  const id = openReviewForumId(record);
+  return record.type === "paper" && id ? `https://openreview.net/pdf?id=${encodeURIComponent(id)}` : "";
+}
+
+function enrichPaperPresentationRecords(records) {
+  const posterById = new Map();
+  const posterByTitle = new Map();
+  for (const record of records) {
+    if (record.type !== "poster") continue;
+    const icmlId = icmlPresentationId(record);
+    if (icmlId) posterById.set(icmlId, record);
+    posterByTitle.set(normalize(plainMathTitle(record.title)), record);
+  }
+  return records.map((record) => {
+    if (record.type !== "paper") return record;
+    const icmlId = icmlPresentationId(record);
+    const poster = posterById.get(icmlId) || posterByTitle.get(normalize(plainMathTitle(record.title)));
+    if (!poster) return record;
+    const enriched = { ...record };
+    for (const key of ["localPosterPath", "localSlidePath", "projectPageUrl"]) {
+      if (!enriched[key] && poster[key]) enriched[key] = poster[key];
+    }
+    if (!enriched.hasPoster && poster.hasPoster) enriched.hasPoster = true;
+    if (!enriched.hasSlide && poster.hasSlide) enriched.hasSlide = true;
+    if (!enriched.bestAsset && poster.bestAsset) {
+      enriched.bestAsset = poster.bestAsset;
+      enriched.bestAssetKind = poster.bestAssetKind;
+    }
+    return enriched;
+  });
+}
+
+function displayRecords() {
+  return (state.data?.records || []).filter((record) => record.type !== "poster");
+}
+
+function recordsForCurrentTab() {
+  return state.tab === "map"
+    ? displayRecords()
+    : displayRecords().filter((record) => record.type === state.tab);
+}
+
+function findDisplayRecord(id) {
+  return displayRecords().find((record) => record.id === id);
+}
+
+function recordSearchParts(record) {
+  // Lazily build and cache per-field searchable text. Abstracts are long
+  // (~1.2k chars), so rebuilding on every keystroke for all records is wasteful.
+  if (record._hayParts === undefined) {
+    record._hayParts = {
+      title: normalize(`${record.title} ${plainMathTitle(record.title)}`),
+      authors: normalize(record.authors || ""),
+      abstract: normalize(record.abstract || ""),
+      tags: normalize(`${record.group || ""} ${record.decision || ""} ${record.presentationType || ""} ${(record.presentationLabels || []).join(" ")} ${record.session || ""} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""}`),
+    };
+    const p = record._hayParts;
+    record._haystack = `${p.title} ${p.abstract} ${p.authors} ${p.tags}`;
+  }
+  return record._hayParts;
+}
+
+function recordHaystack(record) {
+  recordSearchParts(record);
+  return record._haystack;
+}
+
+// Which field a query matched, by researcher-priority order. Used for the
+// result "X match" badge so abstract-only hits are distinguishable from title hits.
+const MATCH_FIELD_ORDER = ["title", "authors", "abstract", "tags"];
+const MATCH_FIELD_LABEL = { title: "title", authors: "author", abstract: "abstract", tags: "tag" };
+
+function matchedField(record, query) {
+  if (!query) return "";
+  const parts = recordSearchParts(record);
+  for (const field of MATCH_FIELD_ORDER) {
+    if (parts[field].includes(query)) return field;
+  }
+  return "";
+}
+
+// Session-scoped reading list. Researchers collect papers while searching and
+// traversing neighborhoods. sessionStorage (not localStorage) keeps it per-tab
+// and avoids stale cross-session lists, honoring the no-backend static-site model.
+const SAVED_KEY = "icml2026:savedIds";
+
+function loadSavedIds() {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(SAVED_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function toggleSaved(id) {
+  if (!id) return;
+  if (state.savedIds.has(id)) state.savedIds.delete(id);
+  else state.savedIds.add(id);
+  try {
+    sessionStorage.setItem(SAVED_KEY, JSON.stringify([...state.savedIds]));
+  } catch {
+    // sessionStorage may be unavailable (private mode); in-memory set still works.
+  }
+}
+
+function savedToggleHTML(record) {
+  const saved = state.savedIds.has(record.id);
+  return `<button type="button" class="action saved-toggle${saved ? " is-saved" : ""}" data-save-id="${escapeHtml(record.id)}">${saved ? "★ Saved" : "☆ Save"}</button>`;
+}
+
 function getFilteredRecords(options = {}) {
   const query = normalize(state.query);
   const ignoreMapFilter = Boolean(options.ignoreMapFilter);
-  return state.data.records.filter((record) => {
-    if (state.tab !== "map" && record.type !== state.tab) return false;
+  return recordsForCurrentTab().filter((record) => {
+    if (state.savedOnly && !state.savedIds.has(record.id)) return false;
     if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
     if (state.group !== "all" && record.group !== state.group) return false;
     if (state.asset === "local" && !(record.hasPdf || record.hasPoster || record.hasSlide)) return false;
@@ -316,25 +466,39 @@ function getFilteredRecords(options = {}) {
     if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
     if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
     if (!query) return true;
-    const haystack = normalize(`${record.title} ${plainMathTitle(record.title)} ${record.authors} ${record.group} ${record.decision || ""} ${record.presentationType || ""} ${(record.presentationLabels || []).join(" ")} ${record.session || ""} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""}`);
-    return haystack.includes(query);
+    return recordHaystack(record).includes(query);
   });
 }
 
 function updateHeader() {
-  const summary = state.data.summary;
-  const counts = summary.typeCounts;
-  els.headerStats.innerHTML = [
-    ["Papers", counts.paper || 0],
-    ["Posters", counts.poster || 0],
-    ["Workshops", counts.workshop || 0],
-    ["PDFs", summary.assetCounts.pdf || 0],
-    ["Poster images", summary.assetCounts.poster || 0],
-    ["Slides", summary.assetCounts.slide || 0],
-    ["Blocked", summary.availabilityCounts?.blocked || 0],
-  ].filter(([label, value]) => label !== "Papers" || value > 0)
+  const records = displayRecords();
+  const papers = records.filter((record) => record.type === "paper");
+  const workshops = records.filter((record) => record.type === "workshop");
+  const pdfPending = papers.filter((record) => record.availabilityStatus === "blocked" && !openReviewPdfUrl(record)).length;
+  const blocked = records.filter((record) => record.type !== "paper" && record.availabilityStatus === "blocked").length;
+  if (!state.savedIds.size) state.savedOnly = false;
+  const savedCount = state.savedIds.size;
+  const savedPill = savedCount
+    ? `<button type="button" class="stat-pill saved-pill${state.savedOnly ? " is-active" : ""}" id="savedFilterPill"><strong>${savedCount}</strong> saved</button>`
+    : "";
+  els.headerStats.innerHTML = savedPill + [
+    ["Papers", papers.length],
+    ["Poster sessions", papers.filter((record) => paperPresentationMode(record)).length],
+    ["Workshops", workshops.length],
+    ["PDFs", records.filter((record) => record.hasPdf).length],
+    ["OpenReview PDFs", papers.filter((record) => openReviewPdfUrl(record)).length],
+    ["Poster images", records.filter((record) => record.hasPoster).length],
+    ["Slides", records.filter((record) => record.hasSlide).length],
+    ["PDF pending", pdfPending],
+    ["Blocked", blocked],
+  ].filter(([, value]) => value > 0)
     .map(([label, value]) => `<span class="stat-pill"><strong>${value.toLocaleString()}</strong> ${label}</span>`)
     .join("");
+  els.headerStats.querySelector("#savedFilterPill")?.addEventListener("click", () => {
+    state.savedOnly = !state.savedOnly;
+    renderResults();
+    updateHeader();
+  });
 }
 
 function option(value, label) {
@@ -363,7 +527,7 @@ function updateAssetOptions(recordsForTab) {
     ["pdf", "Has PDF"],
     ["poster", "Has poster image"],
     ["slide", "Has slide deck"],
-    ["blocked", "Blocked"],
+    ["blocked", recordsForTab.every((record) => record.type === "paper") ? "OpenReview PDF" : "OpenReview PDF / blocked"],
     ["metadata", "Metadata only"],
     ["unavailable", "Unavailable / skipped"],
   ];
@@ -380,7 +544,7 @@ const ASSET_FILTER_LABELS = {
   pdf: "has PDF",
   poster: "has poster image",
   slide: "has slide deck",
-  blocked: "blocked",
+  blocked: "OpenReview PDF / blocked",
   metadata: "metadata only",
   unavailable: "unavailable / skipped",
 };
@@ -397,7 +561,7 @@ function activeFilterSummary(baseLabel, extraParts = []) {
 }
 
 function updateSelects() {
-  const recordsForTab = state.tab === "map" ? state.data.records : state.data.records.filter((record) => record.type === state.tab);
+  const recordsForTab = recordsForCurrentTab();
   const categories = [...new Set(recordsForTab.flatMap((record) => categoryTags(record)))].sort();
   const groups = [...new Set(recordsForTab.map((record) => record.group))].sort();
 
@@ -412,6 +576,7 @@ function updateSelects() {
 
 function renderResults() {
   const filtered = getFilteredRecords();
+  const query = normalize(state.query);
   els.resultCount.textContent = `${filtered.length.toLocaleString()} results`;
   els.activeSummary.textContent = activeFilterSummary(typeLabel(state.tab));
 
@@ -421,17 +586,21 @@ function renderResults() {
       const selected = record.id === state.selectedId ? " is-selected" : "";
       const featured = (record.presentationLabels || []).includes("Spotlight") ? " is-spotlight" : (record.presentationLabels || []).includes("Oral") ? " is-oral" : "";
       const details = resultDetails(record);
+      const preview = (record.abstract || "").trim();
+      const matched = matchedField(record, query);
       return `
         <button class="result-item${selected}${featured}" type="button" data-id="${escapeHtml(record.id)}">
           <span class="result-title">${escapeHtml(plainMathTitle(record.title))}</span>
           <span class="result-authors">${escapeHtml(record.authors || "Authors unavailable")}</span>
           <span class="badges">
+            ${matched ? `<span class="badge match">${escapeHtml(MATCH_FIELD_LABEL[matched])} match</span>` : ""}
             ${presentationBadges(record)}
             ${categoryTags(record).slice(0, 3).map((category) => `<span class="badge">${escapeHtml(category)}</span>`).join("")}
             <span class="badge">${escapeHtml(record.group)}</span>
             <span class="badge">${assetLabel(record)}</span>
-            <span class="badge ${statusClass(record)}">${escapeHtml(record.availabilityLabel || "Metadata only")}</span>
+            <span class="badge ${statusClass(record)}">${escapeHtml(displayAvailabilityLabel(record))}</span>
           </span>
+          ${preview ? `<span class="result-abstract">${escapeHtml(preview.slice(0, 150))}${preview.length > 150 ? "…" : ""}</span>` : ""}
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;
@@ -446,7 +615,7 @@ function renderResults() {
   els.results.querySelectorAll(".result-item").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
-      const selected = state.data.records.find((record) => record.id === state.selectedId);
+      const selected = findDisplayRecord(state.selectedId);
       renderResults();
       renderViewer(selected);
     });
@@ -464,7 +633,7 @@ function mapColorValue(record) {
   if (state.mapColor === "domain") return (record.domainTags || ["General"])[0] || "General";
   if (state.mapColor === "cluster") return clusterColorLabel(record);
   if (state.mapColor === "quality") return record.embeddingTextQuality || "unavailable";
-  if (state.mapColor === "availability") return record.availabilityLabel || "Metadata";
+  if (state.mapColor === "availability") return displayAvailabilityLabel(record);
   return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
 }
 
@@ -524,7 +693,7 @@ function graphTooltipHTML(node) {
   const authors = record.authors
     ? (record.authors.length > 110 ? `${record.authors.slice(0, 107)}…` : record.authors)
     : "";
-  const availability = record.availabilityLabel || record.bestAssetKind || record.status || "";
+  const availability = displayAvailabilityLabel(record) || record.bestAssetKind || record.status || "";
   const parts = [`<div class="gt-title">${escapeHtml(title)}</div>`];
   if (authors) parts.push(`<div class="gt-authors">${escapeHtml(authors)}</div>`);
   parts.push(
@@ -864,6 +1033,10 @@ function mapCanvasCenter() {
   };
 }
 
+function markMapUserInteraction() {
+  state.mapLastUserInteraction = performance.now();
+}
+
 function forceGraphZoomAt(point, multiplier, duration = 180) {
   const graph = state.mapGraph;
   if (!graph || typeof graph.screen2GraphCoords !== "function") return;
@@ -874,8 +1047,13 @@ function forceGraphZoomAt(point, multiplier, duration = 180) {
   const graphPoint = graph.screen2GraphCoords(point.x, point.y);
   const centerX = graphPoint.x - (point.x - width / 2) / nextZoom;
   const centerY = graphPoint.y - (point.y - height / 2) / nextZoom;
-  graph.zoom?.(nextZoom, duration);
-  graph.centerAt?.(centerX, centerY, duration);
+  if (duration > 0) {
+    graph.centerAt?.(centerX, centerY, duration);
+    graph.zoom?.(nextZoom, duration);
+  } else {
+    graph.centerAt?.(centerX, centerY);
+    graph.zoom?.(nextZoom);
+  }
   graph.resumeAnimation?.();
 }
 
@@ -1001,7 +1179,7 @@ function renderMapSelectionSummary(nodes) {
   els.mapDetail.querySelector(".map-zoom-selection")?.addEventListener("click", () => zoomToMapSelection());
   els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
     button.addEventListener("click", () => {
-      const selected = state.data.records.find((item) => item.id === button.dataset.id);
+      const selected = findDisplayRecord(button.dataset.id);
       if (!selected) return;
       state.selectedId = selected.id;
       refreshForceSelectionState();
@@ -1297,7 +1475,7 @@ function installMapPointerInteractions() {
           selectMapNode(node, event);
         } else {
           if (hadSelection) {
-            const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
+            const selected = findDisplayRecord(state.selectedId);
             renderMapDetail(selected || null);
           }
           forceGraphZoomAt(end, event.shiftKey ? 0.72 : 1.34);
@@ -1317,8 +1495,8 @@ function installMapPointerInteractions() {
   els.mapCanvas.addEventListener("wheel", (event) => {
     if (state.tab !== "map" || state.mapEngine !== "force" || !state.mapGraph) return;
     event.preventDefault();
-    const multiplier = event.deltaY > 0 ? 0.86 : 1.16;
-    forceGraphZoomAt(mapCanvasPoint(event), multiplier, 70);
+    markMapUserInteraction();
+    zoomMap(event.deltaY > 0 ? 0.86 : 1.16);
   }, { passive: false });
 
   els.mapCanvas.addEventListener("auxclick", (event) => {
@@ -1494,8 +1672,9 @@ function reflowMap(options = {}) {
     graph.resumeAnimation?.();
     graph.d3ReheatSimulation?.();
     if (options.fit) {
+      const scheduledAt = performance.now();
       window.setTimeout(() => {
-        if (state.tab === "map" && state.mapGraph === graph) {
+        if (state.tab === "map" && state.mapGraph === graph && state.mapLastUserInteraction <= scheduledAt) {
           fitForceGraph(graph, state.mapGraphData, { duration: 420, padding: 96 });
         }
       }, options.delay || 120);
@@ -1610,7 +1789,7 @@ function renderCytoscapeGraph(graphData) {
   });
   state.cyGraph.on("tap", "node", (event) => {
     const id = event.target.id();
-    const record = state.data.records.find((item) => item.id === id);
+    const record = findDisplayRecord(id);
     if (!record) return;
     state.selectedId = id;
     renderMap();
@@ -1636,8 +1815,9 @@ function renderForceGraph(graphData) {
     graph.d3Force("link")?.distance((link) => link.selected ? 58 : 66);
     applyForceAnchors(graph, 0.028);
     fitForceGraph(graph, graphData, { duration: 260, padding: 88 });
+    const scheduledAt = performance.now();
     window.setTimeout(() => {
-      if (state.tab === "map" && state.mapMode === "focused" && state.mapGraph === graph) {
+      if (state.tab === "map" && state.mapMode === "focused" && state.mapGraph === graph && state.mapLastUserInteraction <= scheduledAt) {
         fitForceGraph(graph, graphData, { duration: 420, padding: 84 });
       }
     }, 350);
@@ -1645,13 +1825,15 @@ function renderForceGraph(graphData) {
     graph.d3Force("charge")?.strength(-22);
     graph.d3Force("link")?.distance(24);
     applyForceAnchors(graph, 0.04);
+    const firstFitScheduledAt = performance.now();
     window.setTimeout(() => {
-      if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
+      if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= firstFitScheduledAt) {
         fitForceGraph(graph, graphData, { duration: 420, padding: 160 });
       }
     }, 450);
+    const secondFitScheduledAt = performance.now();
     window.setTimeout(() => {
-      if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph) {
+      if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= secondFitScheduledAt) {
         fitForceGraph(graph, graphData, { duration: 360, padding: 170 });
       }
     }, 1100);
@@ -1668,8 +1850,15 @@ function renderMapDetail(record) {
   const mapById = mapRecordById();
   const map = mapById.get(record.id);
   const neighbors = (map?.nearestNeighbors || []).slice(0, 8)
-    .map((neighbor) => ({ score: neighbor.score, record: state.data.records.find((item) => item.id === neighbor.id) }))
+    .map((neighbor) => ({ score: neighbor.score, record: findDisplayRecord(neighbor.id) }))
     .filter((item) => item.record);
+  // Neighbor scores sit in a tight 0.88-1.0 band, so normalize per-neighborhood
+  // (min/max) for an interpretable bar — same approach as the viewer mini-graph.
+  const neighborScores = neighbors.map((item) => Number(item.score || 0));
+  const neighborMin = neighborScores.length ? Math.min(...neighborScores) : 0;
+  const neighborRange = (neighborScores.length ? Math.max(...neighborScores) : 1) - neighborMin || 1;
+  const centerAreas = new Set(record.areaTags || []);
+  const neighborStrength = (score) => Math.max(0.08, Math.min(1, (Number(score || 0) - neighborMin) / neighborRange));
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
       <p class="eyebrow">${escapeHtml(typeLabel(record.type))} · ${escapeHtml(record.clusterLabel || "Mapped record")}</p>
@@ -1681,7 +1870,11 @@ function renderMapDetail(record) {
       </div>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">
-        ${neighbors.map((item) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(item.record.id)}"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Number(item.score || 0).toFixed(2)} similarity</span></button>`).join("")}
+        ${neighbors.map((item) => {
+          const strength = neighborStrength(item.score);
+          const tags = (item.record.areaTags || []).filter((tag) => centerAreas.has(tag)).slice(0, 3);
+          return `<button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}"><span class="neighbor-main"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Math.round(strength * 100)}% similar${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span><i class="neighbor-score-bar"><b style="width:${Math.round(strength * 100)}%"></b></i></span></button>`;
+        }).join("")}
       </div>
     </div>
   `;
@@ -1699,7 +1892,7 @@ function renderMapDetail(record) {
   els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
-      const selected = state.data.records.find((item) => item.id === state.selectedId);
+      const selected = findDisplayRecord(state.selectedId);
       renderMap();
       renderMapDetail(selected);
       renderViewer(selected);
@@ -1754,7 +1947,7 @@ async function renderMap() {
   }
   // Honor the empty state (spec 5.2): only populate the detail panel when the
   // user has actually selected a record. Do not auto-open a random first record.
-  const selected = state.data.records.find((record) => record.id === state.selectedId && record.mapAvailable);
+  const selected = findDisplayRecord(state.selectedId);
   renderMapDetail(selected || null);
 }
 
@@ -1821,7 +2014,7 @@ function fallbackPageUrl(record) {
 }
 
 function fallbackPageLabel(record) {
-  if (record.type === "paper" && /\/poster\//.test(record.pageUrl || "")) return "Poster source page";
+  if (record.type === "paper" && /\/poster\//.test(record.pageUrl || "")) return "Official paper presentation page";
   if (record.availabilityStatus === "blocked") return `${typeLabel(record.type)} source page`;
   if (record.status === "downloaded") return "Downloaded source page";
   if (record.availabilityStatus === "metadata") return "Metadata source page";
@@ -2036,7 +2229,7 @@ function semanticNeighborhood(record) {
   const centerAreas = new Set(record.areaTags || []);
   const neighbors = (center.nearestNeighbors || []).slice(0, 8)
     .map((neighbor, index) => ({
-      record: state.data.records.find((item) => item.id === neighbor.id),
+      record: findDisplayRecord(neighbor.id),
       score: neighbor.score,
       rank: index + 1,
     }))
@@ -2232,6 +2425,12 @@ function renderMiniMap(record) {
   `;
 }
 
+function renderAbstractBlock(record) {
+  const abstract = (record.abstract || "").trim();
+  if (!abstract) return "";
+  return `<div class="viewer-abstract"><h3>Abstract</h3><p>${escapeHtml(abstract)}</p></div>`;
+}
+
 function renderViewer(record) {
   destroyMiniGraph();
   destroyPdfViewer();
@@ -2252,13 +2451,14 @@ function renderViewer(record) {
     ...(record.presentationLabels || []),
     record.decision,
     paperPresentationKind(record),
+    paperPresentationMode(record),
     record.session,
     record.roomName,
     record.group,
     record.authors,
-    record.availabilityLabel,
+    displayAvailabilityLabel(record),
     statusLabel(record.status),
-    record.failureReason,
+    record.type === "paper" && openReviewPdfUrl(record) ? "" : record.failureReason,
   ])
     .map((value) => `<span class="chip">${escapeHtml(value)}</span>`)
     .join("");
@@ -2267,12 +2467,18 @@ function renderViewer(record) {
   const localAsset = record.localPdfPath || record.localSlidePath || record.localPosterPath;
   const actions = [
     actionLink(assetActionHref(record, localAsset), assetActionLabel(record), true),
+    actionLink(openReviewPdfUrl(record), record.type === "paper" && !record.localPdfPath ? "OpenReview PDF" : "Open PDF", record.type === "paper" && !localAsset),
     actionLink(record.pageUrl, "Official page"),
     actionLink(record.openreviewUrl, "OpenReview"),
     actionLink(record.projectPageUrl, "Project"),
-    actionLink(record.pdfUrl && !record.localPdfPath ? record.pdfUrl : "", "Open PDF"),
   ].join("");
-  els.viewerActions.innerHTML = actions;
+  els.viewerActions.innerHTML = savedToggleHTML(record) + actions;
+  els.viewerActions.querySelector(".saved-toggle")?.addEventListener("click", () => {
+    toggleSaved(record.id);
+    renderViewer(record);
+    renderResults();
+    updateHeader();
+  });
 
   if (preferred && record.bestAssetKind === "poster") {
     els.viewerFrame.innerHTML = renderPosterPreview(record, preferred);
@@ -2281,14 +2487,18 @@ function renderViewer(record) {
     void mountPdfViewer(preferred);
   } else if (fallbackPageUrl(record)) {
     const sourceUrl = fallbackPageUrl(record);
-    const message = record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is used instead.";
+    const message = record.type === "paper" && openReviewPdfUrl(record)
+      ? "OpenReview PDF may open in your browser session. It cannot be embedded here because OpenReview blocks framing and cross-origin preview."
+      : record.failureReason || "No local PDF, poster image, or slide deck was collected, so the source page is used instead.";
     els.viewerFrame.innerHTML = renderSourcePageFallback(record, sourceUrl, message);
   } else {
     let title = assetLabel(record);
     let message = "No public local media file was collected for this record.";
     if (record.availabilityStatus === "blocked") {
-      title = "Blocked";
-      message = record.failureReason || "The source was checked, but the material is not publicly downloadable yet or blocked the download.";
+      title = record.type === "paper" ? "OpenReview PDF" : "Blocked";
+      message = record.failureReason || (record.type === "paper"
+        ? "The accepted paper metadata is public. OpenReview PDFs may open in a logged-in browser session, but cannot be embedded or downloaded by the static site."
+        : "The source was checked, but the material is not publicly downloadable yet or blocked the download.");
     } else if (record.availabilityStatus === "metadata") {
       title = "Metadata only";
       message = record.type === "paper"
@@ -2300,6 +2510,9 @@ function renderViewer(record) {
     }
     els.viewerFrame.innerHTML = `<div class="empty-state status-${escapeHtml(record.availabilityStatus || "metadata")}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   }
+  // Show the abstract above any PDF/poster/fallback so readers see the paper's
+  // content before opening an asset (which is often unavailable pre-proceedings).
+  els.viewerFrame.insertAdjacentHTML("afterbegin", renderAbstractBlock(record));
   els.viewerFrame.querySelector(".poster-zoom-toggle")?.addEventListener("click", (event) => {
     const button = event.currentTarget;
     const preview = button.closest(".poster-preview");
@@ -2315,7 +2528,7 @@ function renderViewer(record) {
     if (neighborhood) mountMiniGraph(neighborhood.graphData, record.id);
     els.viewerFrame.querySelectorAll(".neighbor-item").forEach((button) => {
       button.addEventListener("click", () => {
-        const selected = state.data.records.find((item) => item.id === button.dataset.id);
+        const selected = findDisplayRecord(button.dataset.id);
         state.selectedId = button.dataset.id;
         renderResults();
         renderMap();
@@ -2329,7 +2542,9 @@ function renderViewer(record) {
 
 function renderAll() {
   els.tabs.forEach((button) => {
-    const count = button.dataset.tab === "map" ? state.mapData?.records?.length || 0 : state.data?.summary?.typeCounts?.[button.dataset.tab] || 0;
+    const count = button.dataset.tab === "map"
+      ? displayRecords().filter((record) => record.mapAvailable && mapRecordById().has(record.id)).length
+      : displayRecords().filter((record) => record.type === button.dataset.tab).length;
     button.hidden = count === 0;
     button.classList.toggle("is-active", button.dataset.tab === state.tab);
   });
@@ -2381,6 +2596,18 @@ function installMapDebugProbe() {
         };
       });
     },
+    miniProbePoints(limit = 40) {
+      if (!state.miniGraph || typeof state.miniGraph.graph2ScreenCoords !== "function") return [];
+      const nodes = state.miniGraph.graphData?.().nodes || [];
+      return nodes.slice(0, limit).map((node) => {
+        const point = state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0);
+        return {
+          x: point.x,
+          y: point.y,
+          title: node.title,
+        };
+      });
+    },
   };
 }
 
@@ -2389,6 +2616,8 @@ async function init() {
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
   const response = await fetch(DATA_URL);
   state.data = await response.json();
+  state.data.records = enrichPaperPresentationRecords(state.data.records || []);
+  state.savedIds = loadSavedIds();
   try {
     const mapResponse = await fetch(MAP_URL);
     state.mapData = mapResponse.ok ? await mapResponse.json() : null;

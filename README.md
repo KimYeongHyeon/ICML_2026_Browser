@@ -8,7 +8,8 @@ The public GitHub Pages site is served from the `gh-pages` branch. The source fi
 
 It provides:
 
-- Papers / Posters / Workshops tabs
+- Papers / Workshops / Map tabs
+- Poster, Spotlight, and Oral presentation badges on paper records
 - search by title, author, keyword
 - field/category filters
 - group/workshop filters
@@ -16,7 +17,7 @@ It provides:
 - in-page viewer for collected PDF, slide PDF, and poster image files
 - Obsidian-style semantic graph map with zoom, pan, drag, hover, focused scope, and neighbor navigation
 
-The Papers tab is hidden when no public main-conference paper PDF is available. ICML virtual poster pages are not treated as paper records.
+The Papers tab shows accepted main-conference metadata even before public proceedings PDFs are available. ICML virtual `/poster/{id}` pages are treated as paper presentation pages, not as a separate top-level content type.
 
 ## Data Layout
 

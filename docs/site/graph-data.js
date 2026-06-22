@@ -33,7 +33,6 @@ export const DOMAIN_COLORS = {
 
 export const TYPE_COLORS = {
   paper: "#60a5fa",
-  poster: "#22d3ee",
   workshop: "#f59e0b",
 };
 
@@ -142,15 +141,18 @@ function projectedGraphPosition(mapRecord, id, record) {
 function typeLabel(type) {
   return {
     paper: "Paper",
-    poster: "Poster",
     workshop: "Workshop",
   }[type] || "Record";
 }
 
 function nodeColor(record, mode) {
   if (mode === "domain") return colorFromPalette(firstTag(record.domainTags, "General"), DOMAIN_COLORS);
-  if (mode === "type") return TYPE_COLORS[record.type] || TYPE_COLORS.poster;
+  if (mode === "type") return TYPE_COLORS[record.type] || TYPE_COLORS.paper;
   return colorFromPalette(firstTag(record.areaTags, firstTag(record.categoryTags, "Other")), AREA_COLORS);
+}
+
+function displayRecords(records) {
+  return (records || []).filter((record) => record.type !== "poster");
 }
 
 function recordMatches(record, mapById, query, areaFilter, domainFilter, typeFilter) {
@@ -190,9 +192,10 @@ export function buildSemanticGraph(index, map, options = {}) {
   const areaFilter = options.areaFilter || "all";
   const domainFilter = options.domainFilter || "all";
   const typeFilter = options.typeFilter || "all";
-  const recordsById = new Map((index.records || []).map((record) => [record.id, record]));
+  const visibleRecords = displayRecords(index.records);
+  const recordsById = new Map(visibleRecords.map((record) => [record.id, record]));
   const mapById = new Map((map.records || []).map((record) => [record.id, record]));
-  const graphRecords = (index.records || []).filter((record) => record.mapAvailable && mapById.has(record.id));
+  const graphRecords = visibleRecords.filter((record) => record.mapAvailable && mapById.has(record.id));
   const matchedIds = new Set();
   const nodes = graphRecords.map((record) => {
     const isMatch = recordMatches(record, mapById, query, areaFilter, domainFilter, typeFilter);
@@ -257,6 +260,11 @@ export function buildSemanticGraph(index, map, options = {}) {
     matchedCount: matchedIds.size,
     isFiltered: Boolean(query || areaFilter !== "all" || domainFilter !== "all" || typeFilter !== "all"),
     summary: index.summary || {},
+    logicalSummary: {
+      records: graphRecords.length,
+      papers: graphRecords.filter((record) => record.type === "paper").length,
+      workshops: graphRecords.filter((record) => record.type === "workshop").length,
+    },
   };
 }
 
