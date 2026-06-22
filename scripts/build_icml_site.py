@@ -158,6 +158,47 @@ def merge_meta(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
+def read_abstracts() -> dict[str, str]:
+    """Map ICML event id / OpenReview id / normalized title -> abstract text.
+
+    Abstracts are scraped separately by scripts/collect_icml_2026_abstracts.py into
+    icml_2026_materials/abstracts.jsonl. The file may be absent (none collected yet)
+    or partial (collection in progress); both are handled gracefully by read_jsonl.
+    """
+    abstracts: dict[str, str] = {}
+    for row in read_jsonl(MATERIALS / "abstracts.jsonl"):
+        text = " ".join(str(row.get("abstract") or "").split())
+        if len(text) < 40:
+            continue
+        icml_id = str(row.get("id") or "")
+        if icml_id:
+            abstracts.setdefault(f"icml:{icml_id}", text)
+        openreview_id = extract_openreview_id(row.get("paper_url"))
+        if openreview_id:
+            abstracts.setdefault(f"openreview:{openreview_id}", text)
+        name_key = normalize_key(row.get("name"))
+        if name_key:
+            abstracts.setdefault(f"title:{name_key}", text)
+    return abstracts
+
+
+def lookup_abstract(
+    abstracts: dict[str, str],
+    *,
+    icml_id: str = "",
+    openreview_id: str = "",
+    title: str = "",
+) -> str:
+    for key in (
+        f"icml:{icml_id}" if icml_id else "",
+        f"openreview:{openreview_id}" if openreview_id else "",
+        f"title:{normalize_key(title)}" if title else "",
+    ):
+        if key and key in abstracts:
+            return abstracts[key]
+    return ""
+
+
 def read_paper_event_metadata() -> dict[str, dict[str, Any]]:
     payload = read_json(MATERIALS / "papers" / "source_icml_2026_orals_posters.json")
     indexes: dict[str, dict[str, Any]] = {}
@@ -247,7 +288,7 @@ def should_include_paper_row(source: dict[str, Any]) -> bool:
     return has_public_pdf and "/poster/" not in page_url
 
 
-def compact_record(source: dict[str, Any], item_type: str, group: str, semantic: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def compact_record(source: dict[str, Any], item_type: str, group: str, semantic: dict[str, dict[str, Any]], abstracts: dict[str, str]) -> dict[str, Any]:
     title = str(source.get("title") or "Untitled")
     local_pdf = rel(source.get("local_pdf_path"))
     local_poster = rel(source.get("local_poster_path"))
@@ -262,6 +303,22 @@ def compact_record(source: dict[str, Any], item_type: str, group: str, semantic:
     else:
         item_id = str(source.get("openreview_id") or source.get("paper_url") or title)
     semantic_fields = semantic.get(item_id, {})
+
+    if item_type == "paper":
+        abstract = lookup_abstract(
+            abstracts,
+            icml_id=extract_icml_id(source.get("openreview_id_or_icml_id")) or extract_icml_id(source.get("paper_url")),
+            openreview_id=extract_openreview_id(source.get("openreview_id_or_icml_id")) or extract_openreview_id(source.get("openreview_url")),
+            title=title,
+        )
+    elif item_type == "poster":
+        abstract = lookup_abstract(
+            abstracts,
+            icml_id=str(source.get("icml_poster_id") or "") or extract_icml_id(source.get("poster_page_url")),
+            title=title,
+        )
+    else:
+        abstract = lookup_abstract(abstracts, title=title)
 
     has_pdf = bool(local_pdf)
     has_poster = bool(local_poster)
@@ -302,6 +359,7 @@ def compact_record(source: dict[str, Any], item_type: str, group: str, semantic:
         "id": item_id,
         "type": item_type,
         "title": title,
+        "abstract": abstract,
         "authors": as_author_string(source.get("authors")),
         "group": group,
         "category": category_tags[0],
@@ -347,16 +405,17 @@ def build() -> dict[str, Any]:
     records: list[dict[str, Any]] = []
     semantic = read_semantic_sidecar()
     paper_events = read_paper_event_metadata()
+    abstracts = read_abstracts()
 
     for row in read_jsonl(MATERIALS / "papers" / "manifest.jsonl"):
         if not should_include_paper_row(row):
             continue
-        records.append(compact_record(enrich_paper_row(row, paper_events), "paper", "Main Conference", semantic))
+        records.append(compact_record(enrich_paper_row(row, paper_events), "paper", "Main Conference", semantic, abstracts))
 
     for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):
         if row.get("source_type") and row.get("source_type") != "official_icml_virtual_poster":
             continue
-        records.append(compact_record(row, "poster", "Main Conference", semantic))
+        records.append(compact_record(row, "poster", "Main Conference", semantic, abstracts))
 
     workshop_root = MATERIALS / "workshops"
     for manifest in sorted(workshop_root.glob("*/manifest.jsonl")):
@@ -365,7 +424,7 @@ def build() -> dict[str, Any]:
             if not should_include_workshop_row(row):
                 continue
             group = str(row.get("workshop_name") or slug)
-            records.append(compact_record(row, "workshop", group, semantic))
+            records.append(compact_record(row, "workshop", group, semantic, abstracts))
 
     type_counts: dict[str, int] = {}
     asset_counts = {"pdf": 0, "poster": 0, "slide": 0}
