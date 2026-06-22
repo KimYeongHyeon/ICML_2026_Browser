@@ -588,7 +588,7 @@ function renderResults() {
       const selected = record.id === state.selectedId ? " is-selected" : "";
       const featured = (record.presentationLabels || []).includes("Spotlight") ? " is-spotlight" : (record.presentationLabels || []).includes("Oral") ? " is-oral" : "";
       const details = resultDetails(record);
-      const preview = (record.abstract || "").trim();
+      const preview = cleanAbstractLatex(record.abstract).trim();
       const matched = matchedField(record, query);
       return `
         <button class="result-item${selected}${featured}" type="button" data-id="${escapeHtml(record.id)}">
@@ -597,10 +597,9 @@ function renderResults() {
           <span class="badges">
             ${matched ? `<span class="badge match">${escapeHtml(MATCH_FIELD_LABEL[matched])} match</span>` : ""}
             ${presentationBadges(record)}
-            ${categoryTags(record).slice(0, 3).map((category) => `<span class="badge">${escapeHtml(category)}</span>`).join("")}
-            <span class="badge">${escapeHtml(record.group)}</span>
-            <span class="badge">${assetLabel(record)}</span>
-            <span class="badge ${statusClass(record)}">${escapeHtml(displayAvailabilityLabel(record))}</span>
+            ${categoryTags(record).slice(0, 2).map((category) => `<span class="badge">${escapeHtml(category)}</span>`).join("")}
+            ${record.group && record.group !== "Main Conference" ? `<span class="badge">${escapeHtml(record.group)}</span>` : ""}
+            <span class="badge">${escapeHtml(assetLabel(record))}</span>
           </span>
           ${preview ? `<span class="result-abstract">${escapeHtml(preview.slice(0, 150))}${preview.length > 150 ? "…" : ""}</span>` : ""}
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
@@ -923,7 +922,11 @@ function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   // Particles, not stickers (spec 7.2 / 14.1): smaller default radius, no
   // always-on outline. Emphasis is carried by size + halo + ring, applied only
   // to hovered/selected/adjacent nodes so the 13k-node overview stays legible.
-  const radius = isSelected ? 7.4 : isHover ? 6.2 : isAdjacent ? 4.6 : node.depth === 2 ? 3.4 : 2.8;
+  let radius = isSelected ? 7.4 : isHover ? 6.2 : isAdjacent ? 4.6 : node.depth === 2 ? 3.4 : 2.8;
+  // At the default overview zoom (~0.16) a 2.8 graph-unit dot is <0.5px on screen
+  // and effectively invisible. Floor the on-screen size for non-emphasized nodes
+  // so the 13k-node field reads as a starfield instead of an empty void.
+  if (!isEmphasized) radius = Math.max(radius, 2.2 / globalScale);
   if (isSelected || isHover) {
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius + (isSelected ? 8 : 5), 0, 2 * Math.PI);
@@ -1729,6 +1732,24 @@ async function ensureCytoscapeLibrary() {
   await loadScriptOnce(CYTOSCAPE_URL);
 }
 
+function normalizedGraphPositionFn(nodes) {
+  // Shared layout normalization so both engines (ForceGraph + Cytoscape) place
+  // nodes identically — a researcher switching engines sees the same semantic
+  // geography. Raw positions are UMAP*1500 with far workshop outliers; percentile-
+  // clamp them to a compact range so cluster structure is visible and stable.
+  const xs = nodes.map((n) => n.x).sort((a, b) => a - b);
+  const ys = nodes.map((n) => n.y).sort((a, b) => a - b);
+  const pct = (arr, p) => (arr.length ? arr[Math.min(arr.length - 1, Math.floor(arr.length * p))] : 0);
+  const x1 = pct(xs, 0.02), x2 = pct(xs, 0.98);
+  const y1 = pct(ys, 0.02), y2 = pct(ys, 0.98);
+  const spanX = (x2 - x1) || 1, spanY = (y2 - y1) || 1;
+  const SPAN = 1000, CLAMP = SPAN * 0.62;
+  return (node) => ({
+    x: Math.max(-CLAMP, Math.min(CLAMP, ((node.x - x1) / spanX - 0.5) * SPAN)),
+    y: Math.max(-CLAMP, Math.min(CLAMP, ((node.y - y1) / spanY - 0.5) * SPAN)),
+  });
+}
+
 function renderCytoscapeGraph(graphData) {
   if (typeof window.cytoscape !== "function") return false;
   state.mapGraph?.pauseAnimation?.();
@@ -1736,6 +1757,7 @@ function renderCytoscapeGraph(graphData) {
   state.cyGraph?.destroy?.();
   state.cyGraph = null;
   els.mapCanvas.innerHTML = "";
+  const cyPos = normalizedGraphPositionFn(graphData.nodes);
   const elements = [
     ...graphData.nodes.map((node) => ({
       data: {
@@ -1750,7 +1772,7 @@ function renderCytoscapeGraph(graphData) {
         size: node.selected ? 18 : node.depth === 1 ? 12 : node.depth === 2 ? 8 : 5,
         record: node.record,
       },
-      position: { x: node.x, y: node.y },
+      position: cyPos(node),
       classes: node.selected ? "selected" : node.depth === 1 ? "near" : node.depth === 2 ? "second" : "",
     })),
     ...graphData.links.map((link, index) => ({
@@ -1806,6 +1828,18 @@ function renderForceGraph(graphData) {
   const graph = ensureForceGraph();
   if (!graph) return false;
   ensureMapSelectionBox();
+  // Global mode pins nodes to normalized UMAP coordinates so the force engine
+  // shows the same cluster geography as Cytoscape (no force-driven scatter).
+  // Focused mode keeps the dynamic force layout (releases any pins).
+  if (state.mapMode !== "focused") {
+    const pinPos = normalizedGraphPositionFn(graphData.nodes);
+    for (const node of graphData.nodes) {
+      const p = pinPos(node);
+      node.x = p.x; node.y = p.y; node.fx = p.x; node.fy = p.y;
+    }
+  } else {
+    for (const node of graphData.nodes) { delete node.fx; delete node.fy; }
+  }
   state.mapGraphData = graphData;
   graph
     .width(els.mapCanvas.clientWidth || 840)
@@ -1824,9 +1858,11 @@ function renderForceGraph(graphData) {
       }
     }, 350);
   } else {
-    graph.d3Force("charge")?.strength(-22);
-    graph.d3Force("link")?.distance(24);
-    applyForceAnchors(graph, 0.04);
+    // Nodes are pinned to UMAP coordinates; neutralize forces so the layout
+    // stays exactly on the semantic projection (parity with the Cytoscape engine).
+    graph.d3Force("charge")?.strength(0);
+    graph.d3Force("link")?.strength(0);
+    applyForceAnchors(graph, 0);
     const firstFitScheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= firstFitScheduledAt) {
@@ -2427,8 +2463,14 @@ function renderMiniMap(record) {
   `;
 }
 
+function cleanAbstractLatex(value) {
+  // Strip text-formatting LaTeX that leaks into abstracts as raw source
+  // (\textit{x} -> x). Inline math ($...$) is left intact for MathJax.
+  return String(value || "").replace(/\\(?:textit|texttt|textbf|textrm|textsc|emph|text)\{([^{}]*)\}/g, "$1");
+}
+
 function renderAbstractBlock(record) {
-  const abstract = (record.abstract || "").trim();
+  const abstract = cleanAbstractLatex(record.abstract).trim();
   if (!abstract) return "";
   return `<div class="viewer-abstract"><h3>Abstract</h3><p>${escapeHtml(abstract)}</p></div>`;
 }
@@ -2586,6 +2628,23 @@ function installMapDebugProbe() {
     },
     cytoscapeZoom() {
       return state.cyGraph?.zoom?.() || null;
+    },
+    cyInfo() {
+      const cy = state.cyGraph;
+      if (!cy) return { cy: null };
+      const ext = cy.extent?.();
+      const n0 = cy.nodes().length ? cy.nodes()[0] : null;
+      return {
+        nodes: cy.nodes().length,
+        edges: cy.edges().length,
+        zoom: cy.zoom(),
+        containerW: els.mapCanvas.clientWidth,
+        containerH: els.mapCanvas.clientHeight,
+        extent: ext ? { x1: Math.round(ext.x1), y1: Math.round(ext.y1), x2: Math.round(ext.x2), y2: Math.round(ext.y2) } : null,
+        n0pos: n0 ? n0.position() : null,
+        n0rendered: n0 ? n0.renderedPosition() : null,
+        n0visible: n0 ? n0.visible() : null,
+      };
     },
     cytoscapeProbePoints(limit = 80) {
       if (!state.cyGraph) return [];

@@ -4,7 +4,7 @@
   --surface: #ffffff;
   --surface-2: #f1f5f9;
   --text: #111827;
-  --muted: #667085;
+  --muted: #586173;
   --line: #d8dee8;
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
@@ -93,6 +93,15 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+/* Header stats are read-only numbers, not controls — drop the button-like box
+   so they don't read as clickable filters (the interactive saved-pill keeps it). */
+.stat-pill:not(.saved-pill) {
+  border-color: transparent;
+  background: transparent;
+  padding-left: 2px;
+  padding-right: 8px;
 }
 
 .workspace {
