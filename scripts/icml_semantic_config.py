@@ -8,6 +8,7 @@ from pathlib import Path
 
 EMBEDDING_MODEL_ID = "allenai/specter2_base"
 EMBEDDING_MODEL_KIND = "specter-like"
+QUERY_EMBEDDING_MODEL_ID = "benchoi93/specter2-base-onnx-web"
 MAP_RANDOM_SEED = 42
 NEIGHBOR_COUNT = 12
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ SEMANTIC_CACHE = ROOT / ".cache" / "icml_semantic"
 INDEX_PATH = ROOT / "docs" / "site" / "data" / "icml2026_index.json"
 MAP_PATH = ROOT / "docs" / "site" / "data" / "icml2026_map.json"
 SEMANTIC_SIDECAR_PATH = ROOT / "docs" / "site" / "data" / "icml2026_semantic_sidecar.json"
+SEARCH_EMBEDDINGS_PATH = ROOT / "docs" / "site" / "data" / "icml2026_search_embeddings.json"
 
 AREA_TAGS = [
     "LLMs",

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
@@ -256,6 +257,45 @@ def build_semantic_payload(records: list[dict[str, Any]], vectors: list[list[flo
     return map_payload, {"records": semantic_sidecar}
 
 
+def quantized_vector_base64(vector: list[float]) -> str:
+    values = []
+    for value in vector:
+        clipped = max(-1.0, min(1.0, float(value)))
+        values.append(int(round(clipped * 127)) & 0xFF)
+    return base64.b64encode(bytes(values)).decode("ascii")
+
+
+def build_search_embeddings_payload(
+    records: list[dict[str, Any]],
+    vectors: list[list[float]],
+    payloads: list[dict[str, str]],
+    model_id: str,
+    model_kind: str,
+) -> dict[str, Any]:
+    searchable_records = []
+    for record, vector, payload in zip(records, vectors, payloads):
+        if record.get("type") == "poster":
+            continue
+        searchable_records.append({
+            "id": str(record["id"]),
+            "quality": payload["quality"],
+            "vector": quantized_vector_base64(vector),
+        })
+    return {
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "model": {
+            "id": model_id,
+            "kind": model_kind,
+            "queryModelId": config.QUERY_EMBEDDING_MODEL_ID,
+            "dimension": len(vectors[0]) if vectors else 0,
+            "normalized": True,
+            "quantization": "int8_symmetric_base64",
+            "scale": 127,
+        },
+        "records": searchable_records,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--smoke", action="store_true", help="Use deterministic random smoke embeddings for test speed only.")
@@ -290,9 +330,12 @@ def main() -> None:
 
     write_json(config.MAP_PATH, map_payload)
     write_json(config.SEMANTIC_SIDECAR_PATH, sidecar_payload)
+    search_payload = build_search_embeddings_payload(records, vectors, payloads, model_id, model_kind)
+    write_json(config.SEARCH_EMBEDDINGS_PATH, search_payload)
     counts = Counter(item["embeddingTextQuality"] for item in sidecar_payload["records"].values())
     print(f"Wrote {config.MAP_PATH.relative_to(config.ROOT)}")
     print(f"Wrote {config.SEMANTIC_SIDECAR_PATH.relative_to(config.ROOT)}")
+    print(f"Wrote {config.SEARCH_EMBEDDINGS_PATH.relative_to(config.ROOT)}")
     print(json.dumps({"records": len(map_payload["records"]), "textQuality": counts}, default=dict, indent=2))
 
 

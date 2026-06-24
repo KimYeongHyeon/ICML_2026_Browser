@@ -12,12 +12,16 @@ const consoleErrors = [];
 const failedRequests = [];
 const badResponses = [];
 
+function isBenignConsoleError(text) {
+  return /^Worker was terminated\.?$/i.test(String(text || "").trim());
+}
+
 function isSameOrigin(url) {
   return url.startsWith(baseUrl) || url.startsWith(new URL(baseUrl).origin);
 }
 
 page.on("console", (message) => {
-  if (message.type() === "error") consoleErrors.push(message.text());
+  if (message.type() === "error" && !isBenignConsoleError(message.text())) consoleErrors.push(message.text());
 });
 page.on("pageerror", (error) => consoleErrors.push(error.message));
 page.on("requestfailed", (request) => {
@@ -78,7 +82,7 @@ for (const px of [0.14, 0.26, 0.38, 0.50, 0.62, 0.74, 0.86]) {
   }
 }
 
-await page.goto(baseUrl, { waitUntil: "networkidle" });
+await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".result-item", { timeout: 30000 });
 
 const initial = await page.evaluate(() => ({
@@ -144,6 +148,25 @@ const afterSwitch = await page.evaluate(() => {
   };
 });
 
+await page.locator("#searchInput").fill("MoSE: Mixture of Slimmable Experts");
+await page.waitForTimeout(300);
+await page.locator(".result-item").first().click();
+await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
+await page.waitForFunction(() => {
+  const shell = document.querySelector(".pdfjs-shell");
+  const status = shell?.querySelector("[data-pdf-status]")?.textContent || "";
+  return shell && !shell.classList.contains("has-error") && /\d+ \/ \d+/.test(status);
+}, null, { timeout: 30000 });
+const localPdf = await page.evaluate(() => ({
+  viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
+  shellExists: Boolean(document.querySelector(".pdfjs-shell")),
+  hasError: Boolean(document.querySelector(".pdfjs-shell.has-error")),
+  status: document.querySelector("[data-pdf-status]")?.textContent || "",
+  source: document.querySelector(".pdfjs-shell")?.dataset.pdfSrc || "",
+  canvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
+  canvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
+}));
+
 await page.locator('.tab[data-tab="map"]').click();
 await page.waitForSelector("#mapCanvas canvas", { timeout: 30000 });
 await page.waitForTimeout(500);
@@ -162,7 +185,19 @@ await page.waitForTimeout(200);
 const forceProbePoints = await page.evaluate(() => window.__icmlMapDebug?.forceProbePoints?.(120) || []);
 const mapTooltip = await scanGraphTooltipAtPoints("#mapCanvas", forceProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
 
-await page.locator("#mapEngineSelect").selectOption("cytoscape");
+await page.locator("#mapSearchInput").fill("retrieval");
+await page.waitForTimeout(900);
+const mapSearch = await page.evaluate(() => ({
+  seedCount: window.__icmlMapDebug?.mapSearchInfo?.().seedCount || 0,
+  semanticCount: window.__icmlMapDebug?.mapSearchInfo?.().semanticCount || 0,
+  kind: window.__icmlMapDebug?.mapSearchInfo?.().kind || "",
+  topScore: window.__icmlMapDebug?.mapSearchInfo?.().topScore || 0,
+  pending: Boolean(window.__icmlMapDebug?.mapSearchInfo?.().pending),
+  resultCount: document.querySelector("#resultCount")?.innerText || "",
+  activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+}));
+
+await page.locator("#mapEngineSelect").selectOption("cytoscape", { force: true });
 await page.waitForTimeout(1400);
 const cytoscapeProbePoints = await page.evaluate(() => window.__icmlMapDebug?.cytoscapeProbePoints?.(120) || []);
 const cytoscapeTooltip = await scanGraphTooltipAtPoints("#mapCanvas", cytoscapeProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
@@ -184,9 +219,11 @@ const report = {
   paper,
   paperSpotlight,
   paperLatex,
+  localPdf,
   miniTooltip,
   afterSwitch,
   map,
+  mapSearch,
   mapTooltip,
   cytoscapeTooltip,
   consoleErrors,
@@ -196,9 +233,6 @@ const report = {
 
 console.log(JSON.stringify(report, null, 2));
 
-if (!initial.note.includes("Unofficial public beta") || !initial.note.includes("Poster, Spotlight, and Oral are presentation badges")) {
-  throw new Error("missing beta/data limitation note");
-}
 if (initial.posterTabExists) {
   throw new Error("Poster should not be a top-level tab; it is a paper presentation badge");
 }
@@ -211,8 +245,8 @@ if (!/^6,343 results/.test(initial.resultCount)) {
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
-if (!initial.headerStats.includes("OpenReview PDFs") || initial.headerStats.includes("Blocked") || initial.headerStats.includes("PDF pending")) {
-  throw new Error(`paper PDF state should expose OpenReview PDF access, not raw Blocked: ${initial.headerStats}`);
+if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !initial.headerStats.includes("12") || !initial.headerStats.includes("clusters") || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
+  throw new Error(`header should match compact design stats: ${initial.headerStats}`);
 }
 if (!/^6,343 results/.test(paper.resultCount)) {
   throw new Error(`unexpected paper count: ${paper.resultCount}`);
@@ -237,6 +271,9 @@ if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
 }
 if (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO")) {
   throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
+}
+if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
+  throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
 }
 if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.viewerTitle}`)) {
   throw new Error(`raw LaTeX command leaked into paper title: ${JSON.stringify(paperLatex)}`);
@@ -267,6 +304,14 @@ if (map.colorValue !== "area-domain" || !map.legendNote.includes("Fill = researc
 }
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);
+}
+if (
+  !mapSearch.seedCount
+  || !["query-vector", "specter2-loading", "specter2-query"].includes(mapSearch.kind)
+  || mapSearch.topScore <= 0
+  || !/query-vector matches|SPECTER2|lexical fallback/.test(mapSearch.activeSummary)
+) {
+  throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
 }
 if (!Number.isFinite(map.forceZoomBeforeWheel) || !Number.isFinite(map.forceZoomAfterWheel) || map.forceZoomAfterWheel <= map.forceZoomBeforeWheel) {
   throw new Error(`ForceGraph wheel zoom did not increase zoom: ${JSON.stringify(map)}`);

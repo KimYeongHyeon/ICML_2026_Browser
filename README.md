@@ -47,19 +47,12 @@ scripts/verify_site_contract.sh
 
 ## Semantic Map Build
 
-The Map tab is generated offline and served as static JSON. The default build uses deterministic lexical hash embeddings, so the site remains rebuildable without model downloads while still grouping records by shared title/topic terms:
+The Map tab is generated offline and served as static JSON. The checked-in map/search data uses SPECTER2-style scientific paper embeddings:
 
-```bash
-scripts/build_site.sh
-```
+- `docs/site/data/icml2026_map.json`: coordinates, clusters, and nearest neighbors
+- `docs/site/data/icml2026_search_embeddings.json`: quantized 768-dim vectors for Map search
 
-For a fast test-only map, use smoke mode:
-
-```bash
-ICML_SEMANTIC_ARGS="--smoke --limit 500" scripts/build_site.sh
-```
-
-For local scientific embeddings, install:
+Install the scientific embedding dependencies:
 
 ```bash
 python3 -m pip install sentence-transformers umap-learn scikit-learn numpy
@@ -68,10 +61,24 @@ python3 -m pip install sentence-transformers umap-learn scikit-learn numpy
 Then run:
 
 ```bash
-ICML_SEMANTIC_ARGS="" scripts/build_site.sh
+scripts/build_site.sh
 ```
 
-The semantic verifier checks map/index consistency:
+For deterministic local-only fallback builds, use lexical mode:
+
+```bash
+ICML_SEMANTIC_ARGS="--lexical" scripts/build_site.sh
+```
+
+For a fast test-only map, use smoke mode:
+
+```bash
+ICML_SEMANTIC_ARGS="--smoke --limit 500" scripts/build_site.sh
+```
+
+The browser lazy-loads a Transformers.js-compatible SPECTER2 ONNX query model for Map search. While it loads, the page shows an immediate lexical fallback; once the query embedding is ready, the same search rerenders as SPECTER2 cosine matches.
+
+The semantic verifier checks map/index/search consistency:
 
 ```bash
 python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json

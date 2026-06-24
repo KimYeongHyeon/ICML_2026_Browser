@@ -8,7 +8,7 @@ INDEX_PATH="${ICML_SITE_INDEX:-docs/site/data/icml2026_index.json}"
 
 python3 scripts/build_icml_site.py
 if [[ "${ICML_BUILD_SEMANTIC_MAP:-1}" == "1" ]]; then
-  python3 scripts/build_icml_embedding_map.py ${ICML_SEMANTIC_ARGS:---lexical}
+  python3 scripts/build_icml_embedding_map.py ${ICML_SEMANTIC_ARGS:-}
   python3 scripts/build_icml_site.py
   python3 scripts/verify_embedding_map.py "$INDEX_PATH" docs/site/data/icml2026_map.json
 fi
