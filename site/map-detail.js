@@ -225,7 +225,7 @@ export function mountMiniGraph(graphData, selectedId) {
       if (node && typeof state.miniGraph?.graph2ScreenCoords === "function") {
         detailDeps.showGraphTooltip?.(container, node, state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
       } else {
-        detailDeps.hideGraphTooltip?.(container, 700);
+        detailDeps.hideGraphTooltip?.(container, 90);
       }
       state.miniGraph?.refresh?.();
     })
