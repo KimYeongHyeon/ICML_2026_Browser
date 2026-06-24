@@ -92,33 +92,7 @@ function sourcePageEmbeddable(url) {
 function renderSourcePageFallback(record, sourceUrl, message) {
   const canEmbed = sourcePageEmbeddable(sourceUrl);
   if (!canEmbed) {
-    return `
-      <div class="paper-preview-card">
-        <div class="paper-sheet">
-          <div class="paper-sheet-title">${escapeHtml(plainMathTitle(record.title))}</div>
-          <div class="paper-sheet-authors">${escapeHtml(record.authors || "Authors unavailable")} · ICML 2026</div>
-          <div class="paper-sheet-rule"></div>
-          <div class="paper-lines">
-            <i style="width:38%"></i>
-            <i></i>
-            <i></i>
-            <i style="width:92%"></i>
-          </div>
-          <div class="paper-figure"><span>PDF preview opens externally</span></div>
-          <div class="paper-lines">
-            <i></i>
-            <i style="width:88%"></i>
-            <i style="width:95%"></i>
-            <i style="width:64%"></i>
-          </div>
-        </div>
-        <div class="preview-note">
-          <strong>${escapeHtml(fallbackPageLabel(record))}</strong>
-          <span>${escapeHtml(message)}</span>
-          <a class="action primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noreferrer">Open source page</a>
-        </div>
-      </div>
-    `;
+    return renderViewerStatusRow(record, fallbackPageLabel(record), message);
   }
 
   return `
@@ -128,6 +102,15 @@ function renderSourcePageFallback(record, sourceUrl, message) {
         <span>${escapeHtml(message)}</span>
       </div>
       <iframe src="${escapeHtml(sourceUrl)}" title="${escapeHtml(record.title)} source page"></iframe>
+    </div>
+  `;
+}
+
+function renderViewerStatusRow(record, title, message) {
+  return `
+    <div class="viewer-status-row status-${escapeHtml(record.availabilityStatus || "metadata")}">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(message)}</span>
     </div>
   `;
 }
@@ -237,7 +220,7 @@ export function renderViewer(record) {
       title = "Unavailable / skipped";
       message = record.failureReason || "The linked source was not a direct downloadable material.";
     }
-    els.viewerFrame.innerHTML = `<div class="empty-state status-${escapeHtml(record.availabilityStatus || "metadata")}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
+    els.viewerFrame.innerHTML = renderViewerStatusRow(record, title, message);
   }
   const abstractBlock = renderAbstractBlock(record);
   if (abstractBlock) els.viewerFrame.insertAdjacentHTML("beforeend", abstractBlock);

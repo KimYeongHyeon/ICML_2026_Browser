@@ -236,6 +236,17 @@ function applyFilterChange({ clearQuery = false } = {}) {
   renderViewer(state.tab === "map" ? null : selected);
 }
 
+function rerenderActiveMapQuery() {
+  if (state.tab !== "map") return;
+  if (!normalize(state.query)) return;
+  void renderMap();
+}
+
+function loadSearchEmbeddingsInBackground() {
+  void loadSearchEmbeddings(SEARCH_EMBEDDINGS_URL)
+    .finally(rerenderActiveMapQuery);
+}
+
 async function init() {
   installMapDebugProbe();
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
@@ -249,7 +260,6 @@ async function init() {
   } catch {
     state.mapData = null;
   }
-  await loadSearchEmbeddings(SEARCH_EMBEDDINGS_URL);
   updateHeader();
   renderAll();
   window.addEventListener("icml-semantic-search-ready", (event) => {
@@ -257,6 +267,7 @@ async function init() {
     if (normalize(state.query) !== event.detail?.query) return;
     renderMap();
   });
+  loadSearchEmbeddingsInBackground();
 
   els.tabs.forEach((button) => {
     button.addEventListener("click", () => {
