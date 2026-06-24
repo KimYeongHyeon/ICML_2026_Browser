@@ -131,13 +131,47 @@ function savedToggleHTML(record) {
 }
 
 function cleanAbstractLatex(value) {
-  return String(value || "").replace(/\\(?:textit|texttt|textbf|textrm|textsc|emph|text)\{([^{}]*)\}/g, "$1");
+  return String(value || "")
+    .replace(/\[cite:\s*\d+(?:\s*,\s*\d+)*\]/gi, "")
+    .replace(/\\cite(?:t|p)?\{[^{}]*\}/g, "")
+    .replace(/\\(?:textit|texttt|textbf|textrm|textsc|emph|text)\{([^{}]*)\}/g, "$1")
+    .replace(/\\(?:mathbb|mathbf|mathrm|mathsf|mathcal)\{([^{}]*)\}/g, "$1")
+    .replace(/\$([^$]+)\$/g, (_, content) => {
+      const text = String(content || "").trim();
+      if (/^[A-Za-z0-9][A-Za-z0-9\s.,;:'"!?+\-/]*(?:\^[0-9]+)?$/.test(text)) return text;
+      return `$${text}$`;
+    })
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\s{2,}/g, " ");
+}
+
+function renderInlineMarkdown(value) {
+  let html = escapeHtml(value);
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:]|$)/g, "$1<em>$2</em>");
+  return html;
+}
+
+function renderSafeTextBlocks(value) {
+  return String(value || "")
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      if (/^[-*]\s+/m.test(block)) {
+        const items = block.split(/\n/).map((line) => line.replace(/^[-*]\s+/, "").trim()).filter(Boolean);
+        return `<ul>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ul>`;
+      }
+      return `<p>${renderInlineMarkdown(block)}</p>`;
+    })
+    .join("");
 }
 
 function renderAbstractBlock(record) {
   const abstract = cleanAbstractLatex(record.abstract).trim();
   if (!abstract) return "";
-  return `<div class="viewer-abstract"><h3>Abstract</h3><p>${escapeHtml(abstract)}</p></div>`;
+  return `<div class="viewer-abstract"><h3>Abstract</h3><div class="viewer-abstract-body">${renderSafeTextBlocks(abstract)}</div></div>`;
 }
 
 export function renderViewer(record) {
@@ -237,6 +271,11 @@ export function renderViewer(record) {
     els.viewerFrame.insertAdjacentHTML("beforeend", miniMap);
     const neighborhood = viewerDeps.semanticNeighborhood(record);
     if (neighborhood) viewerDeps.mountMiniGraph(neighborhood.graphData, record.id);
+    els.viewerFrame.querySelectorAll(".mini-graph-control").forEach((button) => {
+      button.addEventListener("click", () => {
+        viewerDeps.controlMiniGraph?.(button.dataset.miniAction, record);
+      });
+    });
     els.viewerFrame.querySelectorAll(".neighbor-item").forEach((button) => {
       button.addEventListener("click", () => {
         const selected = viewerDeps.findDisplayRecord(button.dataset.id);

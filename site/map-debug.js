@@ -73,5 +73,14 @@ export function installMapDebugProbe() {
         };
       });
     },
+    miniGraphInfo() {
+      const graphData = state.miniGraph?.graphData?.();
+      return {
+        depth: state.miniGraphDepth,
+        nodes: graphData?.nodes?.length || 0,
+        links: graphData?.links?.length || 0,
+        zoom: state.miniGraph?.zoom?.() || null,
+      };
+    },
   };
 }

@@ -32,13 +32,14 @@ export function renderMapDetail(record) {
   }
   const mapById = mapRecordById();
   const neighbors = nearestDisplayNeighbors(record, mapById, 8);
-  const neighborScores = neighbors.map((item) => Number(item.score || 0));
+  const displayScore = (score) => Number(Number(score || 0).toFixed(2));
+  const neighborScores = neighbors.map((item) => displayScore(item.score));
   const neighborMin = neighborScores.length ? Math.min(...neighborScores) : 0;
   const neighborRange = (neighborScores.length ? Math.max(...neighborScores) : 1) - neighborMin || 1;
   const topScore = neighborScores.length ? Math.max(...neighborScores) : 0;
   const areaLabel = (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ") || "Other";
   const domainLabel = (record.domainTags || ["General"]).slice(0, 2).join(", ") || "General";
-  const neighborStrength = (score) => Math.max(0.08, Math.min(1, (Number(score || 0) - neighborMin) / neighborRange));
+  const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
       <p class="eyebrow">${escapeHtml(typeLabel(record.type))} · ${escapeHtml(record.clusterLabel || "Mapped record")}</p>
@@ -63,7 +64,7 @@ export function renderMapDetail(record) {
         ${neighbors.map((item) => {
           const strength = neighborStrength(item.score);
           const tags = sharedSemanticTags(record, item.record);
-          return `<button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}"><span class="neighbor-rank">${item.rank}</span><span class="neighbor-main"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${Number(item.score || 0).toFixed(2)} similarity${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span><i class="neighbor-score-bar"><b style="width:${Math.round(strength * 100)}%"></b></i></span></button>`;
+          return `<button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}"><span class="neighbor-rank">${item.rank}</span><span class="neighbor-main"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${displayScore(item.score).toFixed(2)} similarity${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span><i class="neighbor-score-bar\"><b style=\"width:${Math.round(strength * 100)}%\"></b></i></span></button>`;
         }).join("") || "<small>No mapped neighbors found for this record.</small>"}
       </div>
     </div>
@@ -90,18 +91,35 @@ export function renderMapDetail(record) {
   });
 }
 
-export function semanticNeighborhood(record) {
+export function semanticNeighborhood(record, depth = state.miniGraphDepth || "first") {
   if (!record?.mapAvailable || !state.mapData?.records?.length) return "";
   const mapById = mapRecordById();
   const center = mapById.get(record.id);
   if (!center) return null;
-  const neighbors = nearestDisplayNeighbors(record, mapById, 8)
+  const firstHopLimit = depth === "deep" ? 10 : 8;
+  const neighbors = nearestDisplayNeighbors(record, mapById, firstHopLimit)
     .filter((item) => mapById.has(item.record.id));
   if (!neighbors.length) return null;
   const ids = new Set([record.id, ...neighbors.map((item) => item.record.id)]);
-  const context = focusedLayoutContext(ids, mapById, record.id, 8);
-  const selectedNeighbors = selectedNeighborIds(mapById, record.id, 8);
+  if (depth === "deep") {
+    for (const item of neighbors.slice(0, 8)) {
+      for (const secondHop of (mapById.get(item.record.id)?.nearestNeighbors || []).slice(0, 3)) {
+        if (ids.size >= 24) break;
+        const secondRecord = detailDeps.findDisplayRecord?.(secondHop.id);
+        if (!secondRecord || secondRecord.id === record.id) continue;
+        ids.add(secondRecord.id);
+      }
+    }
+  }
+  const context = focusedLayoutContext(ids, mapById, record.id, firstHopLimit);
+  const selectedNeighbors = selectedNeighborIds(mapById, record.id, firstHopLimit);
   const recordsById = new Map([record, ...neighbors.map((item) => item.record)].map((item) => [item.id, item]));
+  for (const id of ids) {
+    if (!recordsById.has(id)) {
+      const item = detailDeps.findDisplayRecord?.(id);
+      if (item) recordsById.set(id, item);
+    }
+  }
   const nodes = [...ids].map((id) => {
     const item = recordsById.get(id);
     const position = focusedGraphPosition(id, item, context, record.id);
@@ -125,7 +143,8 @@ export function semanticNeighborhood(record) {
   const seen = new Set();
   for (const node of nodes) {
     const map = mapById.get(node.id);
-    for (const neighbor of (map?.nearestNeighbors || []).slice(0, 5)) {
+    const linkLimit = depth === "deep" ? 6 : 5;
+    for (const neighbor of (map?.nearestNeighbors || []).slice(0, linkLimit)) {
       if (!ids.has(neighbor.id)) continue;
       const key = [node.id, neighbor.id].sort().join("::");
       if (seen.has(key) || node.id === neighbor.id) continue;
@@ -147,7 +166,7 @@ export function semanticNeighborhood(record) {
   const similarityPercent = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - minScore) / scoreRange));
   const sharedTags = (neighborRecord) => sharedSemanticTags(record, neighborRecord);
   const topTags = countLabels(neighbors.map((item) => item.record.areaTags || [])).slice(0, 4);
-  return { neighbors, topTags, maxScore, similarityPercent, sharedTags, graphData: { nodes, links } };
+  return { neighbors, topTags, maxScore, similarityPercent, sharedTags, depth, graphData: { nodes, links } };
 }
 
 export function destroyMiniGraph() {
@@ -180,6 +199,23 @@ function fitGraphToElement(graph, graphData, element, options = {}) {
   graph.zoom?.(zoom, options.duration ?? 260);
 }
 
+export function controlMiniGraph(action, record) {
+  const container = els.viewerFrame.querySelector(".mini-graph");
+  if (action === "depth") {
+    state.miniGraphDepth = state.miniGraphDepth === "deep" ? "first" : "deep";
+    detailDeps.renderViewer?.(record);
+    return;
+  }
+  if (!state.miniGraph || !container) return;
+  if (action === "fit") {
+    fitGraphToElement(state.miniGraph, state.miniGraph.graphData?.(), container, { padding: 44, minZoom: 0.72, maxZoom: 5.2 });
+    return;
+  }
+  const currentZoom = Number(state.miniGraph.zoom?.() || 1);
+  const factor = action === "zoom-in" ? 1.25 : action === "zoom-out" ? 0.8 : 1;
+  state.miniGraph.zoom?.(Math.max(0.45, Math.min(6, currentZoom * factor)), 180);
+}
+
 export function mountMiniGraph(graphData, selectedId) {
   destroyMiniGraph();
   const container = els.viewerFrame.querySelector(".mini-graph");
@@ -197,8 +233,8 @@ export function mountMiniGraph(graphData, selectedId) {
       ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
       ctx.fill();
     })
-    .enableZoomInteraction(false)
-    .enablePanInteraction(false)
+    .enableZoomInteraction(true)
+    .enablePanInteraction(true)
     .enableNodeDrag(false)
     .linkCurvature(0.06)
     .linkWidth((link) => link.selected ? 2.2 : Math.max(0.5, Number(link.value || 0) * 1.8))
@@ -253,14 +289,22 @@ export function mountMiniGraph(graphData, selectedId) {
 }
 
 export function renderMiniMap(record) {
-  const neighborhood = semanticNeighborhood(record);
+  const depth = state.miniGraphDepth || "first";
+  const neighborhood = semanticNeighborhood(record, depth);
   if (!neighborhood) return "";
   const { neighbors, topTags, maxScore, similarityPercent, sharedTags } = neighborhood;
+  const deep = depth === "deep";
   return `
     <section class="mini-map-panel" data-mini-graph-record="${escapeHtml(record.id)}">
       <div class="mini-map-heading">
         <h3>Semantic neighborhood</h3>
-        <span>${neighbors.length} nearest mapped records</span>
+        <span>${deep ? "deeper neighborhood" : "first-hop view"} · ${neighbors.length} nearest mapped records</span>
+      </div>
+      <div class="mini-graph-toolbar" aria-label="Semantic neighborhood controls">
+        <button class="mini-graph-control" type="button" data-mini-action="zoom-out" title="Zoom out">-</button>
+        <button class="mini-graph-control" type="button" data-mini-action="zoom-in" title="Zoom in">+</button>
+        <button class="mini-graph-control" type="button" data-mini-action="fit" title="Fit neighborhood graph">Fit</button>
+        <button class="mini-graph-control depth-toggle${deep ? " is-active" : ""}" type="button" data-mini-action="depth" aria-pressed="${deep}" title="Toggle first-hop and deeper semantic neighborhood">${deep ? "Depth: Deeper" : "Depth: 1-hop"}</button>
       </div>
       <div class="mini-graph" aria-label="Semantic neighborhood graph using the same ForceGraph renderer as the main map">
         <div class="mini-graph-caption">
