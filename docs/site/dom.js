@@ -7,6 +7,7 @@ export const els = {
   group: document.querySelector("#groupSelect"),
   asset: document.querySelector("#assetSelect"),
   assetPills: document.querySelector("#assetPills"),
+  dataNote: document.querySelector("#dataNote"),
   resultCount: document.querySelector("#resultCount"),
   activeSummary: document.querySelector("#activeSummary"),
   results: document.querySelector("#results"),

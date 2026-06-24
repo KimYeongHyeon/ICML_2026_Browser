@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import sys
@@ -17,8 +18,13 @@ def load(path: Path) -> dict:
 
 
 def main() -> None:
-    index_path = Path(sys.argv[1]) if len(sys.argv) > 1 else config.INDEX_PATH
-    map_path = Path(sys.argv[2]) if len(sys.argv) > 2 else config.MAP_PATH
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("index_path", nargs="?", type=Path, default=config.INDEX_PATH)
+    parser.add_argument("map_path", nargs="?", type=Path, default=config.MAP_PATH)
+    parser.add_argument("--require-fresh", action="store_true")
+    args = parser.parse_args()
+    index_path = args.index_path
+    map_path = args.map_path
     index = load(index_path)
     map_data = load(map_path)
     search_data = load(config.SEARCH_EMBEDDINGS_PATH) if config.SEARCH_EMBEDDINGS_PATH.exists() else None
@@ -69,6 +75,17 @@ def main() -> None:
             vector = record.get("vector")
             if not isinstance(vector, str) or (expected_bytes and len(vector) < expected_bytes - 4):
                 errors.append(f"invalid search vector encoding for {record.get('id')}")
+    embedding_summary = index.get("summary", {}).get("embedding") or {}
+    expected = embedding_summary.get("expectedFingerprint")
+    map_actual = (map_data.get("embeddingSource") or {}).get("sourceFingerprint")
+    search_actual = (search_data.get("embeddingSource") or {}).get("sourceFingerprint") if search_data else ""
+    stale = [name for name, actual in {"map": map_actual, "search": search_actual}.items() if expected and actual != expected]
+    if stale:
+        message = f"semantic embedding artifacts are stale: {', '.join(stale)}"
+        if args.require_fresh:
+            errors.append(message)
+        else:
+            print(f"Warning: {message}", file=sys.stderr)
 
     if errors:
         print("ICML embedding map verification failed:", file=sys.stderr)

@@ -13,6 +13,10 @@ import {
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle, queueMathTypeset } from "./utils.js";
 import {
+  STUDY_QUEUE_STATUSES,
+  queueEntry,
+} from "./saved.js";
+import {
   destroyPdfViewer,
   isPdfAsset,
   mountPdfViewer,
@@ -127,7 +131,20 @@ function renderPosterPreview(record, assetPath) {
 
 function savedToggleHTML(record) {
   const saved = state.savedIds.has(record.id);
-  return `<button type="button" class="action saved-toggle${saved ? " is-saved" : ""}" data-save-id="${escapeHtml(record.id)}">${saved ? "Saved" : "Save"}</button>`;
+  return `<button type="button" class="action saved-toggle${saved ? " is-saved" : ""}" data-save-id="${escapeHtml(record.id)}">${saved ? "Queued" : "Queue"}</button>`;
+}
+
+function queueStatusHTML(record) {
+  const current = queueEntry(state.studyQueue, record.id)?.status || "";
+  return `
+    <label class="queue-status-control" title="Set study queue status">
+      <span>Study queue</span>
+      <select data-queue-status="${escapeHtml(record.id)}">
+        <option value="">Not queued</option>
+        ${STUDY_QUEUE_STATUSES.map((item) => `<option value="${escapeHtml(item.value)}"${current === item.value ? " selected" : ""}>${escapeHtml(item.label)}</option>`).join("")}
+      </select>
+    </label>
+  `;
 }
 
 function cleanAbstractLatex(value) {
@@ -216,9 +233,15 @@ export function renderViewer(record) {
     actionLink(record.openreviewUrl, "OpenReview"),
     actionLink(record.projectPageUrl, "Project"),
   ].join("");
-  els.viewerActions.innerHTML = savedToggleHTML(record) + actions;
+  els.viewerActions.innerHTML = savedToggleHTML(record) + queueStatusHTML(record) + actions;
   els.viewerActions.querySelector(".saved-toggle")?.addEventListener("click", () => {
     viewerDeps.toggleSaved(record.id);
+    renderViewer(record);
+    viewerDeps.renderResults();
+    viewerDeps.updateHeader();
+  });
+  els.viewerActions.querySelector("[data-queue-status]")?.addEventListener("change", (event) => {
+    viewerDeps.setQueueStatus?.(record.id, event.target.value);
     renderViewer(record);
     viewerDeps.renderResults();
     viewerDeps.updateHeader();

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.icml_embedding_contract import build_embedding_text, embedding_source_metadata
 from scripts import icml_semantic_config as config
 
 
@@ -27,37 +28,6 @@ def read_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-
-
-def normalize_text(value: Any) -> str:
-    return " ".join(str(value or "").split())
-
-
-def build_embedding_text(record: dict[str, Any]) -> dict[str, str]:
-    parts: list[str] = []
-    title = normalize_text(record.get("title"))
-    abstract = normalize_text(record.get("abstract"))
-    group = normalize_text(record.get("group"))
-    category = normalize_text(record.get("category"))
-    item_type = normalize_text(record.get("type"))
-
-    if title:
-        parts.append(f"Title: {title}")
-    if abstract:
-        parts.append(f"Abstract: {abstract}")
-        quality = "title_abstract"
-    elif group or category:
-        fallback = " ".join(part for part in [category, group] if part)
-        parts.append(f"Context: {fallback}")
-        quality = "title_topic"
-    elif title:
-        quality = "title_only"
-    else:
-        quality = "unavailable"
-    if item_type:
-        parts.append(f"Record type: {item_type}")
-
-    return {"text": "\n".join(parts), "quality": quality}
 
 
 class SmokeEmbedder:
@@ -206,7 +176,12 @@ def project_vectors(vectors: list[list[float]], dimension: int) -> list[list[flo
         return [vector[:dimension] + [0.0] * max(0, dimension - len(vector)) for vector in vectors]
 
 
-def build_semantic_payload(records: list[dict[str, Any]], vectors: list[list[float]], payloads: list[dict[str, str]]) -> tuple[dict[str, Any], dict[str, Any]]:
+def build_semantic_payload(
+    records: list[dict[str, Any]],
+    vectors: list[list[float]],
+    payloads: list[dict[str, str]],
+    embedding_source: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
     ids = [str(record["id"]) for record in records]
     projected_2d = project_vectors(vectors, 2)
     projected_3d = project_vectors(vectors, 3)
@@ -245,6 +220,7 @@ def build_semantic_payload(records: list[dict[str, Any]], vectors: list[list[flo
     ]
     map_payload = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "embeddingSource": embedding_source,
         "model": {
             "id": "smoke-deterministic",
             "kind": "smoke",
@@ -254,7 +230,7 @@ def build_semantic_payload(records: list[dict[str, Any]], vectors: list[list[flo
         "records": map_records,
         "clusters": clusters,
     }
-    return map_payload, {"records": semantic_sidecar}
+    return map_payload, {"embeddingSource": embedding_source, "records": semantic_sidecar}
 
 
 def quantized_vector_base64(vector: list[float]) -> str:
@@ -271,6 +247,7 @@ def build_search_embeddings_payload(
     payloads: list[dict[str, str]],
     model_id: str,
     model_kind: str,
+    embedding_source: dict[str, Any],
 ) -> dict[str, Any]:
     searchable_records = []
     for record, vector, payload in zip(records, vectors, payloads):
@@ -283,6 +260,7 @@ def build_search_embeddings_payload(
         })
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "embeddingSource": embedding_source,
         "model": {
             "id": model_id,
             "kind": model_kind,
@@ -308,6 +286,12 @@ def main() -> None:
     if args.limit:
         records = records[: args.limit]
     payloads = [build_embedding_text(record) for record in records]
+    searchable_count = sum(1 for record in records if record.get("type") != "poster")
+    embedding_source = embedding_source_metadata(
+        records,
+        searchable_record_count=searchable_count,
+        index_generated_at=str(index.get("generatedAt") or ""),
+    )
     if args.smoke:
         embedder = SmokeEmbedder()
         model_id = "smoke-deterministic"
@@ -321,7 +305,7 @@ def main() -> None:
         model_id = config.EMBEDDING_MODEL_ID
         model_kind = config.EMBEDDING_MODEL_KIND
     vectors = embedder.encode([payload["text"] for payload in payloads])
-    map_payload, sidecar_payload = build_semantic_payload(records, vectors, payloads)
+    map_payload, sidecar_payload = build_semantic_payload(records, vectors, payloads, embedding_source)
     map_payload["model"] = {
         "id": model_id,
         "kind": model_kind,
@@ -330,7 +314,7 @@ def main() -> None:
 
     write_json(config.MAP_PATH, map_payload)
     write_json(config.SEMANTIC_SIDECAR_PATH, sidecar_payload)
-    search_payload = build_search_embeddings_payload(records, vectors, payloads, model_id, model_kind)
+    search_payload = build_search_embeddings_payload(records, vectors, payloads, model_id, model_kind, embedding_source)
     write_json(config.SEARCH_EMBEDDINGS_PATH, search_payload)
     counts = Counter(item["embeddingTextQuality"] for item in sidecar_payload["records"].values())
     print(f"Wrote {config.MAP_PATH.relative_to(config.ROOT)}")

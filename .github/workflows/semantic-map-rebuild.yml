@@ -1,0 +1,61 @@
+name: Rebuild semantic map
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Embedding build mode
+        required: true
+        default: lexical
+        type: choice
+        options:
+          - scientific
+          - lexical
+          - smoke
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install scientific embedding dependencies
+        if: inputs.mode == 'scientific'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install sentence-transformers umap-learn numpy
+      - name: Install lightweight embedding dependencies
+        if: inputs.mode != 'scientific'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy umap-learn
+      - name: Rebuild site data and semantic artifacts
+        env:
+          ICML_BUILD_SEMANTIC_MAP: "1"
+          MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$MODE" = "smoke" ]; then
+            ICML_SEMANTIC_ARGS="--smoke" scripts/build_site.sh
+          elif [ "$MODE" = "lexical" ]; then
+            ICML_SEMANTIC_ARGS="--lexical" scripts/build_site.sh
+          else
+            scripts/build_site.sh
+          fi
+      - name: Verify fresh semantic artifacts
+        run: python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json --require-fresh
+      - name: Commit regenerated artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/site/data
+          if git diff --cached --quiet; then
+            echo "No semantic artifact changes."
+          else
+            git commit -m "Rebuild semantic map artifacts"
+            git push
+          fi

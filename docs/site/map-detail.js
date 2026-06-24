@@ -5,6 +5,8 @@ import { escapeHtml, plainMathTitle } from "./utils.js";
 import { countLabels } from "./map-layout.js";
 import { colorForValue } from "./map-tooltip.js";
 import {
+  buildTopicStudyPack,
+  explainSemanticRelation,
   focusDepth,
   focusedGraphPosition,
   focusedLayoutContext,
@@ -64,7 +66,8 @@ export function renderMapDetail(record) {
         ${neighbors.map((item) => {
           const strength = neighborStrength(item.score);
           const tags = sharedSemanticTags(record, item.record);
-          return `<button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}"><span class="neighbor-rank">${item.rank}</span><span class="neighbor-main"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${displayScore(item.score).toFixed(2)} similarity${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span><i class="neighbor-score-bar\"><b style=\"width:${Math.round(strength * 100)}%\"></b></i></span></button>`;
+          const reason = explainSemanticRelation(record, item.record, item.score);
+          return `<button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}"><span class="neighbor-rank">${item.rank}</span><span class="neighbor-main"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${displayScore(item.score).toFixed(2)} similarity${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span><small class="why-line">${escapeHtml(reason)}</small><i class="neighbor-score-bar\"><b style=\"width:${Math.round(strength * 100)}%\"></b></i></span></button>`;
         }).join("") || "<small>No mapped neighbors found for this record.</small>"}
       </div>
     </div>
@@ -294,11 +297,27 @@ export function renderMiniMap(record) {
   if (!neighborhood) return "";
   const { neighbors, topTags, maxScore, similarityPercent, sharedTags } = neighborhood;
   const deep = depth === "deep";
+  const studyPack = buildTopicStudyPack(record, { limit: 6 });
   return `
     <section class="mini-map-panel" data-mini-graph-record="${escapeHtml(record.id)}">
       <div class="mini-map-heading">
         <h3>Semantic neighborhood</h3>
         <span>${deep ? "deeper neighborhood" : "first-hop view"} · ${neighbors.length} nearest mapped records</span>
+      </div>
+      <div class="study-pack">
+        <div class="study-pack-heading">
+          <h4>Topic study pack</h4>
+          <span>closest + bridge records</span>
+        </div>
+        ${studyPack.map((item) => `
+          <button type="button" class="neighbor-item semantic-neighbor study-pack-item" data-id="${escapeHtml(item.record.id)}">
+            <span class="neighbor-rank">${item.rank}</span>
+            <span class="neighbor-main">
+              <strong>${escapeHtml(plainMathTitle(item.record.title))}</strong>
+              <small class="why-line">${escapeHtml(item.reason)}</small>
+            </span>
+          </button>
+        `).join("") || "<small>No study pack is available for this record.</small>"}
       </div>
       <div class="mini-graph-toolbar" aria-label="Semantic neighborhood controls">
         <button class="mini-graph-control" type="button" data-mini-action="zoom-out" title="Zoom out">-</button>

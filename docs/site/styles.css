@@ -237,6 +237,19 @@ h2 {
   line-height: 1.45;
 }
 
+.data-note.is-visible {
+  display: flex;
+}
+
+.data-note.is-warning {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.data-note.is-warning strong {
+  color: #9a3412;
+}
+
 .data-note strong {
   flex: 0 0 auto;
   color: var(--text);
@@ -435,6 +448,10 @@ a:focus-visible {
   box-shadow: inset 3px 0 0 #9db4e0;
 }
 
+.result-item.is-queued {
+  border-color: #f4dc9b;
+}
+
 .result-kicker {
   display: flex;
   align-items: center;
@@ -609,6 +626,28 @@ a:focus-visible {
   color: #b45309;
 }
 
+.queue-status-control {
+  display: grid;
+  gap: 3px;
+  min-width: 132px;
+}
+
+.queue-status-control span {
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.queue-status-control select {
+  min-height: 40px;
+  border-radius: 12px;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 button.stat-pill.saved-pill {
   cursor: pointer;
   font: inherit;
@@ -626,6 +665,13 @@ button.stat-pill.saved-pill:hover {
   background: #fffbeb;
   border-color: #fcd34d;
   color: #b45309;
+}
+
+.queue-breakdown {
+  max-width: 210px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .viewer-meta {
@@ -1878,6 +1924,46 @@ button.stat-pill.saved-pill:hover {
 
 .mini-tag-summary b {
   color: var(--text);
+}
+
+.study-pack {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfc;
+}
+
+.study-pack-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.study-pack-heading h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.study-pack-heading span,
+.why-line {
+  color: var(--muted-2);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.study-pack-item {
+  padding: 7px 6px;
+  border: 1px solid transparent;
+}
+
+.study-pack-item:hover {
+  border-color: #d7ebe5;
 }
 
 .neighbor-list {

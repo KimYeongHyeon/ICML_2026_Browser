@@ -1,8 +1,11 @@
 import {
-  DATA_URL,
   MAP_URL,
   SEARCH_EMBEDDINGS_URL,
 } from "./config.js";
+import {
+  loadIndexData,
+  loadShardRecords,
+} from "./data-loader.js";
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
 import { state } from "./state.js";
@@ -21,6 +24,9 @@ import {
   loadMoreResultsIfNeeded,
   renderResults,
   resetResultWindow,
+  queueWorkerSearch,
+  refreshSearchWorkerIndex,
+  setQueueStatus,
   toggleSaved,
   updateHeader,
   updateSelects,
@@ -63,7 +69,10 @@ import {
   installMapPointerInteractions,
   showGraphTooltip,
 } from "./map-interactions.js";
-import { loadSavedIds } from "./saved.js";
+import {
+  loadStudyQueue,
+  queuedIds,
+} from "./saved.js";
 import { loadSearchEmbeddings } from "./semantic-search.js";
 
 configureMapCore({ findDisplayRecord });
@@ -76,7 +85,13 @@ configureMapEngine({
   renderViewer,
   showGraphTooltip,
 });
-configureBrowse({ applyFilterChange });
+configureBrowse({
+  applyFilterChange,
+  renderAfterWorkerSearch() {
+    if (state.tab === "map") renderMap();
+    else renderResults();
+  },
+});
 configureMapDetail({
   findDisplayRecord,
   hideGraphTooltip,
@@ -206,10 +221,46 @@ configureViewer({
   renderMap,
   renderMiniMap,
   renderResults,
+  setQueueStatus,
   semanticNeighborhood,
   toggleSaved,
   updateHeader,
 });
+
+function renderDataHealthNote() {
+  if (!els.dataNote) return;
+  const embedding = state.data?.summary?.embedding || {};
+  const status = embedding.status || "missing";
+  const source = state.dataManifest ? "sharded index" : "monolithic index";
+  const generatedAt = state.data?.generatedAt ? new Date(state.data.generatedAt).toLocaleString() : "";
+  const stale = status !== "fresh";
+  els.dataNote.classList.toggle("is-visible", stale);
+  els.dataNote.classList.toggle("is-warning", stale);
+  const loadedText = `Loaded ${escapeHtml(source)}${generatedAt ? ` · ${escapeHtml(generatedAt)}` : ""}.`;
+  const messages = {
+    fresh: ["Semantic index fresh.", loadedText],
+    legacy: ["Semantic metadata pending.", `${loadedText} Existing semantic vectors are available; the rebuild workflow will attach freshness metadata.`],
+    stale: ["Semantic rebuild recommended.", `${loadedText} Dense vectors may be older than the current records, so search also uses lexical fallback.`],
+    missing: ["Semantic fallback active.", `${loadedText} Dense vectors are not available yet, so map/search use lexical fallback until the rebuild workflow runs.`],
+  };
+  const [title, body] = messages[status] || messages.missing;
+  els.dataNote.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(body)}</span>`;
+}
+
+async function hydrateFullRecords() {
+  if (!state.dataManifest || state.dataShardsLoaded) return;
+  try {
+    const records = await loadShardRecords(state.dataManifest);
+    if (!records?.length) return;
+    state.data.records = enrichPaperPresentationRecords(records);
+    state.dataShardsLoaded = true;
+    refreshSearchWorkerIndex();
+    queueWorkerSearch();
+    updateHeader();
+    renderAll();
+  } catch {
+  }
+}
 
 function renderAll() {
   els.tabs.forEach((button) => {
@@ -244,6 +295,7 @@ function applyFilterChange({ clearQuery = false } = {}) {
   } else if (els.mapSearch && els.mapSearch.value !== state.query) {
     els.mapSearch.value = state.query;
   }
+  queueWorkerSearch();
   state.mapFilterValue = "";
   clearMapSelection();
   resetResultWindow();
@@ -267,10 +319,14 @@ function loadSearchEmbeddingsInBackground() {
 async function init() {
   installMapDebugProbe();
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
-  const response = await fetch(DATA_URL);
-  state.data = await response.json();
+  const loaded = await loadIndexData();
+  state.data = loaded.data;
+  state.dataManifest = loaded.manifest;
   state.data.records = enrichPaperPresentationRecords(state.data.records || []);
-  state.savedIds = loadSavedIds();
+  state.studyQueue = loadStudyQueue();
+  state.savedIds = queuedIds(state.studyQueue);
+  refreshSearchWorkerIndex();
+  renderDataHealthNote();
   try {
     const mapResponse = await fetch(MAP_URL);
     state.mapData = mapResponse.ok ? await mapResponse.json() : null;
@@ -279,6 +335,7 @@ async function init() {
   }
   updateHeader();
   renderAll();
+  void hydrateFullRecords();
   window.addEventListener("icml-semantic-search-ready", (event) => {
     if (state.tab !== "map") return;
     if (normalize(state.query) !== event.detail?.query) return;
