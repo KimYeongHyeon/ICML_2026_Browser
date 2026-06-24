@@ -1592,7 +1592,7 @@ button.stat-pill.saved-pill:hover {
 
 .legend-note {
   display: grid;
-  gap: 2px;
+  gap: 6px;
   padding: 5px 6px;
   border: 1px solid var(--line-soft);
   border-radius: 11px;
@@ -1613,9 +1613,70 @@ button.stat-pill.saved-pill:hover {
 }
 
 .legend-note::after {
-  content: "Fill color shows area; node shape shows domain.";
+  content: "Shape examples decode domain families.";
   color: var(--muted-2);
   font-weight: 650;
+}
+
+.legend-shape-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted-2);
+  font-size: 9.8px;
+  font-weight: 700;
+}
+
+.legend-shape-row b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-shape {
+  position: relative;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 2px solid #7fa28f;
+  background: rgb(106 165 147 / 0.24);
+}
+
+.legend-shape-circle {
+  border-radius: 999px;
+}
+
+.legend-shape-square {
+  border-radius: 3px;
+}
+
+.legend-shape-diamond {
+  transform: rotate(45deg) scale(0.86);
+  border-radius: 2px;
+}
+
+.legend-shape-triangle {
+  width: 0;
+  height: 0;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #7fa28f;
+  border-left: 7px solid transparent;
+  background: transparent;
+}
+
+.legend-shape-triangle::after {
+  position: absolute;
+  left: -4px;
+  top: 4px;
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid rgb(106 165 147 / 0.24);
+  border-left: 4px solid transparent;
+  content: "";
 }
 
 .map-detail {
