@@ -1,0 +1,67 @@
+name: Workshop PDFs and abstracts
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 18 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: workshop-abstracts
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.58.2
+          npx playwright install --with-deps chromium
+
+      - name: Install PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Download workshop PDFs from OpenReview
+        run: |
+          node scripts/download_workshop_pdfs_openreview.mjs --write --concurrency 2 --retries 5 --progress-every 20
+
+      - name: Update workshop abstracts from OpenReview
+        run: |
+          node scripts/update_workshop_abstracts_openreview.mjs --write --concurrency 2
+
+      - name: Update workshop abstracts from PDFs
+        run: |
+          python3 scripts/update_workshop_abstracts.py --pdf --write
+          ICML_BUILD_SEMANTIC_MAP=0 scripts/build_site.sh
+
+      - name: Commit changes
+        run: |
+          git add icml_2026_materials/workshops icml_2026_materials/abstracts.jsonl docs/site/data/icml2026_index.json
+          if git diff --cached --quiet; then
+            echo "No workshop PDF or abstract changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update workshop PDFs and abstracts"
+          git push

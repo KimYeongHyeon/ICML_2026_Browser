@@ -4,6 +4,8 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 
 let pdfJsPromise = null;
+const WHEEL_PAGE_THRESHOLD = 90;
+const WHEEL_PAGE_COOLDOWN_MS = 180;
 
 export function isPdfAsset(path) {
   return /\.pdf(?:$|[?#])/i.test(path || "");
@@ -94,6 +96,52 @@ export async function mountPdfViewer(assetPath) {
   let zoom = 1;
   let rendering = false;
   let pending = false;
+  let wheelDelta = 0;
+  let lastWheelPageTurn = 0;
+
+  const setPage = (nextPageNum, scrollToBottom = false) => {
+    if (!pdfDoc) return;
+    const clampedPage = Math.max(1, Math.min(pdfDoc.numPages, nextPageNum));
+    if (clampedPage === pageNum) return;
+    pageNum = clampedPage;
+    stage.scrollTop = scrollToBottom ? stage.scrollHeight : 0;
+    void renderPage();
+  };
+
+  const canScrollStage = (deltaY) => {
+    const maxScrollTop = Math.max(0, stage.scrollHeight - stage.clientHeight);
+    if (maxScrollTop <= 1) return false;
+    if (deltaY > 0) return stage.scrollTop < maxScrollTop - 1;
+    if (deltaY < 0) return stage.scrollTop > 1;
+    return false;
+  };
+
+  const handleStageWheel = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!pdfDoc || rendering) return;
+
+    const primaryDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (!primaryDelta) return;
+
+    if (canScrollStage(primaryDelta)) {
+      stage.scrollTop += primaryDelta;
+      wheelDelta = 0;
+      return;
+    }
+
+    wheelDelta += primaryDelta;
+    const now = performance.now();
+    if (Math.abs(wheelDelta) < WHEEL_PAGE_THRESHOLD || now - lastWheelPageTurn < WHEEL_PAGE_COOLDOWN_MS) return;
+
+    if (wheelDelta > 0) {
+      setPage(pageNum + 1);
+    } else {
+      setPage(pageNum - 1, true);
+    }
+    wheelDelta = 0;
+    lastWheelPageTurn = now;
+  };
 
   const renderPage = async () => {
     if (!pdfDoc || token !== state.pdfViewer.token) return;
@@ -142,15 +190,12 @@ export async function mountPdfViewer(assetPath) {
     pdfDoc = await loadingTask.promise;
     if (token !== state.pdfViewer.token) return;
     setPdfToolbarState(shell, pageNum, pdfDoc.numPages, false);
+    stage.addEventListener("wheel", handleStageWheel, { passive: false });
     shell.querySelector("[data-pdf-prev]")?.addEventListener("click", () => {
-      if (pageNum <= 1) return;
-      pageNum -= 1;
-      void renderPage();
+      setPage(pageNum - 1);
     });
     shell.querySelector("[data-pdf-next]")?.addEventListener("click", () => {
-      if (pageNum >= pdfDoc.numPages) return;
-      pageNum += 1;
-      void renderPage();
+      setPage(pageNum + 1);
     });
     shell.querySelector("[data-pdf-zoom-out]")?.addEventListener("click", () => {
       zoom = Math.max(0.65, zoom - 0.15);

@@ -1264,9 +1264,9 @@ button.stat-pill.saved-pill:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: min(280px, calc(100% - 280px));
+  width: min(330px, calc(100% - 280px));
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 10px 0 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgb(255 255 255 / 0.82);
@@ -1282,6 +1282,8 @@ button.stat-pill.saved-pill:hover {
 }
 
 .map-search-overlay input {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   padding: 0;
   border: 0;
@@ -1289,6 +1291,85 @@ button.stat-pill.saved-pill:hover {
   background: transparent;
   font-size: 13px;
   font-weight: 650;
+}
+
+.map-search-help,
+.map-embedding-info {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(148 163 184 / 0.28);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.72);
+  color: var(--accent-strong);
+  cursor: help;
+  font: 850 12px/1 "Hanken Grotesk", system-ui, sans-serif;
+}
+
+.map-search-help:hover,
+.map-search-help:focus-visible,
+.map-embedding-info:hover,
+.map-embedding-info:focus-visible {
+  border-color: #cfe4dd;
+  background: #eef4f2;
+  outline: none;
+}
+
+.map-search-help::after,
+.map-embedding-info::after {
+  position: absolute;
+  z-index: 20;
+  width: 260px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgb(255 255 255 / 0.94);
+  box-shadow: 0 18px 42px rgb(40 45 50 / 0.14);
+  color: var(--text);
+  content: attr(data-tip);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.map-search-help::after {
+  top: calc(100% + 9px);
+  right: 0;
+}
+
+.map-embedding-info {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 4;
+  width: 30px;
+  height: 30px;
+  background: rgb(255 255 255 / 0.82);
+  box-shadow:
+    0 10px 30px rgb(40 45 50 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.75);
+  backdrop-filter: blur(16px);
+}
+
+.map-embedding-info::after {
+  top: calc(100% + 9px);
+  right: 0;
+  width: 310px;
+}
+
+.map-search-help:hover::after,
+.map-search-help:focus-visible::after,
+.map-embedding-info:hover::after,
+.map-embedding-info:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .map-help-pill {
@@ -1532,7 +1613,7 @@ button.stat-pill.saved-pill:hover {
 }
 
 .legend-note::after {
-  content: "Rings strengthen on hover, search, and selection.";
+  content: "Fill color shows area; node shape shows domain.";
   color: var(--muted-2);
   font-weight: 650;
 }
@@ -1604,7 +1685,7 @@ button.stat-pill.saved-pill:hover {
 
 .mini-graph {
   position: relative;
-  height: 188px;
+  height: 310px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;

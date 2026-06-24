@@ -139,11 +139,12 @@ export function semanticNeighborhood(record) {
       });
     }
   }
-  const scores = neighbors.map((item) => Number(item.score || 0));
+  const displayScore = (score) => Number(Number(score || 0).toFixed(2));
+  const scores = neighbors.map((item) => displayScore(item.score));
   const minScore = Math.min(...scores);
   const maxScore = Math.max(...scores);
   const scoreRange = Math.max(0.001, maxScore - minScore);
-  const similarityPercent = (score) => Math.max(0.08, Math.min(1, (Number(score || 0) - minScore) / scoreRange));
+  const similarityPercent = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - minScore) / scoreRange));
   const sharedTags = (neighborRecord) => sharedSemanticTags(record, neighborRecord);
   const topTags = countLabels(neighbors.map((item) => item.record.areaTags || [])).slice(0, 4);
   return { neighbors, topTags, maxScore, similarityPercent, sharedTags, graphData: { nodes, links } };
@@ -170,10 +171,11 @@ function fitGraphToElement(graph, graphData, element, options = {}) {
   });
   const width = element.clientWidth || 720;
   const height = element.clientHeight || 240;
-  const padding = options.padding ?? 48;
-  const spanX = Math.max(60, bounds.maxX - bounds.minX);
-  const spanY = Math.max(60, bounds.maxY - bounds.minY);
-  const zoom = Math.max(0.24, Math.min(options.maxZoom ?? 2.6, Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY)));
+  const padding = options.padding ?? 30;
+  const spanX = Math.max(34, bounds.maxX - bounds.minX);
+  const spanY = Math.max(34, bounds.maxY - bounds.minY);
+  const fitScale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY);
+  const zoom = Math.max(options.minZoom ?? 0.72, Math.min(options.maxZoom ?? 4.8, fitScale));
   graph.centerAt?.((bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2, options.duration ?? 260);
   graph.zoom?.(zoom, options.duration ?? 260);
 }
@@ -187,7 +189,7 @@ export function mountMiniGraph(graphData, selectedId) {
     .backgroundColor("rgba(0,0,0,0)")
     .nodeId("id")
     .nodeLabel("")
-    .nodeVal((node) => node.selected ? 5.5 : node.depth === 1 ? 3.6 : 2.3)
+    .nodeVal((node) => node.selected ? 8 : node.depth === 1 ? 5.2 : 3.4)
     .nodePointerAreaPaint((node, color, ctx) => {
       const radius = node.selected ? 18 : 14;
       ctx.fillStyle = color;
@@ -199,8 +201,8 @@ export function mountMiniGraph(graphData, selectedId) {
     .enablePanInteraction(false)
     .enableNodeDrag(false)
     .linkCurvature(0.06)
-    .linkWidth((link) => link.selected ? 1.25 : Math.max(0.18, Number(link.value || 0) * 1.1))
-    .linkColor((link) => link.selected ? "rgba(106,165,147,0.38)" : "rgba(148,163,184,0.18)")
+    .linkWidth((link) => link.selected ? 2.2 : Math.max(0.5, Number(link.value || 0) * 1.8))
+    .linkColor((link) => link.selected ? "rgba(106,165,147,0.62)" : "rgba(111,125,140,0.36)")
     .linkDirectionalParticles(0)
     .d3AlphaMin(0.001)
     .d3AlphaDecay(0.018)
@@ -217,6 +219,8 @@ export function mountMiniGraph(graphData, selectedId) {
         baseFontSize: 10,
         maxFontSize: 12,
         showDomainRing: true,
+        radiusScale: 2.45,
+        minScreenRadius: node.selected ? 12 : 8.5,
       });
     })
     .onNodeHover((node) => {
@@ -239,13 +243,13 @@ export function mountMiniGraph(graphData, selectedId) {
     .width(container.clientWidth || 720)
     .height(container.clientHeight || 240)
     .graphData(graphData);
-  state.miniGraph.d3Force("charge")?.strength((node) => node.selected ? -128 : -54);
-  state.miniGraph.d3Force("link")?.distance((link) => link.selected ? 56 : 66);
-  applyForceAnchors(state.miniGraph, 0.05);
+  state.miniGraph.d3Force("charge")?.strength((node) => node.selected ? -154 : -68);
+  state.miniGraph.d3Force("link")?.distance((link) => link.selected ? 76 : 86);
+  applyForceAnchors(state.miniGraph, 0.035);
   state.miniGraph.cooldownTime?.(3200);
   state.miniGraph.resumeAnimation?.();
-  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 42, maxZoom: 2.8 }), 80);
-  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 44, maxZoom: 2.8, duration: 220 }), 700);
+  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 42, minZoom: 0.95, maxZoom: 5.2 }), 80);
+  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 44, minZoom: 0.95, maxZoom: 5.2, duration: 220 }), 700);
 }
 
 export function renderMiniMap(record) {
