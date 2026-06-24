@@ -106,7 +106,18 @@ function renderMapLegend(visibleRecords) {
     .slice(0, 12);
   const allCount = visibleRecords.length;
   els.mapLegend.innerHTML = `
-    ${state.mapColor === "area-domain" ? `<div class="legend-note">Fill = research area. Shape = domain. Ring = domain accent. Click an area to filter.</div>` : ""}
+    ${state.mapColor === "area-domain" ? `
+      <div class="legend-note">
+        <span>Fill = research area. Shape = domain. Ring = domain accent. Click an area to filter.</span>
+        <span class="legend-shape-row" aria-label="Domain shape examples">
+          <i class="legend-shape legend-shape-circle"></i>
+          <i class="legend-shape legend-shape-square"></i>
+          <i class="legend-shape legend-shape-diamond"></i>
+          <i class="legend-shape legend-shape-triangle"></i>
+          <b>same shape = same domain family</b>
+        </span>
+      </div>
+    ` : ""}
     <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
       <span class="legend-swatch legend-swatch-all"></span>
       <span>All</span>

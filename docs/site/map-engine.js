@@ -495,9 +495,9 @@ export function renderForceGraph(graphData) {
       }
     }, 350);
   } else {
-    graph.d3Force("charge")?.strength((node) => node.searchMatch ? -34 : node.depth === 1 ? -28 : -18);
-    graph.d3Force("link")?.distance((link) => 30 + (1 - Math.min(1, Number(link.value) || 0)) * 38)?.strength?.(0.18);
-    applyForceAnchors(graph, 0.04);
+    graph.d3Force("charge")?.strength((node) => node.searchMatch ? -58 : node.depth === 1 ? -46 : -34);
+    graph.d3Force("link")?.distance((link) => 46 + (1 - Math.min(1, Number(link.value) || 0)) * 56)?.strength?.(0.13);
+    applyForceAnchors(graph, 0.024);
     const firstFitScheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= firstFitScheduledAt) {
