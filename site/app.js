@@ -92,6 +92,10 @@ configureMapInteractions({
 
 function renderMapLegend(visibleRecords) {
   if (!els.mapLegend) return;
+  if (state.mapColor === "quality" || state.mapColor === "availability") {
+    state.mapColor = "area-domain";
+    if (els.mapColor) els.mapColor.value = state.mapColor;
+  }
   const counts = new Map();
   for (const record of visibleRecords) {
     const value = mapColorValue(record);
@@ -102,7 +106,7 @@ function renderMapLegend(visibleRecords) {
     .slice(0, 12);
   const allCount = visibleRecords.length;
   els.mapLegend.innerHTML = `
-    ${state.mapColor === "area-domain" ? `<div class="legend-note">Fill = research area. Ring = domain. Click an area to filter.</div>` : ""}
+    ${state.mapColor === "area-domain" ? `<div class="legend-note">Fill = research area. Shape = domain. Ring = domain accent. Click an area to filter.</div>` : ""}
     <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
       <span class="legend-swatch legend-swatch-all"></span>
       <span>All</span>
@@ -156,7 +160,7 @@ async function renderMap() {
     return;
   }
   if (!visibleRecords.some((record) => record.id === state.selectedId)) {
-    state.selectedId = visibleRecords[0]?.id || "";
+    state.selectedId = "";
   }
   const graphData = buildGraphData(visibleRecords, mapById);
   let rendered = false;
@@ -175,7 +179,7 @@ async function renderMap() {
   if (!rendered) {
     destroyGraphEngine();
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>The selected graph engine could not be loaded.</span></div>`;
-    renderMapDetail(visibleRecords[0]);
+    renderMapDetail(null);
     return;
   }
   const selected = findDisplayRecord(state.selectedId);
@@ -283,6 +287,9 @@ async function init() {
       state.group = "all";
       state.asset = "all";
       state.mapFilterValue = "";
+      if (nextTab === "map") {
+        state.selectedId = "";
+      }
       clearMapSelection();
       els.asset.value = "all";
       resetResultWindow();
@@ -314,7 +321,8 @@ async function init() {
     applyFilterChange();
   });
   els.mapColor.addEventListener("change", (event) => {
-    state.mapColor = event.target.value;
+    state.mapColor = ["quality", "availability"].includes(event.target.value) ? "area-domain" : event.target.value;
+    els.mapColor.value = state.mapColor;
     state.mapFilterValue = "";
     clearMapSelection();
     renderMap();

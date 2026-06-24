@@ -4,7 +4,6 @@ import {
 } from "./graph-constants.js";
 import {
   categoryTags,
-  displayAvailabilityLabel,
   recordHaystack,
 } from "./records.js";
 import { state } from "./state.js";
@@ -29,10 +28,11 @@ export function mapRecordById() {
 }
 
 export function mapColorValue(record) {
+  if (state.mapColor === "quality" || state.mapColor === "availability") {
+    state.mapColor = "area-domain";
+  }
   if (state.mapColor === "domain") return (record.domainTags || ["General"])[0] || "General";
   if (state.mapColor === "cluster") return clusterColorLabel(record);
-  if (state.mapColor === "quality") return record.embeddingTextQuality || "unavailable";
-  if (state.mapColor === "availability") return displayAvailabilityLabel(record);
   return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
 }
 
@@ -133,10 +133,7 @@ export function sharedSemanticTags(record, neighborRecord) {
 }
 
 function focusedGraphIds(visibleIds, mapById, selectedId = state.selectedId) {
-  if (selectedId === state.selectedId && !visibleIds.has(state.selectedId)) {
-    state.selectedId = [...visibleIds][0] || "";
-    selectedId = state.selectedId;
-  }
+  if (!selectedId || !visibleIds.has(selectedId)) return visibleIds;
   const ids = new Set([selectedId]);
   const selected = mapById.get(selectedId);
   const firstHop = (selected?.nearestNeighbors || [])

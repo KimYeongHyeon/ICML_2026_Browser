@@ -12,13 +12,14 @@ import { state } from "./state.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
 export function colorForValue(value) {
+  const colorMode = ["quality", "availability"].includes(state.mapColor) ? "area-domain" : state.mapColor;
   const palette = {
     "area-domain": AREA_COLORS,
     area: AREA_COLORS,
     domain: DOMAIN_COLORS,
     quality: QUALITY_COLORS,
     availability: AVAILABILITY_COLORS,
-  }[state.mapColor];
+  }[colorMode];
   if (palette?.[value]) return palette[value];
   let hash = 0;
   for (const char of String(value)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;

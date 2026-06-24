@@ -103,8 +103,6 @@
                       <option value="area">Research area</option>
                       <option value="domain">Domain</option>
                       <option value="cluster">Embedding cluster</option>
-                      <option value="quality">Text quality</option>
-                      <option value="availability">Availability</option>
                     </select>
                   </label>
                   <label class="map-setting">
@@ -133,7 +131,19 @@
               <div class="map-search-overlay" aria-label="Search the map">
                 <span aria-hidden="true">⌕</span>
                 <input id="mapSearchInput" type="search" placeholder="Search the map..." autocomplete="off" />
+                <button
+                  class="map-search-help"
+                  type="button"
+                  aria-label="Map search help"
+                  data-tip="Semantic search: embeds your query in the browser and matches the precomputed SPECTER2-style title+abstract index. Lexical fallback is used while the model or index is loading."
+                >?</button>
               </div>
+              <button
+                class="map-embedding-info"
+                type="button"
+                aria-label="Embedding index information"
+                data-tip="Embedding index: SPECTER2-level title+abstract vectors are precomputed for mapped records. Queries are embedded in-browser when the model is ready; lexical matching is used as a fallback."
+              >!</button>
               <div class="map-help-pill"><span></span>Click a node to inspect · wheel to zoom · drag to pan</div>
             </div>
             <aside class="map-detail" id="mapDetail" aria-label="Selected map record"></aside>

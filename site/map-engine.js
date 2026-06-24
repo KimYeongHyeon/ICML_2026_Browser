@@ -18,6 +18,7 @@ export function configureMapEngine(deps) {
 }
 
 export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
+  const safeScale = Math.max(globalScale || 1, 0.001);
   const mode = options.mode || state.mapMode;
   const selectedId = options.selectedId || state.selectedId;
   const hoverId = options.hoverId ?? state.mapHoverId;
@@ -28,8 +29,13 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   const isSearchMatch = node.searchMatch;
   const isSemanticContext = node.semanticContext;
   const isEmphasized = isSelected || isHover || isAdjacent || isSearchMatch;
-  let radius = isSelected ? 7 : isHover ? 5.8 : isSearchMatch ? 4.8 : isAdjacent ? 4 : node.depth === 2 ? 3 : 2.45;
-  if (!isEmphasized) radius = Math.max(radius, 1.9 / globalScale);
+  const radiusScale = options.radiusScale || 1;
+  let radius = isSelected ? 7.8 : isHover ? 6.2 : isSearchMatch ? 5.2 : isAdjacent ? 4.4 : node.depth === 2 ? 3.4 : 3.05;
+  radius *= radiusScale;
+  const minScreenRadius = options.minScreenRadius ?? (state.mapColor === "area-domain" ? 3.8 : 2.6);
+  radius = Math.max(radius, minScreenRadius / safeScale);
+  const domainShape = options.domainShape || domainShapeValue(node.record);
+  const useDomainShape = (options.showDomainShape ?? state.mapColor === "area-domain") && node.record;
   if (isSelected || isHover || isSearchMatch) {
     ctx.save();
     ctx.beginPath();
@@ -40,8 +46,7 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
     ctx.fill();
     ctx.restore();
   }
-  ctx.beginPath();
-  ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+  drawNodeShape(ctx, node.x, node.y, radius, useDomainShape ? domainShape : "circle");
   ctx.fillStyle = color;
   ctx.globalAlpha = isSearchMatch ? 0.96 : isEmphasized ? 0.9 : isSemanticContext ? 0.46 : mode === "focused" ? 0.62 : 0.54;
   ctx.fill();
@@ -55,13 +60,22 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
       || isSemanticContext
       || (mode === "focused" && (isAdjacent || node.depth <= 1))
     );
-  if (showDomainRing) {
+  if (showDomainRing && !useDomainShape) {
     ctx.save();
     ctx.globalAlpha = isSelected ? 0.86 : isHover ? 0.78 : isSearchMatch ? 0.7 : isSemanticContext ? 0.48 : 0.38;
     ctx.lineWidth = isSelected ? 2.1 : isHover ? 1.65 : isSearchMatch ? 1.4 : mode === "focused" ? 0.9 : 0.65;
     ctx.strokeStyle = domainRingColor(node.record);
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius + (isSelected ? 2.2 : 1.15), 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (useDomainShape) {
+    ctx.save();
+    ctx.globalAlpha = isSelected ? 0.9 : isHover ? 0.82 : isSearchMatch ? 0.76 : isSemanticContext ? 0.56 : mode === "focused" ? 0.54 : 0.46;
+    ctx.lineWidth = Math.max(0.65 / safeScale, isSelected || isHover ? 1.15 : 0.78);
+    ctx.strokeStyle = domainRingColor(node.record);
+    drawNodeShape(ctx, node.x, node.y, radius + (isSelected ? 2 : 1.1), domainShape);
     ctx.stroke();
     ctx.restore();
   }
@@ -75,8 +89,7 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   if (isEmphasized) {
     ctx.lineWidth = isSelected ? 1.35 : 0.65;
     ctx.strokeStyle = isSelected ? "rgba(79,133,118,0.9)" : "rgba(255,255,255,0.72)";
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+    drawNodeShape(ctx, node.x, node.y, radius, useDomainShape ? domainShape : "circle");
     ctx.stroke();
   }
   const shouldLabel = (isHover && options.showCanvasHoverLabel)
@@ -85,7 +98,7 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   if (!shouldLabel) return;
   const maxLabelLength = options.maxLabelLength || (mode === "focused" ? 24 : 46);
   const label = node.title.length > maxLabelLength ? `${node.title.slice(0, maxLabelLength - 3)}...` : node.title;
-  const fontSize = Math.min(options.maxFontSize || 12, Math.max(options.minFontSize || 8.5, (options.baseFontSize || 10.5) / globalScale));
+  const fontSize = Math.min(options.maxFontSize || 12, Math.max(options.minFontSize || 8.5, (options.baseFontSize || 10.5) / safeScale));
   ctx.font = `650 ${fontSize}px "Hanken Grotesk", system-ui, sans-serif`;
   const labelOnLeft = mode === "focused" && node.x > 0;
   ctx.textAlign = labelOnLeft ? "right" : "left";
@@ -98,6 +111,58 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   ctx.fillRect(boxX, textY - fontSize * 0.7, metrics.width + 6, fontSize * 1.35);
   ctx.fillStyle = "rgba(37,40,43,0.82)";
   ctx.fillText(label, textX, textY);
+}
+
+const DOMAIN_SHAPES = ["circle", "square", "diamond", "triangle", "hexagon"];
+
+function domainShapeValue(record) {
+  const domain = domainColorValue(record);
+  let hash = 0;
+  for (const char of String(domain || "General")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return DOMAIN_SHAPES[hash % DOMAIN_SHAPES.length];
+}
+
+function drawNodeShape(ctx, x, y, radius, shape = "circle") {
+  ctx.beginPath();
+  if (shape === "circle") {
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    return;
+  }
+  if (shape === "square") {
+    ctx.rect(x - radius, y - radius, radius * 2, radius * 2);
+    return;
+  }
+  if (shape === "diamond") {
+    ctx.moveTo(x, y - radius * 1.22);
+    ctx.lineTo(x + radius * 1.22, y);
+    ctx.lineTo(x, y + radius * 1.22);
+    ctx.lineTo(x - radius * 1.22, y);
+    ctx.closePath();
+    return;
+  }
+  if (shape === "triangle") {
+    ctx.moveTo(x, y - radius * 1.22);
+    ctx.lineTo(x + radius * 1.1, y + radius * 0.78);
+    ctx.lineTo(x - radius * 1.1, y + radius * 0.78);
+    ctx.closePath();
+    return;
+  }
+  if (shape === "cross") {
+    const arm = radius * 0.48;
+    ctx.rect(x - arm, y - radius, arm * 2, radius * 2);
+    ctx.rect(x - radius, y - arm, radius * 2, arm * 2);
+    return;
+  }
+  const points = shape === "star" ? 10 : shape === "pentagon" ? 5 : 6;
+  for (let i = 0; i < points; i += 1) {
+    const starScale = shape === "star" && i % 2 ? 0.58 : 1;
+    const angle = -Math.PI / 2 + (i / points) * Math.PI * 2;
+    const px = x + Math.cos(angle) * radius * 1.14 * starScale;
+    const py = y + Math.sin(angle) * radius * 1.14 * starScale;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
 }
 
 function ensureForceGraph() {
@@ -338,6 +403,7 @@ export function renderCytoscapeGraph(graphData) {
         domain: domainColorValue(node.record),
         typeLabel: typeLabel(node.record?.type),
         color: colorForValue(node.group),
+        shape: state.mapColor === "area-domain" ? domainShapeValue(node.record) : "ellipse",
         ringColor: state.mapColor === "area-domain" ? domainRingColor(node.record) : "rgba(255,255,255,0.52)",
         size: node.selected ? 18 : node.searchMatch ? 14 : node.depth === 1 ? 12 : node.depth === 2 ? 8 : 5,
         record: node.record,
@@ -363,7 +429,7 @@ export function renderCytoscapeGraph(graphData) {
     wheelSensitivity: 0.18,
     layout: { name: "preset", fit: true, padding: 56 },
     style: [
-      { selector: "node", style: { "background-color": "data(color)", width: "data(size)", height: "data(size)", "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 2 : 1, label: "data(label)", color: "#25282b", "font-size": 10, "text-outline-color": "#ffffff", "text-outline-width": 3 } },
+      { selector: "node", style: { shape: "data(shape)", "background-color": "data(color)", width: "data(size)", height: "data(size)", "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 2 : 1, label: "data(label)", color: "#25282b", "font-size": 10, "text-outline-color": "#ffffff", "text-outline-width": 3 } },
       { selector: "node.semantic-context", style: { opacity: 0.62 } },
       { selector: "node.search-match", style: { "border-color": "#fde68a", "border-width": 3, "underlay-color": "#facc15", "underlay-opacity": 0.22, "underlay-padding": 6, opacity: 1 } },
       { selector: "node.selected", style: { width: 22, height: 22, "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 4 : 3, "underlay-color": "#6aa593", "underlay-opacity": 0.22, "underlay-padding": 8 } },
