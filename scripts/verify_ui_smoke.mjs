@@ -130,6 +130,20 @@ await page.evaluate(() => document.querySelector(".mini-graph")?.scrollIntoView(
 await page.waitForTimeout(900);
 const miniProbePoints = await page.evaluate(() => window.__icmlMapDebug?.miniProbePoints?.(40) || []);
 const miniTooltip = await scanGraphTooltipAtPoints(".mini-graph", miniProbePoints) || await scanGraphTooltip(".mini-graph", centerGrid);
+const miniControlsBefore = await page.evaluate(() => ({
+  labels: [...document.querySelectorAll(".mini-graph-control")].map((item) => item.textContent?.trim() || ""),
+  info: window.__icmlMapDebug?.miniGraphInfo?.() || {},
+}));
+await page.locator('.mini-graph-control[data-mini-action="zoom-in"]').click();
+await page.waitForTimeout(120);
+const miniAfterZoom = await page.evaluate(() => window.__icmlMapDebug?.miniGraphInfo?.() || {});
+await page.locator('.mini-graph-control[data-mini-action="depth"]').click();
+await page.waitForSelector(".mini-graph canvas", { timeout: 30000 });
+await page.waitForTimeout(900);
+const miniAfterDepth = await page.evaluate(() => ({
+  button: document.querySelector('.mini-graph-control[data-mini-action="depth"]')?.textContent?.trim() || "",
+  info: window.__icmlMapDebug?.miniGraphInfo?.() || {},
+}));
 
 await page.locator("#searchInput").fill("zzzz-no-records");
 await page.waitForTimeout(100);
@@ -223,6 +237,9 @@ const report = {
   paperLatex,
   localPdf,
   miniTooltip,
+  miniControlsBefore,
+  miniAfterZoom,
+  miniAfterDepth,
   afterSwitch,
   map,
   mapSearch,
@@ -280,8 +297,20 @@ if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.
 if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.viewerTitle}`)) {
   throw new Error(`raw LaTeX command leaked into paper title: ${JSON.stringify(paperLatex)}`);
 }
+if (!paperLatex.viewerFrameText.includes("objective drift") || /𝑜\s*𝑏\s*𝑗/.test(paperLatex.viewerFrameText)) {
+  throw new Error(`abstract text-like math should render as clean prose: ${JSON.stringify(paperLatex)}`);
+}
 if (!miniTooltip.includes("Area:") || !miniTooltip.includes("Domain:")) {
   throw new Error(`mini semantic graph tooltip did not expose title and area/domain decoder: ${miniTooltip}`);
+}
+if (!miniControlsBefore.labels.includes("Fit") || !miniControlsBefore.labels.some((label) => label.includes("Depth: 1-hop")) || miniControlsBefore.info.depth !== "first") {
+  throw new Error(`mini semantic graph controls missing or wrong initial depth: ${JSON.stringify(miniControlsBefore)}`);
+}
+if (!Number.isFinite(miniControlsBefore.info.zoom) || !Number.isFinite(miniAfterZoom.zoom) || miniAfterZoom.zoom <= miniControlsBefore.info.zoom) {
+  throw new Error(`mini semantic graph zoom-in control did not increase zoom: ${JSON.stringify({ miniControlsBefore, miniAfterZoom })}`);
+}
+if (miniAfterDepth.info.depth !== "deep" || miniAfterDepth.info.nodes <= miniControlsBefore.info.nodes || !miniAfterDepth.button.includes("Deeper")) {
+  throw new Error(`mini semantic graph depth toggle did not expose a denser view: ${JSON.stringify({ miniControlsBefore, miniAfterDepth })}`);
 }
 if (afterSwitch.searchValue !== "") {
   throw new Error("search input did not reset after switching tabs");
@@ -303,6 +332,9 @@ if (!map.activeSummary.includes("global") || !map.activeSummary.includes("area +
 }
 if (map.colorValue !== "area-domain" || !map.legendNote.includes("Fill = research area") || !map.legendNote.includes("Ring = domain")) {
   throw new Error(`area/domain mode should be the default and explain fill/ring semantics: ${JSON.stringify(map)}`);
+}
+if (!["Circle", "Square", "Diamond", "Triangle"].every((label) => map.legendNote.includes(label))) {
+  throw new Error(`area/domain legend should explicitly label shape examples: ${JSON.stringify(map)}`);
 }
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);

@@ -48,6 +48,7 @@ import {
 } from "./map-engine.js";
 import {
   configureMapDetail,
+  controlMiniGraph,
   destroyMiniGraph,
   mountMiniGraph,
   renderMapDetail,
@@ -110,12 +111,12 @@ function renderMapLegend(visibleRecords) {
       <div class="legend-note">
         <span>Fill = research area. Shape = domain. Ring = domain accent. Click an area to filter.</span>
         <span class="legend-shape-row" aria-label="Domain shape examples">
-          <i class="legend-shape legend-shape-circle"></i>
-          <i class="legend-shape legend-shape-square"></i>
-          <i class="legend-shape legend-shape-diamond"></i>
-          <i class="legend-shape legend-shape-triangle"></i>
-          <b>same shape = same domain family</b>
+          <span><i class="legend-shape legend-shape-circle"></i>Circle</span>
+          <span><i class="legend-shape legend-shape-square"></i>Square</span>
+          <span><i class="legend-shape legend-shape-diamond"></i>Diamond</span>
+          <span><i class="legend-shape legend-shape-triangle"></i>Triangle</span>
         </span>
+        <b>Domain shape examples: circle / square / diamond / triangle.</b>
       </div>
     ` : ""}
     <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
@@ -198,6 +199,7 @@ async function renderMap() {
 }
 
 configureViewer({
+  controlMiniGraph,
   destroyMiniGraph,
   findDisplayRecord,
   mountMiniGraph,

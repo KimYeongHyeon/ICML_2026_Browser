@@ -20,6 +20,7 @@ export const state = {
   mapGraph: null,
   mapGraphData: null,
   miniGraph: null,
+  miniGraphDepth: "first",
   cyGraph: null,
   mapHoverId: "",
   mapSearchSeedIds: new Set(),
