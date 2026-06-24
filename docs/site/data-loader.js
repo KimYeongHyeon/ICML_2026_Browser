@@ -30,6 +30,11 @@ export async function loadIndexData() {
 
 export async function loadShardRecords(manifest) {
   if (!manifest?.shards?.length) return null;
-  const shards = await Promise.all(manifest.shards.map(async (shard) => fetchJson(shard.url)));
-  return shards.flatMap((shard) => shard.records || []);
+  try {
+    const shards = await Promise.all(manifest.shards.map(async (shard) => fetchJson(shard.url)));
+    return shards.flatMap((shard) => shard.records || []);
+  } catch {
+    const fallback = await fetchJson(manifest.fallbackUrl || DATA_URL);
+    return fallback.records || null;
+  }
 }

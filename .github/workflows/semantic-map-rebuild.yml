@@ -49,6 +49,7 @@ jobs:
       - name: Verify fresh semantic artifacts
         run: python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json --require-fresh
       - name: Commit regenerated artifacts
+        if: inputs.mode != 'smoke'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

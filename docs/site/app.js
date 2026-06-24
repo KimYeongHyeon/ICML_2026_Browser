@@ -252,12 +252,18 @@ async function hydrateFullRecords() {
   try {
     const records = await loadShardRecords(state.dataManifest);
     if (!records?.length) return;
+    const selectedId = state.selectedId;
+    const shouldRestoreMapViewer = state.tab === "map" && selectedId;
     state.data.records = enrichPaperPresentationRecords(records);
     state.dataShardsLoaded = true;
     refreshSearchWorkerIndex();
     queueWorkerSearch();
     updateHeader();
     renderAll();
+    if (shouldRestoreMapViewer) {
+      const selected = findDisplayRecord(selectedId);
+      if (selected) renderViewer(selected);
+    }
   } catch {
   }
 }
