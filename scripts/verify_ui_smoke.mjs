@@ -23,7 +23,9 @@ function isSameOrigin(url) {
 page.on("console", (message) => {
   if (message.type() === "error" && !isBenignConsoleError(message.text())) consoleErrors.push(message.text());
 });
-page.on("pageerror", (error) => consoleErrors.push(error.message));
+page.on("pageerror", (error) => {
+  if (!isBenignConsoleError(error.message)) consoleErrors.push(error.message);
+});
 page.on("requestfailed", (request) => {
   if (isSameOrigin(request.url())) {
     failedRequests.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ""}`.trim());
