@@ -48,13 +48,22 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   ctx.globalAlpha = 1;
   const showDomainRing = (options.showDomainRing ?? state.mapColor === "area-domain")
     && node.record
-    && (isEmphasized || globalScale > 0.55);
+    && (
+      isSelected
+      || isHover
+      || isSearchMatch
+      || isSemanticContext
+      || (mode === "focused" && (isAdjacent || node.depth <= 1))
+    );
   if (showDomainRing) {
-    ctx.lineWidth = isSelected ? 2.2 : isHover ? 1.8 : isAdjacent ? 1.25 : 0.85;
+    ctx.save();
+    ctx.globalAlpha = isSelected ? 0.86 : isHover ? 0.78 : isSearchMatch ? 0.7 : isSemanticContext ? 0.48 : 0.38;
+    ctx.lineWidth = isSelected ? 2.1 : isHover ? 1.65 : isSearchMatch ? 1.4 : mode === "focused" ? 0.9 : 0.65;
     ctx.strokeStyle = domainRingColor(node.record);
     ctx.beginPath();
-    ctx.arc(node.x, node.y, radius + (isSelected ? 2.4 : 1.3), 0, 2 * Math.PI);
+    ctx.arc(node.x, node.y, radius + (isSelected ? 2.2 : 1.15), 0, 2 * Math.PI);
     ctx.stroke();
+    ctx.restore();
   }
   if (isSearchMatch) {
     ctx.lineWidth = isSelected ? 2.2 : 1.4;
@@ -70,9 +79,8 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
     ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
     ctx.stroke();
   }
-  const shouldLabel = isHover
-    && options.showCanvasHoverLabel
-    || (isSelected && !options.hideSelectedLabel)
+  const shouldLabel = (isHover && options.showCanvasHoverLabel)
+    || (isSelected && mode === "focused" && !options.hideSelectedLabel)
     || (mode === "focused" && node.depth === 1 && node.focusRank < (options.neighborLabelCount ?? 1) && globalScale > (options.labelScaleThreshold ?? 1.05));
   if (!shouldLabel) return;
   const maxLabelLength = options.maxLabelLength || (mode === "focused" ? 24 : 46);
@@ -113,8 +121,8 @@ function ensureForceGraph() {
     .enablePanInteraction(false)
     .enableNodeDrag(false)
     .linkCurvature(0.045)
-    .linkWidth((link) => link.selected ? 0.9 : Math.max(0.16, Number(link.value || 0) * (state.mapMode === "focused" ? 0.5 : 0.38)))
-    .linkColor((link) => link.selected ? "rgba(106,165,147,0.32)" : state.mapMode === "focused" ? "rgba(150,165,180,0.105)" : "rgba(150,165,180,0.13)")
+    .linkWidth((link) => link.selected ? 1.08 : Math.max(0.22, Number(link.value || 0) * (state.mapMode === "focused" ? 0.62 : 0.48)))
+    .linkColor((link) => link.selected ? "rgba(106,165,147,0.46)" : state.mapMode === "focused" ? "rgba(111,125,140,0.18)" : "rgba(111,125,140,0.2)")
     .linkDirectionalParticles((link) => link.selected && state.mapLive ? 1 : 0)
     .linkDirectionalParticleWidth(0.8)
     .linkDirectionalParticleSpeed(0.0032)

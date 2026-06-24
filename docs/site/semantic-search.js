@@ -17,6 +17,8 @@ const STOPWORDS = new Set([
 
 let denseIndex = null;
 let denseIndexPromise = null;
+let denseIndexLoading = false;
+let denseIndexError = "";
 let extractorPromise = null;
 const queryVectorCache = new Map();
 const pendingQueries = new Set();
@@ -202,8 +204,14 @@ function ensureDenseQuery(query, cacheKey) {
 
 export async function loadSearchEmbeddings(url = SEARCH_EMBEDDINGS_URL) {
   if (denseIndexPromise) return denseIndexPromise;
+  denseIndexLoading = true;
+  denseIndexError = "";
   denseIndexPromise = fetch(url)
-    .then((response) => (response.ok ? response.json() : null))
+    .then((response) => {
+      if (response.ok) return response.json();
+      denseIndexError = `SPECTER2 embeddings failed to load (${response.status}).`;
+      return null;
+    })
     .then((payload) => {
       if (!payload?.records?.length) return null;
       const byId = new Map();
@@ -217,9 +225,13 @@ export async function loadSearchEmbeddings(url = SEARCH_EMBEDDINGS_URL) {
       };
       return denseIndex;
     })
-    .catch(() => {
+    .catch((error) => {
       denseIndex = null;
+      denseIndexError = error?.message || "SPECTER2 embeddings failed to load.";
       return null;
+    })
+    .finally(() => {
+      denseIndexLoading = false;
     });
   return denseIndexPromise;
 }
@@ -228,8 +240,17 @@ export function semanticQuerySearch(query, records, options = {}) {
   const limit = options.limit || DEFAULT_LIMIT;
   const cacheKey = String(query || "").trim().toLowerCase();
   const lexicalMatches = lexicalSearch(query, records, limit);
-  if (!cacheKey || !denseIndex?.byId?.size) {
+  if (!cacheKey) {
     return { matches: lexicalMatches, source: "query-vector", pending: false, topScore: lexicalMatches[0]?.score || 0 };
+  }
+  if (!denseIndex?.byId?.size) {
+    return {
+      matches: lexicalMatches,
+      source: denseIndexLoading ? "specter2-loading" : "query-vector",
+      pending: denseIndexLoading,
+      message: denseIndexError,
+      topScore: lexicalMatches[0]?.score || 0,
+    };
   }
   const cachedVector = queryVectorCache.get(cacheKey);
   if (cachedVector) {

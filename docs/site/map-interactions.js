@@ -277,13 +277,12 @@ function graphClickSuppressed() {
   return performance.now() < state.mapInteraction.suppressClickUntil;
 }
 
-function selectMapNode(node, event) {
+function selectMapNode(node) {
   if (!node?.record) return;
   state.selectedId = node.id;
   refreshForceSelectionState();
   renderMapDetail(node.record);
   interactionDeps.renderViewer?.(node.record);
-  forceGraphZoomAt(mapCanvasPoint(event), event?.shiftKey ? 0.72 : 1.34);
 }
 
 function refreshForceSelectionState() {
@@ -396,7 +395,7 @@ export function installMapPointerInteractions() {
       if (node && typeof state.mapGraph?.graph2ScreenCoords === "function") {
         showGraphTooltip(els.mapCanvas, node, state.mapGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
       } else {
-        hideGraphTooltip(els.mapCanvas, 120);
+        hideGraphTooltip(els.mapCanvas, 80);
       }
     });
   }, { passive: true });
@@ -436,14 +435,11 @@ export function installMapPointerInteractions() {
         const hadSelection = state.mapSelection.active;
         if (hadSelection) clearMapSelection();
         const node = nearestNodeAtScreen(end, 24);
-        if (node?.record && !event.shiftKey) {
-          selectMapNode(node, event);
-        } else {
-          if (hadSelection) {
-            const selected = interactionDeps.findDisplayRecord?.(state.selectedId);
-            renderMapDetail(selected || null);
-          }
-          forceGraphZoomAt(end, event.shiftKey ? 0.72 : 1.34);
+        if (node?.record) {
+          selectMapNode(node);
+        } else if (hadSelection) {
+          const selected = interactionDeps.findDisplayRecord?.(state.selectedId);
+          renderMapDetail(selected || null);
         }
       }
     }

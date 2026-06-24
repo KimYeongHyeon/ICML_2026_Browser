@@ -1,4 +1,4 @@
-# ICML 2026 Materials Browser
+# ICML Atlas 2026
 
 Static browser for the locally archived ICML 2026 materials.
 
