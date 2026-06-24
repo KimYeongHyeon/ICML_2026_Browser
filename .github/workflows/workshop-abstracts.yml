@@ -29,7 +29,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install Playwright
         run: |
@@ -56,7 +56,8 @@ jobs:
 
       - name: Commit changes
         run: |
-          git add icml_2026_materials/workshops icml_2026_materials/abstracts.jsonl docs/site/data/icml2026_index.json
+          git add icml_2026_materials/workshops docs/site/data
+          git add -f icml_2026_materials/abstracts.jsonl
           if git diff --cached --quiet; then
             echo "No workshop PDF or abstract changes."
             exit 0
