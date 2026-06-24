@@ -73,6 +73,21 @@ def test_compute_neighbors_resolves_known_ids() -> None:
     assert 0.0 <= neighbors["a"][0]["score"] <= 1.0
 
 
+def test_search_embedding_payload_is_quantized_and_excludes_posters() -> None:
+    builder = importlib.import_module("scripts.build_icml_embedding_map")
+    records = [
+        {"id": "paper-1", "type": "paper"},
+        {"id": "poster-1", "type": "poster"},
+        {"id": "workshop-1", "type": "workshop"},
+    ]
+    vectors = [[1.0, -1.0], [0.0, 1.0], [0.25, -0.25]]
+    payloads = [{"quality": "title_only"}, {"quality": "title_only"}, {"quality": "title_topic"}]
+    payload = builder.build_search_embeddings_payload(records, vectors, payloads, "m", "k")
+    assert payload["model"]["quantization"] == "int8_symmetric_base64"
+    assert [item["id"] for item in payload["records"]] == ["paper-1", "workshop-1"]
+    assert payload["records"][0]["vector"]
+
+
 def run() -> None:
     test_semantic_config_exports_taxonomies()
     test_validate_tags_rejects_unknown_values()
@@ -81,6 +96,7 @@ def run() -> None:
     test_lexical_embedder_prefers_shared_terms()
     test_infer_controlled_tags_uses_area_and_domain_keywords()
     test_compute_neighbors_resolves_known_ids()
+    test_search_embedding_payload_is_quantized_and_excludes_posters()
     print("embedding map unit tests passed")
 
 

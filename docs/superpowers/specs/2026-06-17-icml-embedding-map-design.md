@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build an offline-generated semantic paper map for the ICML 2026 Materials Browser.
+Build an offline-generated semantic paper map for ICML Atlas 2026.
 
 The feature adds:
 

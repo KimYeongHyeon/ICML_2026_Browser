@@ -12,14 +12,20 @@ const consoleErrors = [];
 const failedRequests = [];
 const badResponses = [];
 
+function isBenignConsoleError(text) {
+  return /^Worker was terminated\.?$/i.test(String(text || "").trim());
+}
+
 function isSameOrigin(url) {
   return url.startsWith(baseUrl) || url.startsWith(new URL(baseUrl).origin);
 }
 
 page.on("console", (message) => {
-  if (message.type() === "error") consoleErrors.push(message.text());
+  if (message.type() === "error" && !isBenignConsoleError(message.text())) consoleErrors.push(message.text());
 });
-page.on("pageerror", (error) => consoleErrors.push(error.message));
+page.on("pageerror", (error) => {
+  if (!isBenignConsoleError(error.message)) consoleErrors.push(error.message);
+});
 page.on("requestfailed", (request) => {
   if (isSameOrigin(request.url())) {
     failedRequests.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ""}`.trim());
@@ -78,13 +84,17 @@ for (const px of [0.14, 0.26, 0.38, 0.50, 0.62, 0.74, 0.86]) {
   }
 }
 
-await page.goto(baseUrl, { waitUntil: "networkidle" });
+await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".result-item", { timeout: 30000 });
 
 const initial = await page.evaluate(() => ({
   note: document.querySelector(".data-note")?.innerText || "",
+  headerStats: document.querySelector("#headerStats")?.innerText || "",
   paperHidden: document.querySelector('.tab[data-tab="paper"]')?.hidden || false,
+  paperActive: document.querySelector('.tab[data-tab="paper"]')?.classList.contains("is-active") || false,
+  posterTabExists: Boolean(document.querySelector('.tab[data-tab="poster"]')),
   resultCount: document.querySelector("#resultCount")?.innerText || "",
+  hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
 }));
 
 await page.locator('.tab[data-tab="paper"]').click();
@@ -110,11 +120,16 @@ const paperLatex = await page.evaluate(() => ({
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
+  viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
+  actionLabels: [...document.querySelectorAll("#viewerActions .action")].map((item) => item.textContent || ""),
+  openReviewPdfHref: [...document.querySelectorAll("#viewerActions .action")]
+    .find((item) => (item.textContent || "").includes("OpenReview PDF"))?.href || "",
 }));
 await page.waitForSelector(".mini-graph canvas", { timeout: 30000 });
 await page.evaluate(() => document.querySelector(".mini-graph")?.scrollIntoView({ block: "center" }));
 await page.waitForTimeout(900);
-const miniTooltip = await scanGraphTooltip(".mini-graph", centerGrid);
+const miniProbePoints = await page.evaluate(() => window.__icmlMapDebug?.miniProbePoints?.(40) || []);
+const miniTooltip = await scanGraphTooltipAtPoints(".mini-graph", miniProbePoints) || await scanGraphTooltip(".mini-graph", centerGrid);
 
 await page.locator("#searchInput").fill("zzzz-no-records");
 await page.waitForTimeout(100);
@@ -135,6 +150,25 @@ const afterSwitch = await page.evaluate(() => {
   };
 });
 
+await page.locator("#searchInput").fill("MoSE: Mixture of Slimmable Experts");
+await page.waitForTimeout(300);
+await page.locator(".result-item").first().click();
+await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
+await page.waitForFunction(() => {
+  const shell = document.querySelector(".pdfjs-shell");
+  const status = shell?.querySelector("[data-pdf-status]")?.textContent || "";
+  return shell && !shell.classList.contains("has-error") && /\d+ \/ \d+/.test(status);
+}, null, { timeout: 30000 });
+const localPdf = await page.evaluate(() => ({
+  viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
+  shellExists: Boolean(document.querySelector(".pdfjs-shell")),
+  hasError: Boolean(document.querySelector(".pdfjs-shell.has-error")),
+  status: document.querySelector("[data-pdf-status]")?.textContent || "",
+  source: document.querySelector(".pdfjs-shell")?.dataset.pdfSrc || "",
+  canvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
+  canvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
+}));
+
 await page.locator('.tab[data-tab="map"]').click();
 await page.waitForSelector("#mapCanvas canvas", { timeout: 30000 });
 await page.waitForTimeout(500);
@@ -153,7 +187,19 @@ await page.waitForTimeout(200);
 const forceProbePoints = await page.evaluate(() => window.__icmlMapDebug?.forceProbePoints?.(120) || []);
 const mapTooltip = await scanGraphTooltipAtPoints("#mapCanvas", forceProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
 
-await page.locator("#mapEngineSelect").selectOption("cytoscape");
+await page.locator("#mapSearchInput").fill("retrieval");
+await page.waitForTimeout(900);
+const mapSearch = await page.evaluate(() => ({
+  seedCount: window.__icmlMapDebug?.mapSearchInfo?.().seedCount || 0,
+  semanticCount: window.__icmlMapDebug?.mapSearchInfo?.().semanticCount || 0,
+  kind: window.__icmlMapDebug?.mapSearchInfo?.().kind || "",
+  topScore: window.__icmlMapDebug?.mapSearchInfo?.().topScore || 0,
+  pending: Boolean(window.__icmlMapDebug?.mapSearchInfo?.().pending),
+  resultCount: document.querySelector("#resultCount")?.innerText || "",
+  activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+}));
+
+await page.locator("#mapEngineSelect").selectOption("cytoscape", { force: true });
 await page.waitForTimeout(1400);
 const cytoscapeProbePoints = await page.evaluate(() => window.__icmlMapDebug?.cytoscapeProbePoints?.(120) || []);
 const cytoscapeTooltip = await scanGraphTooltipAtPoints("#mapCanvas", cytoscapeProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
@@ -175,9 +221,11 @@ const report = {
   paper,
   paperSpotlight,
   paperLatex,
+  localPdf,
   miniTooltip,
   afterSwitch,
   map,
+  mapSearch,
   mapTooltip,
   cytoscapeTooltip,
   consoleErrors,
@@ -187,14 +235,20 @@ const report = {
 
 console.log(JSON.stringify(report, null, 2));
 
-if (!initial.note.includes("Unofficial public beta") || !initial.note.includes("accepted main-conference metadata")) {
-  throw new Error("missing beta/data limitation note");
+if (initial.posterTabExists) {
+  throw new Error("Poster should not be a top-level tab; it is a paper presentation badge");
 }
-if (initial.paperHidden) {
-  throw new Error("Paper tab should be visible for accepted main-conference metadata");
+if (initial.paperHidden || !initial.paperActive) {
+  throw new Error("Paper tab should be the visible default");
 }
 if (!/^6,343 results/.test(initial.resultCount)) {
-  throw new Error(`unexpected initial poster count: ${initial.resultCount}`);
+  throw new Error(`unexpected initial paper count: ${initial.resultCount}`);
+}
+if (!initial.hasPosterSessionBadge) {
+  throw new Error("Paper results should show poster presentation badges");
+}
+if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !initial.headerStats.includes("12") || !initial.headerStats.includes("clusters") || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
+  throw new Error(`header should match compact design stats: ${initial.headerStats}`);
 }
 if (!/^6,343 results/.test(paper.resultCount)) {
   throw new Error(`unexpected paper count: ${paper.resultCount}`);
@@ -202,8 +256,26 @@ if (!/^6,343 results/.test(paper.resultCount)) {
 if (!paperSpotlight.hasSpotlightBadge || /^0 results/.test(paperSpotlight.resultCount)) {
   throw new Error(`Paper tab should expose searchable Spotlight badges: ${JSON.stringify(paperSpotlight)}`);
 }
-if (paperLatex.viewerKind.includes("Paper · Poster") || paperLatex.viewerMeta.split("\n").includes("Poster")) {
+if (paperLatex.viewerKind.includes("Paper · Poster")) {
   throw new Error(`regular poster presentation leaked into paper identity: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.viewerKind.includes("PAPER · MAIN CONFERENCE")) {
+  throw new Error(`paper identity should stay main-conference even when ICML source URL is /poster/{id}: ${JSON.stringify(paperLatex)}`);
+}
+if (/Poster source page/i.test(paperLatex.viewerFrameText) || !/Official paper presentation page/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`paper /poster/{id} source page should be labeled as a paper presentation page: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta)) {
+  throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked: ${JSON.stringify(paperLatex)}`);
+}
+if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
+  throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO")) {
+  throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
+}
+if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
+  throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
 }
 if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.viewerTitle}`)) {
   throw new Error(`raw LaTeX command leaked into paper title: ${JSON.stringify(paperLatex)}`);
@@ -234,6 +306,14 @@ if (map.colorValue !== "area-domain" || !map.legendNote.includes("Fill = researc
 }
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);
+}
+if (
+  !mapSearch.seedCount
+  || !["query-vector", "specter2-loading", "specter2-query"].includes(mapSearch.kind)
+  || mapSearch.topScore <= 0
+  || !/query-vector matches|SPECTER2|lexical fallback/.test(mapSearch.activeSummary)
+) {
+  throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
 }
 if (!Number.isFinite(map.forceZoomBeforeWheel) || !Number.isFinite(map.forceZoomAfterWheel) || map.forceZoomAfterWheel <= map.forceZoomBeforeWheel) {
   throw new Error(`ForceGraph wheel zoom did not increase zoom: ${JSON.stringify(map)}`);

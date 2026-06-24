@@ -165,7 +165,7 @@ def validate_domain_tags(tags: list[str]) -> list[str]:
 Create `scripts/__init__.py` with:
 
 ```python
-"""Local script modules for the ICML 2026 Materials Browser."""
+"""Local script modules for ICML Atlas 2026."""
 ```
 
 - [ ] **Step 5: Run the tests and verify they pass**

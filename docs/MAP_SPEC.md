@@ -14,13 +14,16 @@ Overview first -> zoom/filter -> select -> inspect -> open asset
 
 Users should be able to understand the shape of the paper universe, find meaningful clusters, select one record, inspect its metadata and neighbors, and then open the official source or local asset.
 
-The Map must support three material families without mixing their identity:
+The top-level browser must support two material families without mixing their identity:
 
 - `paper`: accepted main-conference metadata and public/local PDFs when available
-- `poster`: official ICML virtual poster records
 - `workshop`: accepted-public OpenReview workshop papers only
 
-The UI must not imply that a poster page is a paper PDF. If a record has no public/local PDF, it remains metadata/source-link backed.
+ICML can use `/virtual/2026/poster/{id}` as the presentation page for an accepted main-conference paper. That URL shape does not make the record's identity `Poster` in the Paper tab.
+
+`poster` may still exist in raw archive manifests as a source/material record, but the public browser should fold it into the matching paper as a `Poster session` badge and optional poster asset.
+
+The UI must not imply that a poster page is a paper PDF. If a paper record has a `/poster/{id}` source URL but no public/local PDF, it remains accepted-paper metadata with an `Official paper presentation page` link.
 
 ## 2. Map Surfaces
 
@@ -113,7 +116,7 @@ type MapPoint = {
 };
 ```
 
-The frontend must join `MaterialRecord.id` to `MapPoint.id` exactly. It must not deduplicate by title, because paper/poster/workshop records may intentionally share similar titles.
+The frontend must join `MaterialRecord.id` to `MapPoint.id` exactly for displayed paper/workshop records. Raw poster records may be used only to enrich the matching paper with presentation/material metadata; they must not create duplicate top-level result or map nodes.
 
 ## 4. Graph Payload
 
@@ -260,7 +263,7 @@ Top bar content:
 ICML 2026 Archive
 Paper Universe Map / Cosmograph Map / Sigma.js Graphology Map
 
-[13,409 Records] [19,080 Links] [PDFs] [Poster Images] [Slides]
+[7,066 Records] [6,343 Papers] [723 Workshops] [Poster badges]
 ```
 
 Top bar visual:
@@ -311,7 +314,7 @@ background:
 Graph HUD:
 
 ```text
-13,409 points · 19,080 links · Area color · Global scope
+7,066 points · 6,695 links · Area color · Global scope
 ```
 
 The HUD must not cover important controls or consume much visual attention.
@@ -667,7 +670,9 @@ Robustness requirements:
 ### 14.3 Data Integrity
 
 - `ℝ^{2k} is Theoretically Large Enough for Embedding-based Top-k Retrieval` remains Poster-only if the source data says poster.
-- Regular main-conference papers must not show `Paper · Poster`.
+- No top-level `Posters` tab in the main browser. Poster is a presentation badge on a paper record.
+- Regular main-conference papers must not show `Paper · Poster`, even if ICML hosts their official presentation page at `/virtual/2026/poster/{id}`.
+- Paper records with `/poster/{id}` source URLs must label the fallback as `Official paper presentation page`, not `Poster source page`.
 - LaTeX title commands such as `\texttt{Multi}^2` must render as readable plain text like `Multi^2`.
 - Workshop generic schedule/program pages must not appear as accepted workshop papers.
 - Area and Domain must remain separate concepts.

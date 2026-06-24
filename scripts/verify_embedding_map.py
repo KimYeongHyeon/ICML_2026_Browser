@@ -21,6 +21,7 @@ def main() -> None:
     map_path = Path(sys.argv[2]) if len(sys.argv) > 2 else config.MAP_PATH
     index = load(index_path)
     map_data = load(map_path)
+    search_data = load(config.SEARCH_EMBEDDINGS_PATH) if config.SEARCH_EMBEDDINGS_PATH.exists() else None
     index_records = index.get("records", [])
     visible_ids = {str(record["id"]) for record in index_records}
     map_records = map_data.get("records", [])
@@ -39,6 +40,9 @@ def main() -> None:
             neighbor_id = str(neighbor.get("id"))
             if neighbor_id not in visible_ids:
                 errors.append(f"neighbor target missing for {record_id}: {neighbor_id}")
+            score = neighbor.get("score")
+            if not isinstance(score, (int, float)) or not math.isfinite(float(score)) or not 0 <= float(score) <= 1:
+                errors.append(f"invalid neighbor score for {record_id}->{neighbor_id}: {score}")
 
     for record in index_records:
         record_id = str(record["id"])
@@ -49,6 +53,22 @@ def main() -> None:
             errors.extend(f"unknown domain tag for {record_id}: {tag}" for tag in config.validate_domain_tags(record.get("domainTags") or []))
             if record.get("embeddingTextQuality") not in {"title_abstract", "title_topic", "title_only"}:
                 errors.append(f"invalid embeddingTextQuality for {record_id}: {record.get('embeddingTextQuality')}")
+
+    if search_data:
+        search_ids = {str(record.get("id")) for record in search_data.get("records", [])}
+        searchable_ids = {str(record["id"]) for record in index_records if record.get("type") != "poster" and record.get("mapAvailable")}
+        missing_search = sorted(searchable_ids - search_ids)
+        extra_search = sorted(search_ids - visible_ids)
+        if missing_search:
+            errors.append(f"search embeddings missing {len(missing_search)} mapped non-poster records; first={missing_search[:3]}")
+        if extra_search:
+            errors.append(f"search embeddings contain unknown records; first={extra_search[:3]}")
+        dimension = int(search_data.get("model", {}).get("dimension") or 0)
+        expected_bytes = math.ceil(dimension * 4 / 3) if dimension else 0
+        for record in search_data.get("records", [])[:20]:
+            vector = record.get("vector")
+            if not isinstance(vector, str) or (expected_bytes and len(vector) < expected_bytes - 4):
+                errors.append(f"invalid search vector encoding for {record.get('id')}")
 
     if errors:
         print("ICML embedding map verification failed:", file=sys.stderr)
@@ -62,6 +82,8 @@ def main() -> None:
     print(f"- index records: {len(index_records):,}")
     print(f"- map records: {len(map_records):,}")
     print(f"- clusters: {len(map_data.get('clusters', [])):,}")
+    if search_data:
+        print(f"- search embeddings: {len(search_data.get('records', [])):,}")
 
 
 if __name__ == "__main__":
