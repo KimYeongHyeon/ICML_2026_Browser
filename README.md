@@ -1,149 +1,114 @@
 # ICML Atlas 2026
 
-Static GitHub Pages browser for accepted ICML 2026 papers, accepted-public workshop papers, local material assets, and a semantic paper map.
+ICML Atlas 2026 is a study-oriented browser for ICML 2026 papers and workshops.
 
-The project is designed for conference study, not as a generic file dump. It lets a reader move from the accepted paper/workshop list to abstracts, official source pages, local PDFs when available, and semantically related records.
+The goal is not to mirror a directory of files. The goal is to make the conference easier to explore: start from accepted records, filter by topic, inspect abstracts and source links, follow semantically related work, and keep track of papers worth reading later.
 
-## Live Site
+Live site: <https://kimyeonghyeon.github.io/ICML_2026_Browser/>
 
-- GitHub Pages: <https://kimyeonghyeon.github.io/ICML_2026_Browser/>
-- Source on `main`: `docs/`
-- Deployed static files: `gh-pages` branch root
+## Why This Exists
 
-## What The Browser Shows
+Large ML conferences are hard to study from a flat accepted-paper list. Titles, sessions, PDFs, workshop pages, and related papers are scattered across multiple sources. This project turns those scattered public records into one static, browser-based reading surface.
 
-- **Papers**: accepted ICML 2026 main-conference records from the official ICML virtual site.
-- **Workshops**: OpenReview workshop submissions that are accepted/public in the collected workshop sources.
-- **Map**: semantic atlas over mapped papers and workshops.
+The browser is built around three questions:
 
-ICML uses `/virtual/2026/poster/{id}` pages as presentation pages for accepted main-conference papers. In this browser those records are treated as **papers with poster-session metadata**, not as a separate top-level Poster tab.
+- **What was accepted?**
+- **What is this paper or workshop submission about?**
+- **What should I read next if this one is relevant?**
 
-## Main Features
+## What It Contains
 
-- Paper and Workshop tabs with search, filters, badges, and incremental result loading.
-- Presentation badges such as Poster, Spotlight, and Oral when present in the accepted metadata.
-- Asset-aware viewer:
-  - local PDFs and slide PDFs render through PDF.js,
-  - poster images render in-page,
-  - OpenReview/ICML pages that block framing are shown as source links instead of broken iframes.
-- Semantic Map:
-  - SPECTER2-style offline embeddings for coordinates, nearest neighbors, and search,
-  - immediate lexical fallback while the browser loads the query embedding model,
-  - ForceGraph Canvas renderer with zoom, hover tooltips, focused scope, and neighbor navigation,
-  - fill color for research area and node shape/ring for domain.
-- Study Queue and topic study pack surfaces for collecting records and following nearest semantic neighbors.
+### Papers
 
-## Data Policy
+The Papers view contains accepted ICML 2026 main-conference records collected from the official ICML virtual site.
 
-The browser intentionally separates record identity from available assets:
+ICML uses `/virtual/2026/poster/{id}` URLs as presentation pages for accepted main-conference papers. In this project, those entries are treated as **papers with poster-session metadata**, not as a separate top-level Poster category.
 
-- A main-conference record can appear in **Papers** even if its public PDF is not yet available.
-- A `/poster/{id}` ICML URL is an official paper presentation page, not proof of a separate poster-only record.
-- Workshop homepage, CFP, schedule, and generic program pages are not displayed as workshop papers.
-- Blocked or unavailable PDFs are not embedded. The viewer shows a small availability state and links to the official source.
+Paper records may include:
 
-Current paper PDFs may still be blocked by OpenReview, ICML, or proceedings availability. When a public/local PDF is collected in a future rebuild, the same record can render it through PDF.js.
+- title, authors, abstract, decision/status metadata,
+- poster session, room, and presentation information,
+- official ICML page links,
+- OpenReview links or PDFs when publicly reachable,
+- local PDFs or other assets when collected.
 
-## Data Layout
+### Workshops
 
-Archived materials live under:
+The Workshops view contains accepted-public workshop submissions from collected OpenReview workshop sources.
 
-```text
-icml_2026_materials/
-```
+Generic workshop pages are intentionally excluded from the paper list. Homepage, call-for-paper, schedule, and program pages are source material, not accepted workshop papers.
 
-The primary browser index is:
+### Semantic Map
 
-```text
-docs/site/data/icml2026_index.json
-```
+The Map view is the main exploration layer. It places mapped papers and workshop records in a semantic space so that related work is near each other.
 
-Sharded startup/full-load data is stored under:
+The map is meant to support quick conference study:
 
-```text
-docs/site/data/icml2026_startup.json
-docs/site/data/shards/
-```
+- zoom out to see broad topic regions,
+- filter by research area or domain,
+- search semantically rather than only by exact keyword,
+- click a paper to inspect its nearest neighbors,
+- use the topic study pack to build a reading path.
 
-Semantic map/search artifacts are:
+In the map legend:
 
-```text
-docs/site/data/icml2026_map.json
-docs/site/data/icml2026_search_embeddings.json
-docs/site/data/icml2026_semantic_sidecar.json
-```
+- fill color represents research area,
+- node shape and ring represent domain,
+- the shape legend labels the actual domain names, not generic shape names.
 
-## Rebuild And Verify
+## Reading Workflow
 
-Rebuild the static site data after updating manifests or downloaded assets:
+A typical use case is:
 
-```bash
-scripts/build_site.sh
-```
+1. Search for a topic, method, or author.
+2. Open a relevant paper or workshop record.
+3. Read the abstract and source metadata.
+4. Use the semantic neighborhood to find related work.
+5. Add records to the Study Queue for later reading.
+6. Open local PDFs or official source pages when available.
 
-Validate the data contract:
+The interface is designed for conference preparation: fast scanning first, deep reading second.
 
-```bash
-scripts/verify_site_contract.sh
-```
+## Data Principles
 
-Validate semantic artifact freshness and consistency:
+The project keeps record identity separate from asset availability.
 
-```bash
-python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json --require-fresh
-```
+- A main-conference paper can appear even if the public PDF is not yet available.
+- A poster-session page does not make a separate Poster top-level record.
+- A workshop submission must be accepted/public to appear as a workshop paper.
+- Blocked PDFs or pages are not embedded as broken iframes.
+- OpenReview, ICML, Google Drive, and similar sources are linked directly when they block framing.
+- Local PDFs and slide PDFs render through PDF.js when available.
 
-Run the browser smoke test against a local server:
+This means some records are currently metadata-first. They are still useful for search, filtering, map exploration, and reading-path planning.
 
-```bash
-python3 -m http.server 8787 --directory docs
-node scripts/verify_ui_smoke.mjs http://127.0.0.1:8787/
-```
+## Semantic Index
 
-## Semantic Map Builds
+The semantic map and related-paper surfaces are built from paper metadata and abstracts.
 
-The checked-in map/search data is built from scientific-paper text using SPECTER2-style embeddings.
+The current index uses SPECTER2-style scientific-paper embeddings for:
 
-Install local semantic build dependencies:
+- map coordinates,
+- nearest-neighbor links,
+- semantic search,
+- topic study packs.
 
-```bash
-python3 -m pip install sentence-transformers umap-learn scikit-learn numpy
-```
+When the browser-side query embedding model is still loading, the map can show an immediate lexical fallback and then rerender with semantic matches once the model is ready.
 
-Then rebuild:
+## Current Limitations
 
-```bash
-scripts/build_site.sh
-```
+ICML 2026 proceedings and public paper PDFs may not be uniformly available through stable public URLs yet. Some OpenReview PDF endpoints can also block unauthenticated or framed access.
 
-For deterministic lexical fallback builds:
+The browser handles this by showing source links and availability states instead of pretending that every record has an embeddable PDF.
 
-```bash
-ICML_SEMANTIC_ARGS="--lexical" scripts/build_site.sh
-```
+Domain and area labels are inferred from available title/abstract metadata. They are useful for exploration, but they should not be treated as official ICML subject-area labels unless the source metadata explicitly provides them.
 
-For a fast smoke map:
+## Repository Shape
 
-```bash
-ICML_SEMANTIC_ARGS="--smoke --limit 500" scripts/build_site.sh
-```
+- `docs/`: source for the static browser on `main`
+- `gh-pages`: deployed GitHub Pages branch
+- `icml_2026_materials/`: archived local materials
+- `scripts/`: data collection, rebuild, verification, and workflow helpers
+- `.github/workflows/`: regression, semantic rebuild, and workshop update workflows
 
-The manual GitHub workflow `.github/workflows/semantic-map-rebuild.yml` can rebuild semantic artifacts. Smoke runs do not commit generated artifacts.
-
-## GitHub Workflows
-
-- `site-regression.yml`: verifies the data contract and UI smoke behavior on `main`.
-- `semantic-map-rebuild.yml`: manually rebuilds semantic map/search artifacts.
-- `workshop-abstracts.yml`: updates workshop PDFs/abstract-derived metadata when new public assets are collectable.
-
-## Local Preview
-
-```bash
-python3 -m http.server 8787 --directory docs
-```
-
-Open:
-
-```text
-http://127.0.0.1:8787/
-```
+The public site is static. No backend is required for browsing.
