@@ -28,6 +28,7 @@ def main() -> None:
     index = load(index_path)
     map_data = load(map_path)
     search_data = load(config.SEARCH_EMBEDDINGS_PATH) if config.SEARCH_EMBEDDINGS_PATH.exists() else None
+    sidecar_data = load(config.SEMANTIC_SIDECAR_PATH) if config.SEMANTIC_SIDECAR_PATH.exists() else None
     index_records = index.get("records", [])
     visible_ids = {str(record["id"]) for record in index_records}
     map_records = map_data.get("records", [])
@@ -79,7 +80,12 @@ def main() -> None:
     expected = embedding_summary.get("expectedFingerprint")
     map_actual = (map_data.get("embeddingSource") or {}).get("sourceFingerprint")
     search_actual = (search_data.get("embeddingSource") or {}).get("sourceFingerprint") if search_data else ""
-    stale = [name for name, actual in {"map": map_actual, "search": search_actual}.items() if expected and actual != expected]
+    sidecar_actual = (sidecar_data.get("embeddingSource") or {}).get("sourceFingerprint") if sidecar_data else ""
+    stale = [
+        name
+        for name, actual in {"map": map_actual, "search": search_actual, "sidecar": sidecar_actual}.items()
+        if expected and actual != expected
+    ]
     if stale:
         message = f"semantic embedding artifacts are stale: {', '.join(stale)}"
         if args.require_fresh:

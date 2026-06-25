@@ -14,6 +14,7 @@ export function queueStatusLabel(value) {
 }
 
 function readJsonStorage(storage, key, fallback) {
+  if (!storage) return fallback;
   try {
     return JSON.parse(storage.getItem(key) || JSON.stringify(fallback));
   } catch {
@@ -21,23 +22,33 @@ function readJsonStorage(storage, key, fallback) {
   }
 }
 
-function persistStudyQueue(queue) {
+function browserStorage(name) {
   try {
-    localStorage.setItem(STUDY_QUEUE_KEY, JSON.stringify([...queue.entries()]));
-    localStorage.removeItem(LEGACY_SAVED_KEY);
-    sessionStorage.removeItem(LEGACY_SAVED_KEY);
+    return globalThis[name] || null;
+  } catch {
+    return null;
+  }
+}
+
+function persistStudyQueue(queue) {
+  const local = browserStorage("localStorage");
+  const session = browserStorage("sessionStorage");
+  try {
+    local?.setItem(STUDY_QUEUE_KEY, JSON.stringify([...queue.entries()]));
+    local?.removeItem(LEGACY_SAVED_KEY);
+    session?.removeItem(LEGACY_SAVED_KEY);
   } catch {
   }
 }
 
 function legacySavedIds() {
-  const sessionIds = readJsonStorage(sessionStorage, LEGACY_SAVED_KEY, []);
-  const localIds = readJsonStorage(localStorage, LEGACY_SAVED_KEY, []);
+  const sessionIds = readJsonStorage(browserStorage("sessionStorage"), LEGACY_SAVED_KEY, []);
+  const localIds = readJsonStorage(browserStorage("localStorage"), LEGACY_SAVED_KEY, []);
   return [...new Set([...(Array.isArray(sessionIds) ? sessionIds : []), ...(Array.isArray(localIds) ? localIds : [])])];
 }
 
 export function loadStudyQueue() {
-  const raw = readJsonStorage(localStorage, STUDY_QUEUE_KEY, []);
+  const raw = readJsonStorage(browserStorage("localStorage"), STUDY_QUEUE_KEY, []);
   const queue = new Map();
   if (Array.isArray(raw)) {
     for (const item of raw) {
@@ -83,9 +94,11 @@ export function toggleSavedId(savedIds, id) {
   if (!id) return;
   if (savedIds.has(id)) savedIds.delete(id);
   else savedIds.add(id);
+  const local = browserStorage("localStorage");
+  const session = browserStorage("sessionStorage");
   try {
-    localStorage.setItem(LEGACY_SAVED_KEY, JSON.stringify([...savedIds]));
-    sessionStorage.setItem(LEGACY_SAVED_KEY, JSON.stringify([...savedIds]));
+    local?.setItem(LEGACY_SAVED_KEY, JSON.stringify([...savedIds]));
+    session?.setItem(LEGACY_SAVED_KEY, JSON.stringify([...savedIds]));
   } catch {
   }
 }
