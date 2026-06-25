@@ -180,7 +180,9 @@ export function updateHeader() {
     .join("");
   els.headerStats.querySelector("#savedFilterPill")?.addEventListener("click", () => {
     state.queueOnly = !state.queueOnly;
-    renderResults();
+    resetResultWindow();
+    if (state.tab === "map") browseDeps.renderAfterWorkerSearch?.();
+    else renderResults();
     updateHeader();
   });
 }
