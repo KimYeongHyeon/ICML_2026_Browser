@@ -333,8 +333,11 @@ if (!map.activeSummary.includes("global") || !map.activeSummary.includes("area +
 if (map.colorValue !== "area-domain" || !map.legendNote.includes("Fill = research area") || !map.legendNote.includes("Ring = domain")) {
   throw new Error(`area/domain mode should be the default and explain fill/ring semantics: ${JSON.stringify(map)}`);
 }
-if (!["Circle", "Square", "Diamond", "Triangle"].every((label) => map.legendNote.includes(label))) {
-  throw new Error(`area/domain legend should explicitly label shape examples: ${JSON.stringify(map)}`);
+if (/\b(Circle|Square|Diamond|Triangle)\b/.test(map.legendNote)) {
+  throw new Error(`area/domain legend should show domain names, not raw shape names: ${JSON.stringify(map)}`);
+}
+if (!/(Biology|General|Scientific Discovery|Social Science|Robotics|Medical)\s+\d/.test(map.legendNote)) {
+  throw new Error(`area/domain legend should label shapes with visible domain names and counts: ${JSON.stringify(map)}`);
 }
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);

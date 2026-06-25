@@ -1691,7 +1691,7 @@ button.stat-pill.saved-pill:hover {
 }
 
 .legend-note::after {
-  content: "Shape examples decode domain families.";
+  content: "Shape labels show the active domain mapping.";
   color: var(--muted-2);
   font-weight: 650;
 }
@@ -1711,6 +1711,21 @@ button.stat-pill.saved-pill:hover {
   align-items: center;
   gap: 5px;
   min-width: 0;
+}
+
+.legend-shape-row em {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-shape-row strong {
+  margin-left: auto;
+  color: var(--muted-2);
+  font-size: 9px;
 }
 
 .legend-shape {
@@ -1754,6 +1769,22 @@ button.stat-pill.saved-pill:hover {
   border-right: 4px solid transparent;
   border-bottom: 7px solid rgb(106 165 147 / 0.24);
   border-left: 4px solid transparent;
+  content: "";
+}
+
+.legend-shape-hexagon {
+  width: 13px;
+  height: 11px;
+  border: 0;
+  background: #7fa28f;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+.legend-shape-hexagon::after {
+  position: absolute;
+  inset: 2px;
+  background: #d5e2dc;
+  clip-path: inherit;
   content: "";
 }
 

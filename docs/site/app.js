@@ -45,6 +45,7 @@ import {
   applyMapMotionSettings,
   configureMapEngine,
   destroyGraphEngine,
+  domainShapeValue,
   ensureCytoscapeLibrary,
   fitForceGraph,
   reflowMap,
@@ -106,6 +107,22 @@ configureMapInteractions({
   renderViewer,
 });
 
+function domainShapeLegendItems(records) {
+  const counts = new Map();
+  for (const record of records) {
+    const domain = (record.domainTags || ["General"])[0] || "General";
+    counts.set(domain, (counts.get(domain) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 8)
+    .map(([domain, count]) => ({
+      count,
+      domain,
+      shape: domainShapeValue({ domainTags: [domain] }),
+    }));
+}
+
 function renderMapLegend(visibleRecords) {
   if (!els.mapLegend) return;
   if (state.mapColor === "quality" || state.mapColor === "availability") {
@@ -120,18 +137,22 @@ function renderMapLegend(visibleRecords) {
   const items = [...counts.entries()]
     .sort((left, right) => right[1] - left[1])
     .slice(0, 12);
+  const domainShapeItems = domainShapeLegendItems(visibleRecords);
   const allCount = visibleRecords.length;
   els.mapLegend.innerHTML = `
     ${state.mapColor === "area-domain" ? `
       <div class="legend-note">
-        <span>Fill = research area. Shape = domain. Ring = domain accent. Click an area to filter.</span>
-        <span class="legend-shape-row" aria-label="Domain shape examples">
-          <span><i class="legend-shape legend-shape-circle"></i>Circle</span>
-          <span><i class="legend-shape legend-shape-square"></i>Square</span>
-          <span><i class="legend-shape legend-shape-diamond"></i>Diamond</span>
-          <span><i class="legend-shape legend-shape-triangle"></i>Triangle</span>
+        <span>Fill = research area. Shape = domain below. Ring = domain accent. Click an area to filter.</span>
+        <span class="legend-shape-row" aria-label="Domain shape map">
+          ${domainShapeItems.map((item) => `
+            <span title="${escapeHtml(`${item.domain}: ${item.count.toLocaleString()} records`)}">
+              <i class="legend-shape legend-shape-${escapeHtml(item.shape)}"></i>
+              <em>${escapeHtml(item.domain)}</em>
+              <strong>${item.count.toLocaleString()}</strong>
+            </span>
+          `).join("")}
         </span>
-        <b>Domain shape examples: circle / square / diamond / triangle.</b>
+        <b>Each shape marks the domain tag shown next to it.</b>
       </div>
     ` : ""}
     <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">

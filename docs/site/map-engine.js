@@ -115,7 +115,7 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
 
 const DOMAIN_SHAPES = ["circle", "square", "diamond", "triangle", "hexagon"];
 
-function domainShapeValue(record) {
+export function domainShapeValue(record) {
   const domain = domainColorValue(record);
   let hash = 0;
   for (const char of String(domain || "General")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
