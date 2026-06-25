@@ -1,8 +1,11 @@
 import {
-  DATA_URL,
   MAP_URL,
   SEARCH_EMBEDDINGS_URL,
 } from "./config.js";
+import {
+  loadIndexData,
+  loadShardRecords,
+} from "./data-loader.js";
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
 import { state } from "./state.js";
@@ -21,6 +24,9 @@ import {
   loadMoreResultsIfNeeded,
   renderResults,
   resetResultWindow,
+  queueWorkerSearch,
+  refreshSearchWorkerIndex,
+  setQueueStatus,
   toggleSaved,
   updateHeader,
   updateSelects,
@@ -39,6 +45,7 @@ import {
   applyMapMotionSettings,
   configureMapEngine,
   destroyGraphEngine,
+  domainShapeValue,
   ensureCytoscapeLibrary,
   fitForceGraph,
   reflowMap,
@@ -63,7 +70,10 @@ import {
   installMapPointerInteractions,
   showGraphTooltip,
 } from "./map-interactions.js";
-import { loadSavedIds } from "./saved.js";
+import {
+  loadStudyQueue,
+  queuedIds,
+} from "./saved.js";
 import { loadSearchEmbeddings } from "./semantic-search.js";
 
 configureMapCore({ findDisplayRecord });
@@ -76,7 +86,13 @@ configureMapEngine({
   renderViewer,
   showGraphTooltip,
 });
-configureBrowse({ applyFilterChange });
+configureBrowse({
+  applyFilterChange,
+  renderAfterWorkerSearch() {
+    if (state.tab === "map") renderMap();
+    else renderResults();
+  },
+});
 configureMapDetail({
   findDisplayRecord,
   hideGraphTooltip,
@@ -90,6 +106,22 @@ configureMapInteractions({
   findDisplayRecord,
   renderViewer,
 });
+
+function domainShapeLegendItems(records) {
+  const counts = new Map();
+  for (const record of records) {
+    const domain = (record.domainTags || ["General"])[0] || "General";
+    counts.set(domain, (counts.get(domain) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 8)
+    .map(([domain, count]) => ({
+      count,
+      domain,
+      shape: domainShapeValue({ domainTags: [domain] }),
+    }));
+}
 
 function renderMapLegend(visibleRecords) {
   if (!els.mapLegend) return;
@@ -105,18 +137,22 @@ function renderMapLegend(visibleRecords) {
   const items = [...counts.entries()]
     .sort((left, right) => right[1] - left[1])
     .slice(0, 12);
+  const domainShapeItems = domainShapeLegendItems(visibleRecords);
   const allCount = visibleRecords.length;
   els.mapLegend.innerHTML = `
     ${state.mapColor === "area-domain" ? `
       <div class="legend-note">
-        <span>Fill = research area. Shape = domain. Ring = domain accent. Click an area to filter.</span>
-        <span class="legend-shape-row" aria-label="Domain shape examples">
-          <span><i class="legend-shape legend-shape-circle"></i>Circle</span>
-          <span><i class="legend-shape legend-shape-square"></i>Square</span>
-          <span><i class="legend-shape legend-shape-diamond"></i>Diamond</span>
-          <span><i class="legend-shape legend-shape-triangle"></i>Triangle</span>
+        <span>Fill = research area. Shape = domain below. Ring = domain accent. Click an area to filter.</span>
+        <span class="legend-shape-row" aria-label="Domain shape map">
+          ${domainShapeItems.map((item) => `
+            <span title="${escapeHtml(`${item.domain}: ${item.count.toLocaleString()} records`)}">
+              <i class="legend-shape legend-shape-${escapeHtml(item.shape)}"></i>
+              <em>${escapeHtml(item.domain)}</em>
+              <strong>${item.count.toLocaleString()}</strong>
+            </span>
+          `).join("")}
         </span>
-        <b>Domain shape examples: circle / square / diamond / triangle.</b>
+        <b>Each shape marks the domain tag shown next to it.</b>
       </div>
     ` : ""}
     <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
@@ -206,10 +242,52 @@ configureViewer({
   renderMap,
   renderMiniMap,
   renderResults,
+  setQueueStatus,
   semanticNeighborhood,
   toggleSaved,
   updateHeader,
 });
+
+function renderDataHealthNote() {
+  if (!els.dataNote) return;
+  const embedding = state.data?.summary?.embedding || {};
+  const status = embedding.status || "missing";
+  const source = state.dataManifest ? "sharded index" : "monolithic index";
+  const generatedAt = state.data?.generatedAt ? new Date(state.data.generatedAt).toLocaleString() : "";
+  const stale = status !== "fresh";
+  els.dataNote.classList.toggle("is-visible", stale);
+  els.dataNote.classList.toggle("is-warning", stale);
+  const loadedText = `Loaded ${escapeHtml(source)}${generatedAt ? ` · ${escapeHtml(generatedAt)}` : ""}.`;
+  const messages = {
+    fresh: ["Semantic index fresh.", loadedText],
+    legacy: ["Semantic metadata pending.", `${loadedText} Existing semantic vectors are available; the rebuild workflow will attach freshness metadata.`],
+    stale: ["Semantic rebuild recommended.", `${loadedText} Dense vectors may be older than the current records, so search also uses lexical fallback.`],
+    missing: ["Semantic fallback active.", `${loadedText} Dense vectors are not available yet, so map/search use lexical fallback until the rebuild workflow runs.`],
+  };
+  const [title, body] = messages[status] || messages.missing;
+  els.dataNote.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(body)}</span>`;
+}
+
+async function hydrateFullRecords() {
+  if (!state.dataManifest || state.dataShardsLoaded) return;
+  try {
+    const records = await loadShardRecords(state.dataManifest);
+    if (!records?.length) return;
+    const selectedId = state.selectedId;
+    const shouldRestoreMapViewer = state.tab === "map" && selectedId;
+    state.data.records = enrichPaperPresentationRecords(records);
+    state.dataShardsLoaded = true;
+    refreshSearchWorkerIndex();
+    queueWorkerSearch();
+    updateHeader();
+    renderAll();
+    if (shouldRestoreMapViewer) {
+      const selected = findDisplayRecord(selectedId);
+      if (selected) renderViewer(selected);
+    }
+  } catch {
+  }
+}
 
 function renderAll() {
   els.tabs.forEach((button) => {
@@ -244,6 +322,7 @@ function applyFilterChange({ clearQuery = false } = {}) {
   } else if (els.mapSearch && els.mapSearch.value !== state.query) {
     els.mapSearch.value = state.query;
   }
+  queueWorkerSearch();
   state.mapFilterValue = "";
   clearMapSelection();
   resetResultWindow();
@@ -267,10 +346,14 @@ function loadSearchEmbeddingsInBackground() {
 async function init() {
   installMapDebugProbe();
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
-  const response = await fetch(DATA_URL);
-  state.data = await response.json();
+  const loaded = await loadIndexData();
+  state.data = loaded.data;
+  state.dataManifest = loaded.manifest;
   state.data.records = enrichPaperPresentationRecords(state.data.records || []);
-  state.savedIds = loadSavedIds();
+  state.studyQueue = loadStudyQueue();
+  state.savedIds = queuedIds(state.studyQueue);
+  refreshSearchWorkerIndex();
+  renderDataHealthNote();
   try {
     const mapResponse = await fetch(MAP_URL);
     state.mapData = mapResponse.ok ? await mapResponse.json() : null;
@@ -279,6 +362,7 @@ async function init() {
   }
   updateHeader();
   renderAll();
+  void hydrateFullRecords();
   window.addEventListener("icml-semantic-search-ready", (event) => {
     if (state.tab !== "map") return;
     if (normalize(state.query) !== event.detail?.query) return;
