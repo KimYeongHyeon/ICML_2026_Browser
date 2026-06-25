@@ -238,12 +238,14 @@ export function renderViewer(record) {
     viewerDeps.toggleSaved(record.id);
     renderViewer(record);
     viewerDeps.renderResults();
+    viewerDeps.renderMap?.();
     viewerDeps.updateHeader();
   });
   els.viewerActions.querySelector("[data-queue-status]")?.addEventListener("change", (event) => {
     viewerDeps.setQueueStatus?.(record.id, event.target.value);
     renderViewer(record);
     viewerDeps.renderResults();
+    viewerDeps.renderMap?.();
     viewerDeps.updateHeader();
   });
 
