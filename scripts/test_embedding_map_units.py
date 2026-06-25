@@ -82,8 +82,10 @@ def test_search_embedding_payload_is_quantized_and_excludes_posters() -> None:
     ]
     vectors = [[1.0, -1.0], [0.0, 1.0], [0.25, -0.25]]
     payloads = [{"quality": "title_only"}, {"quality": "title_only"}, {"quality": "title_topic"}]
-    payload = builder.build_search_embeddings_payload(records, vectors, payloads, "m", "k")
+    source = {"sourceFingerprint": "sha256:test"}
+    payload = builder.build_search_embeddings_payload(records, vectors, payloads, "m", "k", source)
     assert payload["model"]["quantization"] == "int8_symmetric_base64"
+    assert payload["embeddingSource"] == source
     assert [item["id"] for item in payload["records"]] == ["paper-1", "workshop-1"]
     assert payload["records"][0]["vector"]
 

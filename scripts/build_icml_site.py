@@ -6,13 +6,22 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.icml_embedding_contract import embedding_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
 MATERIALS = ROOT / "icml_2026_materials"
 OUT = ROOT / os.environ.get("ICML_SITE_INDEX", "docs/site/data/icml2026_index.json")
+DATA_ROOT = OUT.parent
+MANIFEST_OUT = DATA_ROOT / "icml2026_index.manifest.json"
+STARTUP_OUT = DATA_ROOT / "icml2026_startup.json"
+SHARDS_ROOT = DATA_ROOT / "shards"
+MAP_PATH = DATA_ROOT / "icml2026_map.json"
+SEARCH_EMBEDDINGS_PATH = DATA_ROOT / "icml2026_search_embeddings.json"
 SEMANTIC_SIDECAR = ROOT / "docs" / "site" / "data" / "icml2026_semantic_sidecar.json"
 ICML_WEB = "https://icml.cc"
 GENERIC_WORKSHOP_TITLES = {
@@ -53,11 +62,14 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def read_semantic_sidecar() -> dict[str, dict[str, Any]]:
+def read_semantic_sidecar_payload() -> dict[str, Any]:
     if not SEMANTIC_SIDECAR.exists():
         return {}
-    payload = json.loads(SEMANTIC_SIDECAR.read_text(encoding="utf-8"))
-    records = payload.get("records", {})
+    return json.loads(SEMANTIC_SIDECAR.read_text(encoding="utf-8"))
+
+
+def read_semantic_sidecar() -> dict[str, dict[str, Any]]:
+    records = read_semantic_sidecar_payload().get("records", {})
     return records if isinstance(records, dict) else {}
 
 
@@ -105,6 +117,99 @@ def unique_values(values: list[str]) -> list[str]:
                 seen.add(part)
                 result.append(part)
     return result
+
+
+def read_embedding_source(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return read_json(path).get("embeddingSource") or {}
+
+
+def semantic_freshness_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    expected = embedding_fingerprint(records)
+    artifact_exists = {
+        "map": MAP_PATH.exists(),
+        "search": SEARCH_EMBEDDINGS_PATH.exists(),
+        "sidecar": SEMANTIC_SIDECAR.exists(),
+    }
+    sources = {
+        "map": read_embedding_source(MAP_PATH),
+        "search": read_embedding_source(SEARCH_EMBEDDINGS_PATH),
+        "sidecar": read_semantic_sidecar_payload().get("embeddingSource") or {},
+    }
+    actuals = {key: str(value.get("sourceFingerprint") or "") for key, value in sources.items()}
+    reasons: list[str] = []
+    for key, actual in actuals.items():
+        if not actual:
+            suffix = "legacy_metadata" if artifact_exists[key] else "missing"
+            reasons.append(f"{key}_{suffix}")
+        elif actual != expected:
+            reasons.append(f"{key}_fingerprint_mismatch")
+    if not reasons:
+        status = "fresh"
+    elif all(not actual for actual in actuals.values()) and any(artifact_exists.values()):
+        status = "legacy"
+    elif all(not actual for actual in actuals.values()):
+        status = "missing"
+    else:
+        status = "stale"
+    return {
+        "status": status,
+        "expectedFingerprint": expected,
+        "actualFingerprints": actuals,
+        "artifactExists": artifact_exists,
+        "staleReasons": reasons,
+        "mapGeneratedAt": read_json(MAP_PATH).get("generatedAt", "") if MAP_PATH.exists() else "",
+        "searchGeneratedAt": read_json(SEARCH_EMBEDDINGS_PATH).get("generatedAt", "") if SEARCH_EMBEDDINGS_PATH.exists() else "",
+        "recordCount": len(records),
+    }
+
+
+def slim_record(record: dict[str, Any]) -> dict[str, Any]:
+    omit = {"abstract", "localSupplementalPaths"}
+    return {key: value for key, value in record.items() if key not in omit}
+
+
+def relative_site_data_url(path: Path) -> str:
+    return "site/data/" + path.relative_to(DATA_ROOT).as_posix()
+
+
+def write_json_payload(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def write_sharded_payload(payload: dict[str, Any]) -> None:
+    records = payload.get("records", [])
+    startup_payload = {
+        "generatedAt": payload.get("generatedAt"),
+        "summary": payload.get("summary", {}),
+        "records": [slim_record(record) for record in records],
+    }
+    write_json_payload(STARTUP_OUT, startup_payload)
+
+    shards = []
+    for item_type in ("paper", "poster", "workshop"):
+        shard_records = [record for record in records if record.get("type") == item_type]
+        shard_path = SHARDS_ROOT / f"{item_type}.json"
+        write_json_payload(shard_path, {
+            "generatedAt": payload.get("generatedAt"),
+            "type": item_type,
+            "records": shard_records,
+        })
+        shards.append({
+            "type": item_type,
+            "url": relative_site_data_url(shard_path),
+            "count": len(shard_records),
+        })
+
+    write_json_payload(MANIFEST_OUT, {
+        "generatedAt": payload.get("generatedAt"),
+        "summary": payload.get("summary", {}),
+        "startupUrl": relative_site_data_url(STARTUP_OUT),
+        "fallbackUrl": relative_site_data_url(OUT),
+        "shards": shards,
+    })
 
 
 def canonical_presentation_types(values: list[str]) -> list[str]:
@@ -445,6 +550,7 @@ def build() -> dict[str, Any]:
         if record["hasSlide"]:
             asset_counts["slide"] += 1
 
+    semantic_summary = semantic_freshness_summary(records)
     return {
         "generatedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
         "records": records,
@@ -455,6 +561,7 @@ def build() -> dict[str, Any]:
             "availabilityCounts": availability_counts,
             "categories": sorted(categories),
             "groups": {key: sorted(value) for key, value in groups.items()},
+            "embedding": semantic_summary,
         },
     }
 
@@ -462,8 +569,10 @@ def build() -> dict[str, Any]:
 def main() -> None:
     OUT.parent.mkdir(parents=True, exist_ok=True)
     payload = build()
-    OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    write_json_payload(OUT, payload)
+    write_sharded_payload(payload)
     print(f"Wrote {OUT.relative_to(ROOT)}")
+    print(f"Wrote {MANIFEST_OUT.relative_to(ROOT)}")
     print(json.dumps(payload["summary"], indent=2, ensure_ascii=False))
 
 

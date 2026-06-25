@@ -7,7 +7,22 @@ cd "$ROOT"
 INDEX_PATH="${ICML_SITE_INDEX:-docs/site/data/icml2026_index.json}"
 
 python3 scripts/build_icml_site.py
-if [[ "${ICML_BUILD_SEMANTIC_MAP:-1}" == "1" ]]; then
+if [[ "${ICML_BUILD_SEMANTIC_MAP:-1}" == "auto" ]]; then
+  EMBEDDING_STATUS="$(python3 - "$INDEX_PATH" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+print((data.get("summary", {}).get("embedding") or {}).get("status", "missing"))
+PY
+)"
+  if [[ "$EMBEDDING_STATUS" != "fresh" ]]; then
+    python3 scripts/build_icml_embedding_map.py ${ICML_SEMANTIC_ARGS:-}
+    python3 scripts/build_icml_site.py
+  fi
+  python3 scripts/verify_embedding_map.py "$INDEX_PATH" docs/site/data/icml2026_map.json --require-fresh
+elif [[ "${ICML_BUILD_SEMANTIC_MAP:-1}" == "1" ]]; then
   python3 scripts/build_icml_embedding_map.py ${ICML_SEMANTIC_ARGS:-}
   python3 scripts/build_icml_site.py
   python3 scripts/verify_embedding_map.py "$INDEX_PATH" docs/site/data/icml2026_map.json

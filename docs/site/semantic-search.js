@@ -220,6 +220,7 @@ export async function loadSearchEmbeddings(url = SEARCH_EMBEDDINGS_URL) {
       }
       denseIndex = {
         model: payload.model || {},
+        embeddingSource: payload.embeddingSource || {},
         byId,
         scale: Number(payload.model?.scale || 127),
       };

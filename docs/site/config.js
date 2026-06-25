@@ -1,4 +1,5 @@
 export const DATA_URL = "site/data/icml2026_index.json";
+export const DATA_MANIFEST_URL = "site/data/icml2026_index.manifest.json";
 export const MAP_URL = "site/data/icml2026_map.json";
 export const SEARCH_EMBEDDINGS_URL = "site/data/icml2026_search_embeddings.json";
 export const PAGE_SIZE = 80;
