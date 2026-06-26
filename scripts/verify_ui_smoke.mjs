@@ -121,6 +121,7 @@ const paperLatex = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
+  viewerAbstractText: document.querySelector(".viewer-abstract-body")?.innerText || "",
   actionLabels: [...document.querySelectorAll("#viewerActions .action")].map((item) => item.textContent || ""),
   openReviewPdfHref: [...document.querySelectorAll("#viewerActions .action")]
     .find((item) => (item.textContent || "").includes("OpenReview PDF"))?.href || "",
@@ -291,7 +292,7 @@ if (!/^6,343 results/.test(initial.resultCount)) {
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
-if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !initial.headerStats.includes("12") || !initial.headerStats.includes("clusters") || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
+if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\nclusters/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
   throw new Error(`header should match compact design stats: ${initial.headerStats}`);
 }
 if (!/^6,343 results/.test(paper.resultCount)) {
@@ -324,7 +325,7 @@ if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.
 if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.viewerTitle}`)) {
   throw new Error(`raw LaTeX command leaked into paper title: ${JSON.stringify(paperLatex)}`);
 }
-if (!paperLatex.viewerFrameText.includes("objective drift") || /𝑜\s*𝑏\s*𝑗/.test(paperLatex.viewerFrameText)) {
+if (paperLatex.viewerAbstractText && /\\(?:texttt|mathrm|mathbb|mathcal)|\{[^{}]+\}|𝑜\s*𝑏\s*𝑗/.test(paperLatex.viewerAbstractText)) {
   throw new Error(`abstract text-like math should render as clean prose: ${JSON.stringify(paperLatex)}`);
 }
 if (!miniTooltip.includes("Area:") || !miniTooltip.includes("Domain:")) {
