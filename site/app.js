@@ -1,6 +1,7 @@
 import {
   MAP_URL,
   SEARCH_EMBEDDINGS_URL,
+  TRENDS_URL,
 } from "./config.js";
 import {
   loadIndexData,
@@ -231,6 +232,7 @@ async function renderMap() {
     return;
   }
   const selected = findDisplayRecord(state.selectedId);
+  if (!selected) await loadTrends();
   renderMapDetail(selected || null);
 }
 
@@ -341,6 +343,17 @@ function rerenderActiveMapQuery() {
 function loadSearchEmbeddingsInBackground() {
   void loadSearchEmbeddings(SEARCH_EMBEDDINGS_URL)
     .finally(rerenderActiveMapQuery);
+}
+
+async function loadTrends() {
+  if (state.trendsLoaded) return;
+  state.trendsLoaded = true;
+  try {
+    const response = await fetch(TRENDS_URL);
+    state.trendData = response.ok ? await response.json() : null;
+  } catch {
+    state.trendData = null;
+  }
 }
 
 async function init() {

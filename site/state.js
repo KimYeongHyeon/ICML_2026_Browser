@@ -15,6 +15,8 @@ export const state = {
   dataManifest: null,
   dataShardsLoaded: false,
   mapData: null,
+  trendData: null,
+  trendsLoaded: false,
   semanticHealth: null,
   searchWorker: null,
   searchWorkerRequestId: 0,

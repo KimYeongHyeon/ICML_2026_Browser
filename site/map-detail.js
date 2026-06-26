@@ -27,9 +27,66 @@ export function configureMapDetail(deps) {
   detailDeps = deps;
 }
 
+function countLabelsHtml(items = []) {
+  return items.slice(0, 3).map((item) => `<span>${escapeHtml(item.label)} <b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("");
+}
+
+function renderTrendCards() {
+  const trends = (state.trendData?.trends || []).slice(0, 10);
+  if (!trends.length) {
+    return `<div class="empty-state compact"><strong>Select a paper from the map</strong><span>Hover to preview, click to inspect metadata and similar records.</span></div>`;
+  }
+  return `
+    <section class="trend-panel">
+      <div class="trend-panel-head">
+        <p class="eyebrow">Semantic trends</p>
+        <h3>Research currents</h3>
+        <span>${trends.length.toLocaleString()} embedding-derived clusters</span>
+      </div>
+      <div class="trend-list">
+        ${trends.map((trend, index) => `
+          <article class="trend-card" data-trend-id="${escapeHtml(trend.id)}">
+            <button class="trend-card-main" type="button" data-record-id="${escapeHtml((trend.representativeRecordIds || [])[0] || "")}">
+              <span class="neighbor-rank">${index + 1}</span>
+              <span>
+                <strong>${escapeHtml(trend.name || trend.clusterLabel || "Semantic trend")}</strong>
+                <em>${Number(trend.size || 0).toLocaleString()} records · ${escapeHtml(trend.clusterLabel || "mapped cluster")}</em>
+              </span>
+            </button>
+            <p>${escapeHtml(trend.summary || "")}</p>
+            <div class="trend-keywords">
+              ${(trend.keywords || []).slice(0, 5).map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}
+            </div>
+            ${(trend.representativeSentences || []).slice(0, 2).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
+            <div class="trend-counts">${countLabelsHtml(trend.areaCounts)}${countLabelsHtml(trend.domainCounts)}</div>
+            <div class="trend-representatives">
+              ${(trend.representativeRecordIds || []).slice(0, 5).map((recordId) => {
+                const record = detailDeps.findDisplayRecord?.(recordId);
+                return record ? `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>` : "";
+              }).join("")}
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function openMapRecord(recordId) {
+  const record = detailDeps.findDisplayRecord?.(recordId);
+  if (!record) return;
+  state.selectedId = record.id;
+  detailDeps.renderMap?.();
+  renderMapDetail(record);
+  detailDeps.renderViewer?.(record);
+}
+
 export function renderMapDetail(record) {
   if (!record) {
-    els.mapDetail.innerHTML = `<div class="empty-state compact"><strong>Select a paper from the map</strong><span>Hover to preview, click to inspect metadata and similar records.</span></div>`;
+    els.mapDetail.innerHTML = renderTrendCards();
+    els.mapDetail.querySelectorAll("[data-record-id]").forEach((button) => {
+      button.addEventListener("click", () => openMapRecord(button.dataset.recordId));
+    });
     return;
   }
   const mapById = mapRecordById();
@@ -85,11 +142,7 @@ export function renderMapDetail(record) {
   });
   els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
     button.addEventListener("click", () => {
-      state.selectedId = button.dataset.id;
-      const selected = detailDeps.findDisplayRecord?.(state.selectedId);
-      detailDeps.renderMap?.();
-      renderMapDetail(selected);
-      detailDeps.renderViewer?.(selected);
+      openMapRecord(button.dataset.id);
     });
   });
 }
