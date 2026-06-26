@@ -17,6 +17,7 @@ INDEX_PATH = ROOT / "docs" / "site" / "data" / "icml2026_index.json"
 MAP_PATH = ROOT / "docs" / "site" / "data" / "icml2026_map.json"
 SEMANTIC_SIDECAR_PATH = ROOT / "docs" / "site" / "data" / "icml2026_semantic_sidecar.json"
 SEARCH_EMBEDDINGS_PATH = ROOT / "docs" / "site" / "data" / "icml2026_search_embeddings.json"
+TRENDS_PATH = ROOT / "docs" / "site" / "data" / "icml2026_trends.json"
 
 AREA_TAGS = [
     "LLMs",

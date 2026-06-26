@@ -185,6 +185,30 @@ const localPdf = await page.evaluate(() => ({
 
 await page.locator('.tab[data-tab="map"]').click();
 await page.waitForSelector("#mapCanvas canvas", { timeout: 30000 });
+await page.waitForSelector(".trend-card", { timeout: 30000 });
+const trendsInitial = await page.evaluate(() => ({
+  heading: document.querySelector(".trend-panel-head h3")?.textContent || "",
+  cardCount: document.querySelectorAll(".trend-card").length,
+  firstKeywords: document.querySelector(".trend-keywords")?.textContent || "",
+  firstRepresentatives: document.querySelectorAll(".trend-representatives button").length,
+  firstSummary: document.querySelector(".trend-card p")?.textContent || "",
+}));
+await page.locator(".trend-card-main").first().click();
+await page.waitForTimeout(500);
+const trendCardClick = await page.evaluate(() => ({
+  selectedTitle: document.querySelector(".map-detail-card h3")?.textContent || "",
+  viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+}));
+await page.locator('.tab[data-tab="workshop"]').click();
+await page.waitForTimeout(200);
+await page.locator('.tab[data-tab="map"]').click();
+await page.waitForSelector(".trend-card", { timeout: 30000 });
+await page.locator(".trend-representatives button").first().click();
+await page.waitForTimeout(500);
+const trendRepresentativeClick = await page.evaluate(() => ({
+  selectedTitle: document.querySelector(".map-detail-card h3")?.textContent || "",
+  viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+}));
 await page.waitForTimeout(500);
 const mapBox = await page.locator("#mapCanvas").boundingBox();
 const forceZoomBeforeWheel = await page.evaluate(() => window.__icmlMapDebug?.forceZoom?.() || null);
@@ -241,6 +265,9 @@ const report = {
   miniAfterZoom,
   miniAfterDepth,
   afterSwitch,
+  trendsInitial,
+  trendCardClick,
+  trendRepresentativeClick,
   map,
   mapSearch,
   mapTooltip,
@@ -320,6 +347,21 @@ if (!/^723 results/.test(afterSwitch.resultCount)) {
 }
 if (afterSwitch.overflow) {
   throw new Error("filter grid or document overflows at 1366px");
+}
+if (
+  trendsInitial.heading !== "Research currents"
+  || trendsInitial.cardCount < 4
+  || !trendsInitial.firstKeywords.trim()
+  || trendsInitial.firstRepresentatives < 3
+  || !trendsInitial.firstSummary.includes("This trend groups papers around")
+) {
+  throw new Error(`semantic trend cards should expose keywords, summary, and representative papers: ${JSON.stringify(trendsInitial)}`);
+}
+if (!trendCardClick.selectedTitle || !trendCardClick.viewerTitle) {
+  throw new Error(`clicking a trend card should focus a representative record: ${JSON.stringify(trendCardClick)}`);
+}
+if (!trendRepresentativeClick.selectedTitle || !trendRepresentativeClick.viewerTitle) {
+  throw new Error(`clicking a trend representative should open the existing viewer: ${JSON.stringify(trendRepresentativeClick)}`);
 }
 if (!map.hasCanvas || !map.activeSummary.includes("Map")) {
   throw new Error(`map smoke failed: ${JSON.stringify(map)}`);

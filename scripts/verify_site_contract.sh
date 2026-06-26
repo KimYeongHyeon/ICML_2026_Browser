@@ -15,6 +15,7 @@ from pathlib import Path
 path = Path(sys.argv[1])
 data = json.loads(path.read_text(encoding="utf-8"))
 records = data.get("records", [])
+trend_path = path.with_name("icml2026_trends.json")
 
 errors = []
 allowed_status = {"accepted_public", "metadata_only", "metadata_only_pdf_not_public", "blocked", "unavailable", "downloaded", "failed", "skipped"}
@@ -79,6 +80,23 @@ for key in {"paper", "poster", "workshop"}:
     if counts.get(key, 0) != summary_counts.get(key, 0):
         errors.append(f"summary count mismatch for {key}: records={counts.get(key, 0)} summary={summary_counts.get(key, 0)}")
 
+if not trend_path.exists():
+    errors.append(f"missing trend cards artifact: {trend_path}")
+else:
+    trends = json.loads(trend_path.read_text(encoding="utf-8")).get("trends", [])
+    record_ids = {str(record.get("id") or "") for record in records}
+    if not trends:
+        errors.append("trend cards artifact has no trends")
+    for trend in trends:
+        if not trend.get("id") or not trend.get("name") or not trend.get("keywords"):
+            errors.append(f"incomplete trend card: {trend.get('id')}")
+        representative_ids = trend.get("representativeRecordIds") or []
+        if not representative_ids:
+            errors.append(f"trend card has no representatives: {trend.get('id')}")
+        missing_ids = [record_id for record_id in representative_ids if str(record_id) not in record_ids]
+        if missing_ids:
+            errors.append(f"trend card references missing records: {trend.get('id')} {missing_ids[:5]}")
+
 if errors:
     print("ICML site contract verification failed:", file=sys.stderr)
     for error in errors[:80]:
@@ -93,4 +111,6 @@ print(f"- papers: {counts.get('paper', 0):,}")
 print(f"- posters: {counts.get('poster', 0):,}")
 print(f"- workshops: {counts.get('workshop', 0):,}")
 print(f"- multi-field records: {sum(1 for r in records if len(r.get('categoryTags') or []) > 1):,}")
+if trend_path.exists():
+    print(f"- trends: {len(json.loads(trend_path.read_text(encoding='utf-8')).get('trends', [])):,}")
 PY

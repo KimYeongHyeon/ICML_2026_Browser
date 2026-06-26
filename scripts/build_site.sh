@@ -27,6 +27,7 @@ elif [[ "${ICML_BUILD_SEMANTIC_MAP:-1}" == "1" ]]; then
   python3 scripts/build_icml_site.py
   python3 scripts/verify_embedding_map.py "$INDEX_PATH" docs/site/data/icml2026_map.json
 fi
+python3 scripts/build_icml_trends.py
 scripts/verify_site_contract.sh "$INDEX_PATH"
 
 python3 - "$INDEX_PATH" <<'PY'

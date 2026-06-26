@@ -1803,6 +1803,120 @@ button.stat-pill.saved-pill:hover {
   overflow-x: hidden;
 }
 
+.trend-panel {
+  display: grid;
+  gap: 14px;
+  padding: 22px 18px;
+}
+
+.trend-panel-head {
+  display: grid;
+  gap: 4px;
+}
+
+.trend-panel-head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.trend-panel-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trend-list {
+  display: grid;
+  gap: 12px;
+}
+
+.trend-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.trend-card-main {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trend-card-main strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.trend-card-main em,
+.trend-card p,
+.trend-card blockquote {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.trend-card p,
+.trend-card blockquote {
+  margin: 0;
+}
+
+.trend-card blockquote {
+  padding-left: 10px;
+  border-left: 3px solid #d6e5df;
+}
+
+.trend-keywords,
+.trend-counts,
+.trend-representatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trend-keywords span,
+.trend-counts span {
+  display: inline-flex;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.trend-representatives button {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trend-representatives button:hover,
+.trend-card-main:hover strong {
+  color: var(--accent-strong);
+}
+
 .map-detail-card h3 {
   margin: 0;
   font-size: 18px;
