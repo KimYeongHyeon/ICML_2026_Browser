@@ -18,14 +18,6 @@ import {
   mapSemanticSearchIds,
 } from "./map-core.js";
 import { browseRecordColor } from "./map-tooltip.js";
-import {
-  queueEntry,
-  queueStatusLabel,
-  queuedIds,
-  setStudyQueueStatus,
-  studyQueueStats,
-  toggleStudyQueueRecord,
-} from "./saved.js";
 
 let browseDeps = {};
 let searchWorkerIndexed = false;
@@ -46,18 +38,6 @@ function recordsForCurrentTab() {
 
 export function findDisplayRecord(id) {
   return displayRecords().find((record) => record.id === id);
-}
-
-export function toggleSaved(id) {
-  state.savedIds = toggleStudyQueueRecord(state.studyQueue, id);
-}
-
-export function setQueueStatus(id, status) {
-  state.savedIds = setStudyQueueStatus(state.studyQueue, id, status);
-}
-
-function queueLabel(record) {
-  return queueStatusLabel(queueEntry(state.studyQueue, record.id)?.status);
 }
 
 function ensureSearchWorker() {
@@ -113,7 +93,6 @@ export function queueWorkerSearch() {
 }
 
 function passesActiveFilters(record, ignoreMapFilter) {
-  if (state.queueOnly && !state.savedIds.has(record.id)) return false;
   if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
   if (state.group !== "all" && record.group !== state.group) return false;
   if (state.asset === "local" && !(record.hasPdf || record.hasPoster || record.hasSlide)) return false;
@@ -152,39 +131,16 @@ export function updateHeader() {
   const records = displayRecords();
   const papers = records.filter((record) => record.type === "paper");
   const workshops = records.filter((record) => record.type === "workshop");
-  const clusters = new Set(records.map((record) => record.clusterId).filter(Boolean)).size;
-  state.savedIds = queuedIds(state.studyQueue);
-  if (!state.savedIds.size) {
-    state.queueOnly = false;
-  }
-  const savedCount = state.savedIds.size;
-  const queueStats = studyQueueStats(state.studyQueue);
-  const savedPill = savedCount
-    ? `<button type="button" class="stat-pill saved-pill queue-pill${state.queueOnly ? " is-active" : ""}" id="savedFilterPill" title="Filter to study queue"><strong>${savedCount}</strong> study queue</button>`
-    : "";
-  const statusText = savedCount
-    ? `<span class="stat-pill queue-breakdown">${[
-      ["skim", "skim"],
-      ["read", "read"],
-      ["attend", "attend"],
-      ["cite", "cite"],
-      ["done", "done"],
-    ].filter(([key]) => queueStats[key]).map(([key, label]) => `${queueStats[key]} ${label}`).join(" · ")}</span>`
-    : "";
-  els.headerStats.innerHTML = savedPill + statusText + [
+  const areaGroups = new Set(records.map((record) => record.clusterLabel || record.clusterId).filter(Boolean)).size;
+  const embeddingClusters = new Set(records.map((record) => record.embeddingClusterId).filter(Boolean)).size;
+  els.headerStats.innerHTML = [
     ["records", papers.length + workshops.length],
-    ["clusters", clusters],
+    ["area groups", areaGroups],
+    ["embedding clusters", embeddingClusters],
     ["workshops", workshops.length],
   ].filter(([, value]) => value > 0)
     .map(([label, value]) => `<span class="stat-pill"><strong>${value.toLocaleString()}</strong> ${label}</span>`)
     .join("");
-  els.headerStats.querySelector("#savedFilterPill")?.addEventListener("click", () => {
-    state.queueOnly = !state.queueOnly;
-    resetResultWindow();
-    if (state.tab === "map") browseDeps.renderAfterWorkerSearch?.();
-    else renderResults();
-    updateHeader();
-  });
 }
 
 function option(value, label) {
@@ -263,7 +219,6 @@ const ASSET_FILTER_LABELS = {
 
 export function activeFilterSummary(baseLabel, extraParts = []) {
   const parts = [baseLabel, state.category === "all" ? "all fields" : state.category];
-  if (state.queueOnly) parts.push("study queue");
   if (state.group !== "all") parts.push(state.group);
   if (state.asset !== "all") parts.push(ASSET_FILTER_LABELS[state.asset] || state.asset);
   if (state.query.trim()) {
@@ -302,13 +257,12 @@ export function renderResults() {
       const matched = matchedField(record, query);
       const areaLabel = (record.areaTags || categoryTags(record)).slice(0, 1)[0] || "Other";
       const assetBadges = uniqueChipValues([
-        queueLabel(record),
         assetLabel(record),
         record.hasPoster ? "Poster" : "",
         record.hasSlide ? "Slides" : "",
       ]);
       return `
-        <button class="result-item${selected}${featured}${state.savedIds.has(record.id) ? " is-queued" : ""}" type="button" data-id="${escapeHtml(record.id)}" style="--record-color:${escapeHtml(browseRecordColor(record))}">
+        <button class="result-item${selected}${featured}" type="button" data-id="${escapeHtml(record.id)}" style="--record-color:${escapeHtml(browseRecordColor(record))}">
           <span class="result-kicker">
             ${matched ? `<span class="badge match">${escapeHtml(MATCH_FIELD_LABEL[matched])} match</span>` : ""}
             ${presentationBadges(record)}

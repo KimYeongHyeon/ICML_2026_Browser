@@ -18,6 +18,7 @@ import {
 import { renderMapDetail } from "./map-detail.js";
 
 let interactionDeps = {};
+const SELECTION_SAMPLE_PAGE_SIZE = 3;
 
 export function configureMapInteractions(deps) {
   interactionDeps = deps;
@@ -132,9 +133,40 @@ function nearestNodeAtScreen(point, maxDist = 24) {
 function renderMapSelectionSummary(nodes) {
   const records = nodes.map((node) => node.record).filter(Boolean);
   const areas = countLabels(records.map((record) => record.areaTags || []));
+  const embeddingClusters = countLabels(records.map((record) => [record.embeddingClusterLabel || record.embeddingClusterId || "Unclustered"]));
   const groups = countLabels(records.map((record) => [record.group || record.clusterLabel || "Other"]));
   const types = countLabels(records.map((record) => [typeLabel(record.type)]));
-  const sample = records.slice(0, 8);
+  const samplePageCount = Math.max(1, Math.ceil(records.length / SELECTION_SAMPLE_PAGE_SIZE));
+  let samplePage = 0;
+  const sampleRecordsHtml = () => {
+    const offset = samplePage * SELECTION_SAMPLE_PAGE_SIZE;
+    const sample = records.slice(offset, offset + SELECTION_SAMPLE_PAGE_SIZE);
+    return sample.map((record) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(record.id)}"><strong>${escapeHtml(plainMathTitle(record.title))}</strong><span>${escapeHtml(record.group || typeLabel(record.type))}</span></button>`).join("") || "<small>No records inside the box</small>";
+  };
+  const wireSampleRecordButtons = () => {
+    els.mapDetail.querySelectorAll(".selection-sample-list .neighbor-item").forEach((button) => {
+      button.addEventListener("click", () => {
+        const selected = interactionDeps.findDisplayRecord?.(button.dataset.id);
+        if (!selected) return;
+        state.selectedId = selected.id;
+        refreshForceSelectionState();
+        renderMapDetail(selected);
+        interactionDeps.renderViewer?.(selected);
+      });
+    });
+  };
+  const renderSamplePage = () => {
+    const sampleList = els.mapDetail.querySelector(".selection-sample-list");
+    if (!sampleList) return;
+    sampleList.innerHTML = sampleRecordsHtml();
+    const pageLabel = els.mapDetail.querySelector(".selection-sample-page");
+    if (pageLabel) pageLabel.textContent = `${samplePage + 1}/${samplePageCount}`;
+    const prev = els.mapDetail.querySelector(".selection-sample-prev");
+    const next = els.mapDetail.querySelector(".selection-sample-next");
+    if (prev) prev.disabled = samplePage <= 0;
+    if (next) next.disabled = samplePage >= samplePageCount - 1;
+    wireSampleRecordButtons();
+  };
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
       <p class="eyebrow">BOX SELECTION</p>
@@ -147,27 +179,41 @@ function renderMapSelectionSummary(nodes) {
         <strong>Top areas</strong>
         ${areas.slice(0, 6).map(([label, count]) => `<span><em>${escapeHtml(label)}</em><b>${count.toLocaleString()}</b></span>`).join("") || "<small>No area tags</small>"}
       </div>
-      <div class="selection-stat-block">
-        <strong>Top groups</strong>
-        ${groups.slice(0, 5).map(([label, count]) => `<span><em>${escapeHtml(label)}</em><b>${count.toLocaleString()}</b></span>`).join("") || "<small>No groups</small>"}
+      <div class="selection-stat-block selection-stat-block-clusters">
+        <strong>Top embedding clusters</strong>
+        ${embeddingClusters.slice(0, 5).map(([label, count]) => `<span class="selection-stat-row"><em class="selection-stat-label">${escapeHtml(label)}</em><b class="selection-stat-count">${count.toLocaleString()}</b></span>`).join("") || "<small>No embedding clusters</small>"}
       </div>
-      <div class="selection-stat-block">
-        <strong>Sample records</strong>
-        ${sample.map((record) => `<button type="button" class="neighbor-item" data-id="${escapeHtml(record.id)}"><strong>${escapeHtml(plainMathTitle(record.title))}</strong><span>${escapeHtml(record.group || typeLabel(record.type))}</span></button>`).join("") || "<small>No records inside the box</small>"}
+      <div class="selection-stat-block selection-stat-block-groups">
+        <strong>Top groups</strong>
+        ${groups.slice(0, 5).map(([label, count]) => `<span class="selection-stat-row"><em class="selection-stat-label">${escapeHtml(label)}</em><b class="selection-stat-count">${count.toLocaleString()}</b></span>`).join("") || "<small>No groups</small>"}
+      </div>
+      <div class="selection-stat-block selection-sample-block">
+        <div class="selection-block-head">
+          <strong>Sample records</strong>
+          ${records.length > SELECTION_SAMPLE_PAGE_SIZE ? `
+            <span class="selection-sample-controls">
+              <button type="button" class="selection-sample-prev" aria-label="Previous sample records">&lt;</button>
+              <em class="selection-sample-page">1/${samplePageCount}</em>
+              <button type="button" class="selection-sample-next" aria-label="Next sample records">&gt;</button>
+            </span>
+          ` : ""}
+        </div>
+        <div class="selection-sample-list">
+          ${sampleRecordsHtml()}
+        </div>
       </div>
     </div>
   `;
   els.mapDetail.querySelector(".map-zoom-selection")?.addEventListener("click", () => zoomToMapSelection());
-  els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
-    button.addEventListener("click", () => {
-      const selected = interactionDeps.findDisplayRecord?.(button.dataset.id);
-      if (!selected) return;
-      state.selectedId = selected.id;
-      refreshForceSelectionState();
-      renderMapDetail(selected);
-      interactionDeps.renderViewer?.(selected);
-    });
+  els.mapDetail.querySelector(".selection-sample-prev")?.addEventListener("click", () => {
+    samplePage = Math.max(0, samplePage - 1);
+    renderSamplePage();
   });
+  els.mapDetail.querySelector(".selection-sample-next")?.addEventListener("click", () => {
+    samplePage = Math.min(samplePageCount - 1, samplePage + 1);
+    renderSamplePage();
+  });
+  renderSamplePage();
 }
 
 function setMapSelection(start, end) {

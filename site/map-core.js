@@ -1,6 +1,5 @@
 import {
   CLUSTER_AREA_HINTS,
-  CLUSTER_ORDER,
 } from "./graph-constants.js";
 import {
   assetLabel,
@@ -14,7 +13,6 @@ import {
   projectedGraphPosition,
   seededGraphPosition,
   seededUnit,
-  stableHash,
 } from "./map-layout.js";
 
 let mapDeps = {};
@@ -33,16 +31,18 @@ export function mapColorValue(record) {
     state.mapColor = "area-domain";
   }
   if (state.mapColor === "domain") return (record.domainTags || ["General"])[0] || "General";
+  if (state.mapColor === "embedding-cluster") return embeddingClusterColorLabel(record);
   if (state.mapColor === "cluster") return clusterColorLabel(record);
   return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
 }
 
+export function embeddingClusterColorLabel(record) {
+  return record?.embeddingClusterLabel || record?.embeddingClusterId || "Embedding cluster";
+}
+
 function clusterColorLabel(record) {
   const clusterId = record?.clusterId || "";
-  const rawLabel = record?.clusterLabel || CLUSTER_AREA_HINTS[clusterId] || "Cluster";
-  const knownIndex = CLUSTER_ORDER.indexOf(clusterId);
-  const ordinal = knownIndex >= 0 ? knownIndex + 1 : (stableHash(clusterId || rawLabel) % 90) + 10;
-  return `C${String(ordinal).padStart(2, "0")} · ${rawLabel}`;
+  return record?.clusterLabel || CLUSTER_AREA_HINTS[clusterId] || "Semantic area";
 }
 
 export function mapSemanticSearchIds(query, records, limit = 10) {
@@ -138,7 +138,8 @@ export function explainSemanticRelation(record, neighborRecord, score = 0) {
   const reasons = [];
   if (score) reasons.push(`${Number(score || 0).toFixed(2)} similarity`);
   if (tags.length) reasons.push(`shared ${tags.slice(0, 3).join(", ")}`);
-  if (record.clusterId && record.clusterId === neighborRecord.clusterId) reasons.push("same cluster");
+  if (record.embeddingClusterId && record.embeddingClusterId === neighborRecord.embeddingClusterId) reasons.push("same embedding cluster");
+  if (record.clusterId && record.clusterId === neighborRecord.clusterId) reasons.push("same semantic area");
   if (record.group && record.group === neighborRecord.group) reasons.push("same group");
   if (neighborRecord.hasPdf || neighborRecord.hasPoster || neighborRecord.hasSlide) reasons.push(assetLabel(neighborRecord));
   reasons.push(`${neighborRecord.embeddingTextQuality || "title/topic"} embedding`);
