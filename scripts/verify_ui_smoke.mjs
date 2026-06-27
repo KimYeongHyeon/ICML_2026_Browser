@@ -100,6 +100,35 @@ const initial = await page.evaluate(() => ({
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
 }));
 
+const embeddingLookupCompleteness = await page.evaluate(async () => {
+  const [index, map, manifest] = await Promise.all([
+    fetch("site/data/icml2026_index.json").then((response) => response.json()),
+    fetch("site/data/icml2026_map.json").then((response) => response.json()),
+    fetch("site/data/icml2026_index.manifest.json").then((response) => response.json()),
+  ]);
+  const shards = await Promise.all((manifest.shards || []).map((shard) => fetch(shard.url).then((response) => response.json())));
+  const records = [
+    ...(index.records || []),
+    ...(map.records || []),
+    ...shards.flatMap((shard) => shard.records || []),
+  ];
+  const clusters = new Map((map.embeddingClusters || []).map((cluster) => [cluster.id, cluster]));
+  const missing = [];
+  for (const record of records) {
+    if (!record.embeddingClusterId) continue;
+    const cluster = clusters.get(record.embeddingClusterId);
+    if (!cluster?.label || !Array.isArray(cluster.topTerms)) {
+      missing.push(`${record.id}:${record.embeddingClusterId}`);
+    }
+  }
+  return {
+    clusterCount: clusters.size,
+    checkedRecords: records.length,
+    missingCount: missing.length,
+    firstMissing: missing.slice(0, 5),
+  };
+});
+
 await page.locator('.tab[data-tab="paper"]').click();
 await page.waitForTimeout(300);
 
@@ -278,9 +307,25 @@ const embeddingMap = await page.evaluate(() => ({
     .map((cluster) => cluster.label || cluster.id),
 }));
 
+await page.locator('.tab[data-tab="paper"]').click();
+await page.waitForTimeout(200);
+await page.locator("#searchInput").fill("cluster 01");
+await page.waitForTimeout(700);
+const clusterLabelSearch = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.innerText || "";
+  const parsedCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+  return {
+    query: document.querySelector("#searchInput")?.value || "",
+    resultCount,
+    parsedCount,
+    firstTitle: document.querySelector(".result-item .result-title")?.innerText || "",
+  };
+});
+
 const report = {
   baseUrl,
   initial,
+  embeddingLookupCompleteness,
   paper,
   paperSpotlight,
   paperLatex,
@@ -295,6 +340,7 @@ const report = {
   trendRepresentativeClick,
   map,
   embeddingMap,
+  clusterLabelSearch,
   mapSearch,
   mapTooltip,
   cytoscapeTooltip,
@@ -319,6 +365,9 @@ if (!initial.hasPosterSessionBadge) {
 }
 if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\narea groups/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
   throw new Error(`header should match compact design stats: ${initial.headerStats}`);
+}
+if (embeddingLookupCompleteness.clusterCount <= 0 || embeddingLookupCompleteness.missingCount !== 0) {
+  throw new Error(`embedding cluster lookup metadata must be complete for searchable labels/keywords: ${JSON.stringify(embeddingLookupCompleteness)}`);
 }
 if (!/^6,343 results/.test(paper.resultCount)) {
   throw new Error(`unexpected paper count: ${paper.resultCount}`);
@@ -420,6 +469,9 @@ if (
   || !embeddingMap.expectedLabels.some((label) => embeddingMap.legendItems.some((item) => item.includes(label)))
 ) {
   throw new Error(`embedding cluster color mode should be selectable and render a legend: ${JSON.stringify(embeddingMap)}`);
+}
+if (clusterLabelSearch.query !== "cluster 01" || clusterLabelSearch.parsedCount <= 0) {
+  throw new Error(`embedding cluster labels should remain searchable without per-record generated labels: ${JSON.stringify(clusterLabelSearch)}`);
 }
 if (
   !mapSearch.seedCount

@@ -36,8 +36,18 @@ export function mapColorValue(record) {
   return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
 }
 
+export function embeddingClusterMeta(record) {
+  const clusterId = record?.embeddingClusterId;
+  if (!clusterId) return null;
+  return (state.mapData?.embeddingClusters || []).find((cluster) => cluster.id === clusterId) || null;
+}
+
 export function embeddingClusterColorLabel(record) {
-  return record?.embeddingClusterLabel || record?.embeddingClusterId || "Embedding cluster";
+  return record?.embeddingClusterLabel || embeddingClusterMeta(record)?.label || record?.embeddingClusterId || "Embedding cluster";
+}
+
+export function embeddingClusterSize(record) {
+  return Number(record?.embeddingClusterSize || embeddingClusterMeta(record)?.size || 0);
 }
 
 function clusterColorLabel(record) {
@@ -249,21 +259,25 @@ export function buildGraphData(visibleRecords, mapById) {
   const hasMapQuery = state.tab === "map" && Boolean(normalize(state.query));
   const nodes = [...ids].map((id) => {
     const record = recordsById.get(id);
+    const clusterMeta = embeddingClusterMeta(record);
+    const displayRecord = clusterMeta
+      ? { ...record, embeddingClusterLabel: clusterMeta.label, embeddingClusterSize: clusterMeta.size }
+      : record;
     const position = focusContext
-      ? focusedGraphPosition(id, record, focusContext)
-      : projectedGraphPosition(mapById.get(id), id, record);
+      ? focusedGraphPosition(id, displayRecord, focusContext)
+      : projectedGraphPosition(mapById.get(id), id, displayRecord);
     const depth = state.mapMode === "focused" ? focusDepth(id, selectedNeighbors, mapById) : 0;
     return {
       id,
-      record,
-      title: plainMathTitle(record?.title || ""),
-      group: mapColorValue(record || {}),
+      record: displayRecord,
+      title: plainMathTitle(displayRecord?.title || ""),
+      group: mapColorValue(displayRecord || {}),
       selected: id === state.selectedId,
       adjacent: selectedNeighbors.has(id),
       searchMatch: hasMapQuery && state.mapSearchSeedIds.has(id),
       semanticContext: hasMapQuery && state.mapSearchSemanticIds.has(id),
       depth,
-      type: record?.type || "record",
+      type: displayRecord?.type || "record",
       focusRank: focusContext?.firstHopIndex.get(id) ?? 99,
       seedX: position.x,
       seedY: position.y,

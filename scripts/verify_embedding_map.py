@@ -69,12 +69,9 @@ def main() -> None:
             errors.append(f"map record has unknown embeddingClusterId for {record_id}: {embedding_cluster_id}")
         else:
             embedding_cluster_counts[embedding_cluster_id] = embedding_cluster_counts.get(embedding_cluster_id, 0) + 1
-        if not record.get("embeddingClusterLabel"):
-            errors.append(f"map record missing embeddingClusterLabel: {record_id}")
-        if not isinstance(record.get("embeddingClusterSize"), int) or int(record.get("embeddingClusterSize") or 0) <= 0:
-            errors.append(f"map record has invalid embeddingClusterSize for {record_id}: {record.get('embeddingClusterSize')}")
-        if not str(record.get("embeddingClusterMethod") or "").startswith("hdbscan"):
-            errors.append(f"map record has non-HDBSCAN embeddingClusterMethod for {record_id}: {record.get('embeddingClusterMethod')}")
+        for duplicate_key in ("embeddingClusterLabel", "embeddingClusterSize", "embeddingClusterMethod"):
+            if duplicate_key in record:
+                errors.append(f"map record should not duplicate {duplicate_key}: {record_id}")
         for key in ("x", "y", "z"):
             value = record.get(key)
             if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
@@ -101,12 +98,9 @@ def main() -> None:
                 errors.append(f"index record missing embeddingClusterId: {record_id}")
             elif embedding_cluster_id not in embedding_cluster_ids:
                 errors.append(f"index record has unknown embeddingClusterId for {record_id}: {embedding_cluster_id}")
-            if not record.get("embeddingClusterLabel"):
-                errors.append(f"index record missing embeddingClusterLabel: {record_id}")
-            if not str(record.get("embeddingClusterMethod") or "").startswith("hdbscan"):
-                errors.append(f"index record has non-HDBSCAN embeddingClusterMethod for {record_id}: {record.get('embeddingClusterMethod')}")
-            if "fallback" in str(record.get("embeddingClusterMethod") or "").lower():
-                errors.append(f"index record uses forbidden fallback embeddingClusterMethod for {record_id}: {record.get('embeddingClusterMethod')}")
+            for duplicate_key in ("embeddingClusterLabel", "embeddingClusterSize", "embeddingClusterMethod"):
+                if duplicate_key in record:
+                    errors.append(f"index record should not duplicate {duplicate_key}: {record_id}")
 
     for cluster in embedding_clusters:
         cluster_id = str(cluster.get("id") or "")

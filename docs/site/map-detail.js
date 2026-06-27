@@ -11,6 +11,8 @@ import {
   focusedLayoutContext,
   mapColorValue,
   mapRecordById,
+  embeddingClusterColorLabel,
+  embeddingClusterSize,
   nearestDisplayNeighbors,
   selectedNeighborIds,
   sharedSemanticTags,
@@ -97,8 +99,8 @@ export function renderMapDetail(record) {
   const topScore = neighborScores.length ? Math.max(...neighborScores) : 0;
   const areaLabel = (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ") || "Other";
   const domainLabel = (record.domainTags || ["General"]).slice(0, 2).join(", ") || "General";
-  const embeddingClusterLabel = record.embeddingClusterLabel || "Embedding cluster";
-  const embeddingClusterSize = Number(record.embeddingClusterSize || 0);
+  const clusterLabel = embeddingClusterColorLabel(record);
+  const clusterSize = embeddingClusterSize(record);
   const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
@@ -108,7 +110,7 @@ export function renderMapDetail(record) {
       <div class="badges">
         ${(record.areaTags || []).slice(0, 3).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
         ${(record.domainTags || []).slice(0, 2).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
-        ${record.embeddingClusterLabel ? `<span class="badge">Cluster: ${escapeHtml(record.embeddingClusterLabel)}</span>` : ""}
+        ${record.embeddingClusterId ? `<span class="badge">Cluster: ${escapeHtml(clusterLabel)}</span>` : ""}
         <span class="badge">${escapeHtml(record.embeddingTextQuality || "unavailable")}</span>
       </div>
       <div class="selection-stat-grid">
@@ -122,7 +124,7 @@ export function renderMapDetail(record) {
       </div>
       <div class="selection-stat-block">
         <strong>Embedding cluster</strong>
-        <span><em>${escapeHtml(embeddingClusterLabel)}</em><b>${embeddingClusterSize ? embeddingClusterSize.toLocaleString() : "HDBSCAN"}</b></span>
+        <span><em>${escapeHtml(clusterLabel)}</em><b>${clusterSize ? clusterSize.toLocaleString() : "HDBSCAN"}</b></span>
       </div>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">
