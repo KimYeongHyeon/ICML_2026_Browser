@@ -71,6 +71,7 @@ import { loadSearchEmbeddings } from "./semantic-search.js";
 
 let fullRecordsPromise = null;
 let mapDataPromise = null;
+let mapPreloadScheduled = false;
 let searchEmbeddingsStarted = false;
 
 configureMapCore({ findDisplayRecord });
@@ -248,6 +249,19 @@ function scheduleFullRecordsHydration() {
   }, 3000);
 }
 
+function scheduleMapDataPreload() {
+  if (mapPreloadScheduled || state.mapData?.records?.length) return;
+  mapPreloadScheduled = true;
+  const preload = () => {
+    void ensureMapData();
+  };
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(preload, { timeout: 1800 });
+  } else {
+    window.setTimeout(preload, 900);
+  }
+}
+
 function renderAll() {
   els.tabs.forEach((button) => {
     const count = button.dataset.tab === "map"
@@ -404,6 +418,7 @@ async function init() {
   updateHeader();
   updateClusterLevelVisibility();
   renderAll();
+  scheduleMapDataPreload();
   scheduleFullRecordsHydration();
   window.addEventListener("icml-semantic-search-ready", (event) => {
     if (state.tab !== "map") return;
@@ -434,6 +449,10 @@ async function init() {
       renderAll();
       window.scrollTo(0, 0);
     });
+    if (button.dataset.tab === "map") {
+      button.addEventListener("pointerenter", scheduleMapDataPreload);
+      button.addEventListener("focus", scheduleMapDataPreload);
+    }
   });
 
   els.search.addEventListener("input", (event) => {
