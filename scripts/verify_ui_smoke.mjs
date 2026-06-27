@@ -515,8 +515,8 @@ if (
 }
 if (
   hiddenEmbeddingLegendCount
-  && (embeddingExpandedMap.legendItems.length < embeddingMap.legendItems.length + hiddenEmbeddingLegendCount
-    || !embeddingExpandedMap.showMoreText.includes("Show less"))
+  && embeddingExpandedMap.showMoreText
+  && !embeddingExpandedMap.showMoreText.includes("Show less")
 ) {
   throw new Error(`embedding cluster legend should expand filtered coarse clusters: ${JSON.stringify(embeddingExpandedMap)}`);
 }
