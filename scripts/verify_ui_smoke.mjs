@@ -128,7 +128,18 @@ const paperLatex = await page.evaluate(() => ({
 }));
 await page.waitForSelector(".mini-graph canvas", { timeout: 30000 });
 await page.evaluate(() => document.querySelector(".mini-graph")?.scrollIntoView({ block: "center" }));
-await page.waitForTimeout(900);
+await page.waitForTimeout(1900);
+const miniInitialFit = await page.evaluate(() => {
+  const graph = document.querySelector(".mini-graph");
+  const box = graph?.getBoundingClientRect();
+  const points = window.__icmlMapDebug?.miniProbePoints?.(40) || [];
+  const outside = box ? points.filter((point) => point.x < 8 || point.y < 8 || point.x > box.width - 8 || point.y > box.height - 8) : points;
+  return {
+    points: points.length,
+    outside: outside.slice(0, 5),
+    hasStudyPack: /Topic study pack/i.test(document.querySelector("#viewerFrame")?.innerText || ""),
+  };
+});
 const miniProbePoints = await page.evaluate(() => window.__icmlMapDebug?.miniProbePoints?.(40) || []);
 const miniTooltip = await scanGraphTooltipAtPoints(".mini-graph", miniProbePoints) || await scanGraphTooltip(".mini-graph", centerGrid);
 const miniControlsBefore = await page.evaluate(() => ({
@@ -330,6 +341,9 @@ if (paperLatex.viewerAbstractText && /\\(?:texttt|mathrm|mathbb|mathcal)|\{[^{}]
 }
 if (!miniTooltip.includes("Area:") || !miniTooltip.includes("Domain:")) {
   throw new Error(`mini semantic graph tooltip did not expose title and area/domain decoder: ${miniTooltip}`);
+}
+if (miniInitialFit.hasStudyPack || miniInitialFit.points === 0 || miniInitialFit.outside.length) {
+  throw new Error(`mini semantic graph should start fitted and should not duplicate Topic study pack: ${JSON.stringify(miniInitialFit)}`);
 }
 if (!miniControlsBefore.labels.includes("Fit") || !miniControlsBefore.labels.some((label) => label.includes("Depth: 1-hop")) || miniControlsBefore.info.depth !== "first") {
   throw new Error(`mini semantic graph controls missing or wrong initial depth: ${JSON.stringify(miniControlsBefore)}`);
