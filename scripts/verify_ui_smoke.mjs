@@ -291,6 +291,7 @@ const map = await page.evaluate(() => ({
   hasCanvas: Boolean(document.querySelector("#mapCanvas canvas")),
   colorLabels: [...document.querySelectorAll("#mapColorSelect option")].map((option) => option.textContent || ""),
   colorValue: document.querySelector("#mapColorSelect")?.value || "",
+  clusterLevelHidden: Boolean(document.querySelector("#mapClusterLevelSetting")?.hidden),
   legendNote: document.querySelector(".legend-note")?.innerText || "",
   tooltipCount: document.querySelectorAll(".graph-node-tooltip").length,
 }));
@@ -301,6 +302,7 @@ await page.waitForTimeout(900);
 const embeddingMap = await page.evaluate(() => ({
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
   colorValue: document.querySelector("#mapColorSelect")?.value || "",
+  clusterLevelHidden: Boolean(document.querySelector("#mapClusterLevelSetting")?.hidden),
   clusterLevelValue: document.querySelector("#mapClusterLevelSelect")?.value || "",
   legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
   showMoreText: document.querySelector(".legend-more")?.textContent || "",
@@ -493,6 +495,9 @@ if (!map.activeSummary.includes("global") || !map.activeSummary.includes("area +
 if (map.colorValue !== "area-domain" || !map.legendNote.includes("Fill = research area") || !map.legendNote.includes("Ring = domain")) {
   throw new Error(`area/domain mode should be the default and explain fill/ring semantics: ${JSON.stringify(map)}`);
 }
+if (!map.clusterLevelHidden) {
+  throw new Error(`cluster-level selector should stay hidden outside embedding cluster mode: ${JSON.stringify(map)}`);
+}
 if (/\b(Circle|Square|Diamond|Triangle)\b/.test(map.legendNote)) {
   throw new Error(`area/domain legend should show domain names, not raw shape names: ${JSON.stringify(map)}`);
 }
@@ -505,6 +510,7 @@ if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
 if (
   embeddingMap.colorValue !== "embedding-cluster"
   || embeddingMap.clusterLevelValue !== "15"
+  || embeddingMap.clusterLevelHidden
   || !embeddingMap.activeSummary.includes("embedding cluster")
   || !embeddingMap.activeSummary.includes("15 clusters")
   || embeddingMap.expectedCount !== 15
