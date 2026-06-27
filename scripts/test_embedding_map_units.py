@@ -188,6 +188,29 @@ def test_search_embedding_payload_is_quantized_and_excludes_posters() -> None:
     assert payload["records"][0]["vector"]
 
 
+def test_site_startup_record_excludes_heavy_fields() -> None:
+    builder = importlib.import_module("scripts.build_icml_site")
+    record = {
+        "id": "paper-1",
+        "type": "paper",
+        "title": "Fast Loading",
+        "abstract": "Large abstract",
+        "authors": "Ada",
+        "failureReason": "Long crawl log",
+        "classificationReason": "Long classifier explanation",
+        "sourceCheckedAt": "2026-06-28T00:00:00Z",
+        "mapAvailable": True,
+    }
+    startup = builder.slim_record(record)
+    assert startup == {
+        "id": "paper-1",
+        "type": "paper",
+        "title": "Fast Loading",
+        "authors": "Ada",
+        "mapAvailable": True,
+    }
+
+
 def run() -> None:
     test_semantic_config_exports_taxonomies()
     test_validate_tags_rejects_unknown_values()
@@ -198,6 +221,7 @@ def run() -> None:
     test_compute_neighbors_resolves_known_ids()
     test_embedding_clusters_are_not_area_aliases()
     test_search_embedding_payload_is_quantized_and_excludes_posters()
+    test_site_startup_record_excludes_heavy_fields()
     print("embedding map unit tests passed")
 
 
