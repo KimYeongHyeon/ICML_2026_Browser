@@ -48,7 +48,7 @@ The map is meant to support quick conference study:
 - filter by research area or domain,
 - search semantically rather than only by exact keyword,
 - click a paper to inspect its nearest neighbors,
-- use the topic study pack to build a reading path.
+- use the semantic neighborhood to build a reading path.
 
 In the map legend:
 
@@ -91,7 +91,7 @@ The current index uses SPECTER2-style scientific-paper embeddings for:
 - map coordinates,
 - nearest-neighbor links,
 - semantic search,
-- topic study packs.
+- semantic neighborhood views.
 
 When the browser-side query embedding model is still loading, the map can show an immediate lexical fallback and then rerender with semantic matches once the model is ready.
 

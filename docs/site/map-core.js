@@ -145,49 +145,6 @@ export function explainSemanticRelation(record, neighborRecord, score = 0) {
   return reasons.slice(0, 5).join(" · ");
 }
 
-export function buildTopicStudyPack(record, options = {}) {
-  const limit = options.limit || 6;
-  const mapById = mapRecordById();
-  const direct = nearestDisplayNeighbors(record, mapById, Math.max(12, limit * 2));
-  const selectedArea = new Set(record.areaTags || categoryTags(record));
-  const selectedDomain = new Set(record.domainTags || []);
-  const scored = direct.map((item) => {
-    const neighbor = item.record;
-    const sharedTags = sharedSemanticTags(record, neighbor);
-    const neighborAreas = new Set(neighbor.areaTags || categoryTags(neighbor));
-    const neighborDomains = new Set(neighbor.domainTags || []);
-    const areaBridge = [...neighborAreas].some((tag) => !selectedArea.has(tag));
-    const domainBridge = [...neighborDomains].some((tag) => !selectedDomain.has(tag));
-    const usefulAsset = neighbor.hasPdf || neighbor.hasPoster || neighbor.hasSlide ? 1 : 0;
-    const sameCluster = record.clusterId && record.clusterId === neighbor.clusterId ? 1 : 0;
-    const sharedRatio = sharedTags.length / Math.max(1, new Set([
-      ...(record.areaTags || []),
-      ...(record.domainTags || []),
-      ...categoryTags(record),
-    ]).size);
-    const packScore = (0.7 * Number(item.score || 0)) + (0.15 * sharedRatio) + (0.1 * sameCluster) + (0.05 * usefulAsset);
-    return {
-      ...item,
-      packScore,
-      reason: explainSemanticRelation(record, neighbor, item.score),
-      bridge: areaBridge || domainBridge,
-      usefulAsset: Boolean(usefulAsset),
-    };
-  });
-  const close = scored.slice(0, limit);
-  const bridge = scored.filter((item) => item.bridge).slice(0, 2);
-  const ready = scored.filter((item) => item.usefulAsset).slice(0, 2);
-  const selected = [];
-  const seen = new Set();
-  for (const item of [...close, ...bridge, ...ready].sort((left, right) => right.packScore - left.packScore)) {
-    if (seen.has(item.record.id)) continue;
-    seen.add(item.record.id);
-    selected.push({ ...item, rank: selected.length + 1 });
-    if (selected.length >= limit) break;
-  }
-  return selected;
-}
-
 function focusedGraphIds(visibleIds, mapById, selectedId = state.selectedId) {
   if (!selectedId || !visibleIds.has(selectedId)) return visibleIds;
   const ids = new Set([selectedId]);

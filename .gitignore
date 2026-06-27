@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .superpowers/
 .gstack/
+.omo/
 .venv-embed/
 .serena/
 .playwright-mcp/
