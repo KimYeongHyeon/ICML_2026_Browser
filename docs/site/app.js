@@ -121,9 +121,16 @@ async function renderMap() {
   });
   els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
   const query = normalize(state.query);
+  const colorSummary = {
+    "area-domain": "area + domain",
+    "embedding-cluster": "embedding cluster",
+    cluster: "semantic area group",
+    area: "research area",
+    domain: "domain",
+  }[state.mapColor] || state.mapColor;
   els.activeSummary.textContent = activeFilterSummary("Map", [
     state.mapMode,
-    state.mapColor === "area-domain" ? "area + domain" : state.mapColor,
+    colorSummary,
     state.mapFilterValue,
     mapSearchSummary(visibleRecords, query),
   ]);

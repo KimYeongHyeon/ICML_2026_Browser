@@ -59,7 +59,7 @@ export function renderMapLegend(visibleRecords, onFilterChange) {
       <strong>${allCount.toLocaleString()}</strong>
     </button>
   ` + items.map(([value, count]) => `
-    <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(state.mapColor === "area-domain" ? `Filter area: ${value}` : value)}">
+    <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(state.mapColor === "area-domain" ? `Filter area: ${value}` : state.mapColor === "embedding-cluster" ? `Filter embedding cluster: ${value}` : value)}">
       <span class="legend-swatch" style="background:${colorForValue(value)}"></span>
       <span>${escapeHtml(value)}</span>
       <strong>${count.toLocaleString()}</strong>

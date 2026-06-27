@@ -94,7 +94,9 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
 
     cluster_records: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
-        cluster_id = str(record.get("_map", {}).get("clusterId") or record.get("clusterId") or "cluster-other")
+        cluster_id = str(record.get("_map", {}).get("embeddingClusterId") or record.get("embeddingClusterId") or "")
+        if not cluster_id:
+            raise SystemExit(f"Missing embeddingClusterId for mapped record {record.get('id')}")
         cluster_records[cluster_id].append(record)
 
     document_frequency: Counter[str] = Counter()
@@ -135,7 +137,11 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
             scored_keywords.append((count * idf * phrase_bonus, phrase))
         scored_keywords.sort(key=lambda item: (-item[0], item[1]))
         keywords = [clean_keyword(keyword) for _, keyword in scored_keywords[:8]]
-        cluster_label = str(members[0].get("clusterLabel") or cluster_id.replace("cluster-", "").replace("-", " ").title())
+        cluster_label = str(
+            members[0].get("embeddingClusterLabel")
+            or members[0].get("clusterLabel")
+            or cluster_id.replace("embedding-cluster-", "Cluster ").replace("cluster-", "").replace("-", " ").title()
+        )
         name_terms = [cluster_label]
         name_terms.extend(keyword for keyword in keywords if keyword.lower() != cluster_label.lower())
         name = " + ".join(name_terms[:2])
@@ -161,11 +167,12 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
             if len(sentences) >= 3:
                 break
 
-        trend_keywords = keywords[:5] or [str(members[0].get("clusterLabel") or "mapped records")]
+        trend_keywords = keywords[:5] or [str(members[0].get("embeddingClusterLabel") or members[0].get("clusterLabel") or "mapped records")]
         trends.append({
             "id": cluster_id,
             "clusterId": cluster_id,
             "clusterLabel": cluster_label,
+            "clusterMethod": str(members[0].get("embeddingClusterMethod") or ""),
             "name": name,
             "size": len(members),
             "keywords": trend_keywords,

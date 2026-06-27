@@ -133,6 +133,7 @@ function nearestNodeAtScreen(point, maxDist = 24) {
 function renderMapSelectionSummary(nodes) {
   const records = nodes.map((node) => node.record).filter(Boolean);
   const areas = countLabels(records.map((record) => record.areaTags || []));
+  const embeddingClusters = countLabels(records.map((record) => [record.embeddingClusterLabel || record.embeddingClusterId || "Unclustered"]));
   const groups = countLabels(records.map((record) => [record.group || record.clusterLabel || "Other"]));
   const types = countLabels(records.map((record) => [typeLabel(record.type)]));
   const samplePageCount = Math.max(1, Math.ceil(records.length / SELECTION_SAMPLE_PAGE_SIZE));
@@ -177,6 +178,10 @@ function renderMapSelectionSummary(nodes) {
       <div class="selection-stat-block">
         <strong>Top areas</strong>
         ${areas.slice(0, 6).map(([label, count]) => `<span><em>${escapeHtml(label)}</em><b>${count.toLocaleString()}</b></span>`).join("") || "<small>No area tags</small>"}
+      </div>
+      <div class="selection-stat-block selection-stat-block-clusters">
+        <strong>Top embedding clusters</strong>
+        ${embeddingClusters.slice(0, 5).map(([label, count]) => `<span class="selection-stat-row"><em class="selection-stat-label">${escapeHtml(label)}</em><b class="selection-stat-count">${count.toLocaleString()}</b></span>`).join("") || "<small>No embedding clusters</small>"}
       </div>
       <div class="selection-stat-block selection-stat-block-groups">
         <strong>Top groups</strong>

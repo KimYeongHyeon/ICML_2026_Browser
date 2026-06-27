@@ -132,9 +132,11 @@ export function updateHeader() {
   const papers = records.filter((record) => record.type === "paper");
   const workshops = records.filter((record) => record.type === "workshop");
   const areaGroups = new Set(records.map((record) => record.clusterLabel || record.clusterId).filter(Boolean)).size;
+  const embeddingClusters = new Set(records.map((record) => record.embeddingClusterId).filter(Boolean)).size;
   els.headerStats.innerHTML = [
     ["records", papers.length + workshops.length],
     ["area groups", areaGroups],
+    ["embedding clusters", embeddingClusters],
     ["workshops", workshops.length],
   ].filter(([, value]) => value > 0)
     .map(([label, value]) => `<span class="stat-pill"><strong>${value.toLocaleString()}</strong> ${label}</span>`)

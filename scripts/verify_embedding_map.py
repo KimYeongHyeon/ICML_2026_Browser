@@ -29,16 +29,52 @@ def main() -> None:
     map_data = load(map_path)
     search_data = load(config.SEARCH_EMBEDDINGS_PATH) if config.SEARCH_EMBEDDINGS_PATH.exists() else None
     sidecar_data = load(config.SEMANTIC_SIDECAR_PATH) if config.SEMANTIC_SIDECAR_PATH.exists() else None
+    trend_data = load(config.TRENDS_PATH) if config.TRENDS_PATH.exists() else None
     index_records = index.get("records", [])
     visible_ids = {str(record["id"]) for record in index_records}
     map_records = map_data.get("records", [])
     map_ids = {str(record["id"]) for record in map_records}
+    embedding_clusters = map_data.get("embeddingClusters", [])
+    embedding_cluster_ids = {str(cluster.get("id")) for cluster in embedding_clusters}
+    embedding_cluster_counts: dict[str, int] = {}
     errors: list[str] = []
+
+    if not embedding_clusters:
+        errors.append("embeddingClusters is missing or empty; rebuild must use real HDBSCAN clusters")
+    non_noise_clusters = [cluster for cluster in embedding_clusters if cluster.get("id") != "embedding-noise"]
+    if len(non_noise_clusters) < 2:
+        errors.append("embeddingClusters must include at least two non-noise HDBSCAN clusters")
+    projection_method = str((map_data.get("projection") or {}).get("method") or "")
+    if not projection_method or "fallback" in projection_method.lower():
+        errors.append(f"projection method must not advertise fallback: {projection_method}")
+    for cluster in embedding_clusters:
+        cluster_id = str(cluster.get("id") or "")
+        if not cluster_id:
+            errors.append("embedding cluster missing id")
+        if not str(cluster.get("method") or "").startswith("hdbscan"):
+            errors.append(f"embedding cluster {cluster_id} has non-HDBSCAN method: {cluster.get('method')}")
+        if not isinstance(cluster.get("size"), int) or int(cluster.get("size") or 0) <= 0:
+            errors.append(f"embedding cluster {cluster_id} has invalid size: {cluster.get('size')}")
+        if "fallback" in str(cluster.get("method") or "").lower():
+            errors.append(f"embedding cluster {cluster_id} uses forbidden fallback method: {cluster.get('method')}")
 
     for record in map_records:
         record_id = str(record.get("id"))
         if record_id not in visible_ids:
             errors.append(f"map record does not exist in index: {record_id}")
+        embedding_cluster_id = str(record.get("embeddingClusterId") or "")
+        if not embedding_cluster_id:
+            errors.append(f"map record missing embeddingClusterId: {record_id}")
+        elif embedding_cluster_id not in embedding_cluster_ids:
+            errors.append(f"map record has unknown embeddingClusterId for {record_id}: {embedding_cluster_id}")
+        else:
+            embedding_cluster_counts[embedding_cluster_id] = embedding_cluster_counts.get(embedding_cluster_id, 0) + 1
+        if not record.get("embeddingClusterLabel"):
+            errors.append(f"map record missing embeddingClusterLabel: {record_id}")
+        if not isinstance(record.get("embeddingClusterSize"), int) or int(record.get("embeddingClusterSize") or 0) <= 0:
+            errors.append(f"map record has invalid embeddingClusterSize for {record_id}: {record.get('embeddingClusterSize')}")
+        if not str(record.get("embeddingClusterMethod") or "").startswith("hdbscan"):
+            errors.append(f"map record has non-HDBSCAN embeddingClusterMethod for {record_id}: {record.get('embeddingClusterMethod')}")
         for key in ("x", "y", "z"):
             value = record.get(key)
             if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
@@ -60,6 +96,24 @@ def main() -> None:
             errors.extend(f"unknown domain tag for {record_id}: {tag}" for tag in config.validate_domain_tags(record.get("domainTags") or []))
             if record.get("embeddingTextQuality") not in {"title_abstract", "title_topic", "title_only"}:
                 errors.append(f"invalid embeddingTextQuality for {record_id}: {record.get('embeddingTextQuality')}")
+            embedding_cluster_id = str(record.get("embeddingClusterId") or "")
+            if not embedding_cluster_id:
+                errors.append(f"index record missing embeddingClusterId: {record_id}")
+            elif embedding_cluster_id not in embedding_cluster_ids:
+                errors.append(f"index record has unknown embeddingClusterId for {record_id}: {embedding_cluster_id}")
+            if not record.get("embeddingClusterLabel"):
+                errors.append(f"index record missing embeddingClusterLabel: {record_id}")
+            if not str(record.get("embeddingClusterMethod") or "").startswith("hdbscan"):
+                errors.append(f"index record has non-HDBSCAN embeddingClusterMethod for {record_id}: {record.get('embeddingClusterMethod')}")
+            if "fallback" in str(record.get("embeddingClusterMethod") or "").lower():
+                errors.append(f"index record uses forbidden fallback embeddingClusterMethod for {record_id}: {record.get('embeddingClusterMethod')}")
+
+    for cluster in embedding_clusters:
+        cluster_id = str(cluster.get("id") or "")
+        expected_size = int(cluster.get("size") or 0)
+        actual_size = embedding_cluster_counts.get(cluster_id, 0)
+        if expected_size != actual_size:
+            errors.append(f"embedding cluster size mismatch for {cluster_id}: listed={expected_size}, assigned={actual_size}")
 
     if search_data:
         search_ids = {str(record.get("id")) for record in search_data.get("records", [])}
@@ -76,6 +130,14 @@ def main() -> None:
             vector = record.get("vector")
             if not isinstance(vector, str) or (expected_bytes and len(vector) < expected_bytes - 4):
                 errors.append(f"invalid search vector encoding for {record.get('id')}")
+
+    if trend_data:
+        for trend in trend_data.get("trends", []):
+            cluster_id = str(trend.get("clusterId") or "")
+            if cluster_id not in embedding_cluster_ids:
+                errors.append(f"trend references unknown embedding cluster: {cluster_id}")
+            if not str(trend.get("clusterMethod") or "").startswith("hdbscan"):
+                errors.append(f"trend has non-HDBSCAN clusterMethod for {cluster_id}: {trend.get('clusterMethod')}")
     embedding_summary = index.get("summary", {}).get("embedding") or {}
     expected = embedding_summary.get("expectedFingerprint")
     map_actual = (map_data.get("embeddingSource") or {}).get("sourceFingerprint")
@@ -105,6 +167,7 @@ def main() -> None:
     print(f"- index records: {len(index_records):,}")
     print(f"- map records: {len(map_records):,}")
     print(f"- clusters: {len(map_data.get('clusters', [])):,}")
+    print(f"- embedding clusters: {len(embedding_clusters):,}")
     if search_data:
         print(f"- search embeddings: {len(search_data.get('records', [])):,}")
 
