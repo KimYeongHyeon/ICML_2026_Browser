@@ -291,6 +291,7 @@ export function renderResults() {
   els.results.querySelectorAll(".result-item").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
+      state.viewerMapRequested = true;
       const selected = findDisplayRecord(state.selectedId);
       renderResults();
       renderViewer(selected);

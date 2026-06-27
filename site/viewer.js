@@ -255,6 +255,11 @@ export function renderViewer(record) {
     button.setAttribute("aria-pressed", String(zoomed));
     if (!zoomed) preview.scrollIntoView({ block: "start" });
   });
+  if (state.viewerMapRequested && record.mapAvailable && !state.mapData?.records?.length && viewerDeps.ensureMapData) {
+    void viewerDeps.ensureMapData().then((payload) => {
+      if (payload?.records?.length && state.selectedId === record.id) renderViewer(record);
+    });
+  }
   const miniMap = viewerDeps.renderMiniMap(record);
   if (miniMap) {
     els.viewerFrame.insertAdjacentHTML("beforeend", miniMap);

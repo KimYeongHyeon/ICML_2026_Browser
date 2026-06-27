@@ -69,6 +69,10 @@ import {
 import { renderMapLegend } from "./map-legend.js";
 import { loadSearchEmbeddings } from "./semantic-search.js";
 
+let fullRecordsPromise = null;
+let mapDataPromise = null;
+let searchEmbeddingsStarted = false;
+
 configureMapCore({ findDisplayRecord });
 configureMapEngine({
   ensureMapSelectionBox,
@@ -104,8 +108,13 @@ async function renderMap() {
   if (state.tab !== "map") return;
   const renderToken = ++state.mapRenderToken;
   if (!state.mapData?.records?.length) {
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Loading map</strong><span>Reading the precomputed semantic graph.</span></div>`;
+    await ensureMapData();
+    if (renderToken !== state.mapRenderToken || state.tab !== "map") return;
+  }
+  if (!state.mapData?.records?.length) {
     state.mapGraph = null;
-    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No map data</strong><span>Run the semantic map builder.</span></div>`;
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No map data</strong><span>The precomputed semantic graph could not be loaded.</span></div>`;
     renderMapDetail(null);
     return;
   }
@@ -177,6 +186,7 @@ async function renderMap() {
 configureViewer({
   controlMiniGraph,
   destroyMiniGraph,
+  ensureMapData,
   findDisplayRecord,
   mountMiniGraph,
   renderMap,
@@ -208,17 +218,12 @@ function renderDataHealthNote() {
 
 async function hydrateFullRecords() {
   if (!state.dataManifest || state.dataShardsLoaded) return;
-  let records;
-  try {
-    records = await loadShardRecords(state.dataManifest);
-  } catch {
-    return;
-  }
+  const records = await loadShardRecords(state.dataManifest);
   if (!records?.length) return;
   const selectedId = state.selectedId;
   const shouldRestoreMapViewer = state.tab === "map" && selectedId;
   const enrichedRecords = enrichPaperPresentationRecords(records);
-  enrichEmbeddingClusterRecords(enrichedRecords);
+  if (state.mapData?.records?.length) enrichEmbeddingClusterRecords(enrichedRecords);
   state.data.records = enrichedRecords;
   state.dataShardsLoaded = true;
   refreshSearchWorkerIndex();
@@ -231,10 +236,22 @@ async function hydrateFullRecords() {
   }
 }
 
+function hydrateFullRecordsInBackground() {
+  if (fullRecordsPromise || state.dataShardsLoaded) return fullRecordsPromise;
+  fullRecordsPromise = hydrateFullRecords().catch(() => null);
+  return fullRecordsPromise;
+}
+
+function scheduleFullRecordsHydration() {
+  window.setTimeout(() => {
+    void hydrateFullRecordsInBackground();
+  }, 3000);
+}
+
 function renderAll() {
   els.tabs.forEach((button) => {
     const count = button.dataset.tab === "map"
-      ? displayRecords().filter((record) => record.mapAvailable && mapRecordById().has(record.id)).length
+      ? displayRecords().filter((record) => record.mapAvailable && (!state.mapData?.records?.length || mapRecordById().has(record.id))).length
       : displayRecords().filter((record) => record.type === button.dataset.tab).length;
     button.hidden = count === 0;
     button.classList.toggle("is-active", button.dataset.tab === state.tab);
@@ -265,6 +282,8 @@ function applyFilterChange({ clearQuery = false } = {}) {
     els.mapSearch.value = state.query;
   }
   queueWorkerSearch();
+  if (state.query) void hydrateFullRecordsInBackground();
+  if (state.tab === "map" && state.query) loadSearchEmbeddingsInBackground();
   state.mapFilterValue = "";
   clearMapSelection();
   resetResultWindow();
@@ -281,8 +300,34 @@ function rerenderActiveMapQuery() {
 }
 
 function loadSearchEmbeddingsInBackground() {
+  if (searchEmbeddingsStarted) return;
+  searchEmbeddingsStarted = true;
   void loadSearchEmbeddings(SEARCH_EMBEDDINGS_URL)
     .finally(rerenderActiveMapQuery);
+}
+
+async function ensureMapData() {
+  if (state.mapData?.records?.length) return state.mapData;
+  if (!mapDataPromise) {
+    mapDataPromise = fetch(MAP_URL)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Failed to load ${MAP_URL} (${response.status})`);
+        return response.json();
+      })
+      .then((payload) => {
+        state.mapData = payload;
+        enrichEmbeddingClusterRecords(state.data?.records || []);
+        refreshSearchWorkerIndex();
+        queueWorkerSearch();
+        updateHeader();
+        return payload;
+      })
+      .catch(() => {
+        state.mapData = null;
+        return null;
+      });
+  }
+  return mapDataPromise;
 }
 
 function enrichEmbeddingClusterRecords(records) {
@@ -349,24 +394,15 @@ async function init() {
   state.dataManifest = loaded.manifest;
   state.data.records = enrichPaperPresentationRecords(state.data.records || []);
   renderDataHealthNote();
-  try {
-    const mapResponse = await fetch(MAP_URL);
-    state.mapData = mapResponse.ok ? await mapResponse.json() : null;
-  } catch {
-    state.mapData = null;
-  }
-  enrichEmbeddingClusterRecords(state.data.records);
   refreshSearchWorkerIndex();
   updateHeader();
   renderAll();
-  void hydrateFullRecords();
+  scheduleFullRecordsHydration();
   window.addEventListener("icml-semantic-search-ready", (event) => {
     if (state.tab !== "map") return;
     if (normalize(state.query) !== event.detail?.query) return;
     renderMap();
   });
-  loadSearchEmbeddingsInBackground();
-
   els.tabs.forEach((button) => {
     button.addEventListener("click", () => {
       const nextTab = button.dataset.tab;
@@ -383,6 +419,7 @@ async function init() {
       state.mapFilterValue = "";
       if (nextTab === "map") {
         state.selectedId = "";
+        loadSearchEmbeddingsInBackground();
       }
       clearMapSelection();
       els.asset.value = "all";
