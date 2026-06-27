@@ -86,6 +86,7 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
         if record.get("type") != "poster"
     }
     map_by_id = {str(record.get("id")): record for record in map_data.get("records", [])}
+    cluster_by_id = {str(cluster.get("id")): cluster for cluster in map_data.get("embeddingClusters", [])}
     records = [
         {**index_by_id[record_id], "_map": map_record}
         for record_id, map_record in map_by_id.items()
@@ -137,8 +138,9 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
             scored_keywords.append((count * idf * phrase_bonus, phrase))
         scored_keywords.sort(key=lambda item: (-item[0], item[1]))
         keywords = [clean_keyword(keyword) for _, keyword in scored_keywords[:8]]
+        cluster = cluster_by_id.get(cluster_id, {})
         cluster_label = str(
-            members[0].get("embeddingClusterLabel")
+            cluster.get("label")
             or members[0].get("clusterLabel")
             or cluster_id.replace("embedding-cluster-", "Cluster ").replace("cluster-", "").replace("-", " ").title()
         )
@@ -167,12 +169,12 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
             if len(sentences) >= 3:
                 break
 
-        trend_keywords = keywords[:5] or [str(members[0].get("embeddingClusterLabel") or members[0].get("clusterLabel") or "mapped records")]
+        trend_keywords = keywords[:5] or [str(cluster.get("label") or members[0].get("clusterLabel") or "mapped records")]
         trends.append({
             "id": cluster_id,
             "clusterId": cluster_id,
             "clusterLabel": cluster_label,
-            "clusterMethod": str(members[0].get("embeddingClusterMethod") or ""),
+            "clusterMethod": str(cluster.get("method") or ""),
             "name": name,
             "size": len(members),
             "keywords": trend_keywords,

@@ -327,9 +327,6 @@ def build_semantic_payload(
             "z": round(point_3d[2] if len(point_3d) > 2 else 0.0, 6),
             "clusterId": cluster_id,
             "embeddingClusterId": embedding_cluster["id"],
-            "embeddingClusterLabel": embedding_cluster["label"],
-            "embeddingClusterSize": embedding_cluster["size"],
-            "embeddingClusterMethod": embedding_cluster["method"],
             "nearestNeighbors": neighbors[record_id],
         })
         semantic_sidecar[record_id] = {
@@ -338,10 +335,7 @@ def build_semantic_payload(
             "clusterId": cluster_id,
             "clusterLabel": cluster_label,
             "embeddingClusterId": embedding_cluster["id"],
-            "embeddingClusterLabel": embedding_cluster["label"],
-            "embeddingClusterSize": embedding_cluster["size"],
             "embeddingClusterKeywords": embedding_cluster["keywords"],
-            "embeddingClusterMethod": embedding_cluster["method"],
             "classificationConfidence": 0.6 if payload["quality"] == "title_abstract" else 0.35,
             "classificationReason": f"Keyword-supported semantic classification from {payload['quality']} text.",
             "embeddingTextQuality": payload["quality"],
