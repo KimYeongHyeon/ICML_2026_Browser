@@ -232,6 +232,34 @@ const localPdf = await page.evaluate(() => ({
   canvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
 }));
 
+await page.route(/224-speedrunning-gpt3.*\.pdf/i, async (route) => {
+  await page.waitForTimeout(350);
+  await route.abort("failed");
+});
+await page.locator("#searchInput").fill("Speedrunning GPT3");
+await page.waitForTimeout(300);
+await page.locator(".result-item").first().click();
+await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
+await page.waitForTimeout(50);
+await page.locator("#searchInput").fill("MoSE: Mixture of Slimmable Experts");
+await page.waitForTimeout(300);
+await page.locator(".result-item").first().click();
+await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
+await page.waitForFunction(() => {
+  const shell = document.querySelector(".pdfjs-shell");
+  const status = shell?.querySelector("[data-pdf-status]")?.textContent || "";
+  return shell && !shell.classList.contains("has-error") && /\d+ \/ \d+/.test(status);
+}, null, { timeout: 60000 });
+await page.unroute(/224-speedrunning-gpt3.*\.pdf/i);
+const rapidPdfSwitch = await page.evaluate(() => ({
+  viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
+  hasError: Boolean(document.querySelector(".pdfjs-shell.has-error")),
+  status: document.querySelector("[data-pdf-status]")?.textContent || "",
+  source: document.querySelector(".pdfjs-shell")?.dataset.pdfSrc || "",
+  canvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
+  canvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
+}));
+
 await page.locator('.tab[data-tab="map"]').click();
 await page.waitForSelector("#mapCanvas canvas", { timeout: 30000 });
 await page.waitForSelector(".trend-card", { timeout: 30000 });
@@ -321,7 +349,10 @@ const embeddingMap = await page.evaluate(() => ({
     ?.clusters.length || 0,
 }));
 const hiddenEmbeddingLegendCount = Number(embeddingMap.showMoreText.match(/\(([\d,]+)\)/)?.[1]?.replace(/,/g, "") || 0);
-if (hiddenEmbeddingLegendCount) await page.locator(".legend-more").click();
+if (hiddenEmbeddingLegendCount) {
+  await page.waitForFunction(() => document.querySelector(".legend-more")?.isConnected);
+  await page.locator(".legend-more").last().click({ force: true });
+}
 await page.waitForTimeout(250);
 const embeddingExpandedMap = await page.evaluate(() => ({
   legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
@@ -377,6 +408,7 @@ const report = {
   paperSpotlight,
   paperLatex,
   localPdf,
+  rapidPdfSwitch,
   miniTooltip,
   miniControlsBefore,
   miniAfterZoom,
@@ -442,6 +474,9 @@ if (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openRevie
 }
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
+}
+if (!rapidPdfSwitch.viewerTitle.includes("MoSE") || rapidPdfSwitch.hasError || !/\d+ \/ \d+/.test(rapidPdfSwitch.status) || !rapidPdfSwitch.canvasWidth || !rapidPdfSwitch.canvasHeight) {
+  throw new Error(`stale failed PDF loads must not clear the newly selected PDF viewer task: ${JSON.stringify(rapidPdfSwitch)}`);
 }
 if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.viewerTitle}`)) {
   throw new Error(`raw LaTeX command leaked into paper title: ${JSON.stringify(paperLatex)}`);
