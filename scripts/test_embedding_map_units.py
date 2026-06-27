@@ -109,14 +109,42 @@ def test_embedding_clusters_are_not_area_aliases() -> None:
         [-0.96, 0.01, -0.02],
         [-0.94, -0.03, 0.01],
     ]
-    map_payload, sidecar = builder.build_semantic_payload(
-        records,
-        vectors,
-        payloads,
-        {"sourceFingerprint": "sha256:test"},
-        embedding_cluster_min_size=2,
-        embedding_cluster_min_samples=1,
-    )
+    def fake_embedding_clusters(ids, vectors, records, min_cluster_size=2, min_samples=1):
+        clusters = [
+            {"id": "embedding-cluster-001", "label": "Cluster 01: reasoning / language", "size": 4, "topTerms": ["reasoning", "language"], "method": "hdbscan-test"},
+            {"id": "embedding-cluster-002", "label": "Cluster 02: mechanistic / interpretability", "size": 4, "topTerms": ["mechanistic", "interpretability"], "method": "hdbscan-test"},
+        ]
+        assignments = {}
+        for record_id, vector in zip(ids, vectors):
+            cluster = clusters[0] if vector[0] > 0 else clusters[1]
+            assignments[record_id] = {
+                "id": cluster["id"],
+                "label": cluster["label"],
+                "size": cluster["size"],
+                "keywords": cluster["topTerms"],
+                "method": cluster["method"],
+            }
+        return assignments, clusters
+
+    original_project_vectors = builder.project_vectors
+    original_build_embedding_clusters = builder.build_embedding_clusters
+    builder.project_vectors = lambda source, dimension: [
+        (vector + [0.0] * dimension)[:dimension]
+        for vector in source
+    ]
+    builder.build_embedding_clusters = fake_embedding_clusters
+    try:
+        map_payload, sidecar = builder.build_semantic_payload(
+            records,
+            vectors,
+            payloads,
+            {"sourceFingerprint": "sha256:test"},
+            embedding_cluster_min_size=2,
+            embedding_cluster_min_samples=1,
+        )
+    finally:
+        builder.project_vectors = original_project_vectors
+        builder.build_embedding_clusters = original_build_embedding_clusters
     area_cluster_ids = {record["clusterId"] for record in map_payload["records"]}
     embedding_cluster_ids = {
         record["embeddingClusterId"]
@@ -132,6 +160,8 @@ def test_embedding_clusters_are_not_area_aliases() -> None:
     assert len(embedding_cluster_ids) >= 2
     assert embedding_cluster_ids == sidecar_cluster_ids
     assert map_payload["embeddingClusters"]
+    assert [level["k"] for level in map_payload["embeddingClusterLevels"]] == [5, 8, 8, 8, 8, 8]
+    assert len(map_payload["embeddingClusterLevels"][0]["assignments"]) == len(records)
     label_tokens = " ".join(
         token
         for cluster in map_payload["embeddingClusters"]

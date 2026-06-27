@@ -118,9 +118,14 @@ async function renderMap() {
     resetResultWindow();
     renderMap();
     renderViewer(null);
+  }, () => {
+    renderMap();
   });
   els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
   const query = normalize(state.query);
+  const clusterSummary = state.mapColor === "embedding-cluster"
+    ? `${state.mapEmbeddingClusterLevel} clusters`
+    : "";
   const colorSummary = {
     "area-domain": "area + domain",
     "embedding-cluster": "embedding cluster",
@@ -131,6 +136,7 @@ async function renderMap() {
   els.activeSummary.textContent = activeFilterSummary("Map", [
     state.mapMode,
     colorSummary,
+    clusterSummary,
     state.mapFilterValue,
     mapSearchSummary(visibleRecords, query),
   ]);
@@ -281,7 +287,16 @@ function loadSearchEmbeddingsInBackground() {
 
 function enrichEmbeddingClusterRecords(records) {
   const clusters = new Map((state.mapData?.embeddingClusters || []).map((cluster) => [cluster.id, cluster]));
+  const levelLookups = new Map();
+  for (const level of state.mapData?.embeddingClusterLevels || []) {
+    const key = String(level.k || "");
+    levelLookups.set(key, {
+      assignments: level.assignments || [],
+      clusters: level.clusters || [],
+    });
+  }
   const missing = [];
+  const mapRecordIndexes = new Map((state.mapData?.records || []).map((record, index) => [record.id, index]));
   for (const record of records || []) {
     if (!record.embeddingClusterId) continue;
     const cluster = clusters.get(record.embeddingClusterId);
@@ -291,6 +306,21 @@ function enrichEmbeddingClusterRecords(records) {
     }
     record.embeddingClusterLabel = cluster.label || "";
     record.embeddingClusterKeywords = cluster.topTerms || [];
+    const mapIndex = mapRecordIndexes.get(record.id);
+    record.embeddingClusterLevels = {};
+    for (const [key, level] of levelLookups.entries()) {
+      const clusterIndex = level.assignments[mapIndex];
+      const levelCluster = Number.isInteger(clusterIndex) ? level.clusters[clusterIndex] : null;
+      if (levelCluster?.label && Array.isArray(levelCluster.topTerms)) {
+        record.embeddingClusterLevels[key] = {
+          id: levelCluster.id,
+          label: levelCluster.label,
+          size: levelCluster.size,
+          topTerms: levelCluster.topTerms,
+          method: levelCluster.method,
+        };
+      }
+    }
     delete record._hayParts;
     delete record._haystack;
     delete record._queryVector;
@@ -388,6 +418,14 @@ async function init() {
     state.mapColor = ["quality", "availability"].includes(event.target.value) ? "area-domain" : event.target.value;
     els.mapColor.value = state.mapColor;
     state.mapFilterValue = "";
+    state.mapLegendExpanded = false;
+    clearMapSelection();
+    renderMap();
+  });
+  els.mapClusterLevel?.addEventListener("change", (event) => {
+    state.mapEmbeddingClusterLevel = event.target.value;
+    state.mapFilterValue = "";
+    state.mapLegendExpanded = false;
     clearMapSelection();
     renderMap();
   });

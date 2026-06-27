@@ -145,7 +145,7 @@ export function recordSearchParts(record) {
       title: normalize(`${record.title} ${plainMathTitle(record.title)}`),
       authors: normalize(record.authors || ""),
       abstract: normalize(record.abstract || ""),
-      tags: normalize(`${record.group || ""} ${record.decision || ""} ${record.presentationType || ""} ${(record.presentationLabels || []).join(" ")} ${record.session || ""} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""} ${record.embeddingClusterLabel || ""} ${(record.embeddingClusterKeywords || []).join(" ")}`),
+      tags: normalize(`${record.group || ""} ${record.decision || ""} ${record.presentationType || ""} ${(record.presentationLabels || []).join(" ")} ${record.session || ""} ${categoryTags(record).join(" ")} ${(record.areaTags || []).join(" ")} ${(record.domainTags || []).join(" ")} ${record.clusterLabel || ""} ${record.embeddingClusterLabel || ""} ${Object.values(record.embeddingClusterLevels || {}).map((cluster) => cluster.label).join(" ")} ${(record.embeddingClusterKeywords || []).join(" ")}`),
     };
     const p = record._hayParts;
     record._haystack = `${p.title} ${p.abstract} ${p.authors} ${p.tags}`;
