@@ -170,6 +170,11 @@ const miniInitialFit = await page.evaluate(() => {
     points: points.length,
     outside: outside.slice(0, 5),
     hasStudyPack: /Topic study pack/i.test(document.querySelector("#viewerFrame")?.innerText || ""),
+    selectedTitle: document.querySelector(".mini-selected-title")?.textContent?.trim() || "",
+    viewerTitle: document.querySelector("#viewerTitle")?.textContent?.trim() || "",
+    selectedLabels: [...document.querySelectorAll(".mini-tag-summary span")].map((item) => item.textContent?.replace(/\s+/g, " ").trim() || ""),
+    selectedLabelKinds: [...document.querySelectorAll(".mini-tag-summary span")].map((item) => item.dataset.nodeLabel || ""),
+    hasCountBadges: Boolean(document.querySelector(".mini-tag-summary b")),
   };
 });
 const miniProbePoints = await page.evaluate(() => window.__icmlMapDebug?.miniProbePoints?.(40) || []);
@@ -449,6 +454,16 @@ if (!miniTooltip.includes("Area:") || !miniTooltip.includes("Domain:")) {
 }
 if (miniInitialFit.hasStudyPack || miniInitialFit.points === 0 || miniInitialFit.outside.length) {
   throw new Error(`mini semantic graph should start fitted and should not duplicate Topic study pack: ${JSON.stringify(miniInitialFit)}`);
+}
+if (
+  !miniInitialFit.selectedTitle
+  || miniInitialFit.selectedTitle !== miniInitialFit.viewerTitle
+  || !miniInitialFit.selectedLabels.length
+  || miniInitialFit.hasCountBadges
+  || !miniInitialFit.selectedLabelKinds.includes("Area")
+  || !miniInitialFit.selectedLabelKinds.includes("Domain")
+) {
+  throw new Error(`mini semantic graph labels should describe the selected node, not neighbor aggregate counts: ${JSON.stringify(miniInitialFit)}`);
 }
 if (!miniControlsBefore.labels.includes("Fit") || !miniControlsBefore.labels.some((label) => label.includes("Depth: 1-hop")) || miniControlsBefore.info.depth !== "first") {
   throw new Error(`mini semantic graph controls missing or wrong initial depth: ${JSON.stringify(miniControlsBefore)}`);
