@@ -170,6 +170,11 @@ const miniInitialFit = await page.evaluate(() => {
     points: points.length,
     outside: outside.slice(0, 5),
     hasStudyPack: /Topic study pack/i.test(document.querySelector("#viewerFrame")?.innerText || ""),
+    selectedTitle: document.querySelector(".mini-selected-title")?.textContent?.trim() || "",
+    viewerTitle: document.querySelector("#viewerTitle")?.textContent?.trim() || "",
+    selectedLabels: [...document.querySelectorAll(".mini-tag-summary span")].map((item) => item.textContent?.replace(/\s+/g, " ").trim() || ""),
+    selectedLabelKinds: [...document.querySelectorAll(".mini-tag-summary span")].map((item) => item.dataset.nodeLabel || ""),
+    hasCountBadges: Boolean(document.querySelector(".mini-tag-summary b")),
   };
 });
 const miniProbePoints = await page.evaluate(() => window.__icmlMapDebug?.miniProbePoints?.(40) || []);
@@ -216,7 +221,7 @@ await page.waitForFunction(() => {
   const shell = document.querySelector(".pdfjs-shell");
   const status = shell?.querySelector("[data-pdf-status]")?.textContent || "";
   return shell && !shell.classList.contains("has-error") && /\d+ \/ \d+/.test(status);
-}, null, { timeout: 30000 });
+}, null, { timeout: 60000 });
 const localPdf = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   shellExists: Boolean(document.querySelector(".pdfjs-shell")),
@@ -291,6 +296,7 @@ const map = await page.evaluate(() => ({
   hasCanvas: Boolean(document.querySelector("#mapCanvas canvas")),
   colorLabels: [...document.querySelectorAll("#mapColorSelect option")].map((option) => option.textContent || ""),
   colorValue: document.querySelector("#mapColorSelect")?.value || "",
+  clusterLevelHidden: Boolean(document.querySelector("#mapClusterLevelSetting")?.hidden),
   legendNote: document.querySelector(".legend-note")?.innerText || "",
   tooltipCount: document.querySelectorAll(".graph-node-tooltip").length,
 }));
@@ -301,6 +307,7 @@ await page.waitForTimeout(900);
 const embeddingMap = await page.evaluate(() => ({
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
   colorValue: document.querySelector("#mapColorSelect")?.value || "",
+  clusterLevelHidden: Boolean(document.querySelector("#mapClusterLevelSetting")?.hidden),
   clusterLevelValue: document.querySelector("#mapClusterLevelSelect")?.value || "",
   legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
   showMoreText: document.querySelector(".legend-more")?.textContent || "",
@@ -448,6 +455,16 @@ if (!miniTooltip.includes("Area:") || !miniTooltip.includes("Domain:")) {
 if (miniInitialFit.hasStudyPack || miniInitialFit.points === 0 || miniInitialFit.outside.length) {
   throw new Error(`mini semantic graph should start fitted and should not duplicate Topic study pack: ${JSON.stringify(miniInitialFit)}`);
 }
+if (
+  !miniInitialFit.selectedTitle
+  || miniInitialFit.selectedTitle !== miniInitialFit.viewerTitle
+  || !miniInitialFit.selectedLabels.length
+  || miniInitialFit.hasCountBadges
+  || !miniInitialFit.selectedLabelKinds.includes("Area")
+  || !miniInitialFit.selectedLabelKinds.includes("Domain")
+) {
+  throw new Error(`mini semantic graph labels should describe the selected node, not neighbor aggregate counts: ${JSON.stringify(miniInitialFit)}`);
+}
 if (!miniControlsBefore.labels.includes("Fit") || !miniControlsBefore.labels.some((label) => label.includes("Depth: 1-hop")) || miniControlsBefore.info.depth !== "first") {
   throw new Error(`mini semantic graph controls missing or wrong initial depth: ${JSON.stringify(miniControlsBefore)}`);
 }
@@ -493,6 +510,9 @@ if (!map.activeSummary.includes("global") || !map.activeSummary.includes("area +
 if (map.colorValue !== "area-domain" || !map.legendNote.includes("Fill = research area") || !map.legendNote.includes("Ring = domain")) {
   throw new Error(`area/domain mode should be the default and explain fill/ring semantics: ${JSON.stringify(map)}`);
 }
+if (!map.clusterLevelHidden) {
+  throw new Error(`cluster-level selector should stay hidden outside embedding cluster mode: ${JSON.stringify(map)}`);
+}
 if (/\b(Circle|Square|Diamond|Triangle)\b/.test(map.legendNote)) {
   throw new Error(`area/domain legend should show domain names, not raw shape names: ${JSON.stringify(map)}`);
 }
@@ -505,6 +525,7 @@ if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
 if (
   embeddingMap.colorValue !== "embedding-cluster"
   || embeddingMap.clusterLevelValue !== "15"
+  || embeddingMap.clusterLevelHidden
   || !embeddingMap.activeSummary.includes("embedding cluster")
   || !embeddingMap.activeSummary.includes("15 clusters")
   || embeddingMap.expectedCount !== 15

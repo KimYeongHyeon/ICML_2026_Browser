@@ -16,6 +16,7 @@ export const els = {
   mapDetail: document.querySelector("#mapDetail"),
   mapEngine: document.querySelector("#mapEngineSelect"),
   mapColor: document.querySelector("#mapColorSelect"),
+  mapClusterLevelSetting: document.querySelector("#mapClusterLevelSetting"),
   mapClusterLevel: document.querySelector("#mapClusterLevelSelect"),
   mapMode: document.querySelector("#mapModeSelect"),
   mapLive: document.querySelector("#mapLiveButton"),

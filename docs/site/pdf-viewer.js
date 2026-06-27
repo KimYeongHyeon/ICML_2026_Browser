@@ -6,6 +6,8 @@ import { escapeHtml } from "./utils.js";
 let pdfJsPromise = null;
 const WHEEL_PAGE_THRESHOLD = 90;
 const WHEEL_PAGE_COOLDOWN_MS = 180;
+const PDF_LOAD_ATTEMPTS = 3;
+const PDF_LOAD_RETRY_MS = 700;
 
 export function isPdfAsset(path) {
   return /\.pdf(?:$|[?#])/i.test(path || "");
@@ -24,9 +26,18 @@ async function loadPdfJs() {
     pdfJsPromise = import(PDFJS_MODULE_URL).then((pdfjsLib) => {
       pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
       return pdfjsLib;
+    }).catch((error) => {
+      pdfJsPromise = null;
+      throw error;
     });
   }
   return pdfJsPromise;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 export function renderAssetOpenFallback(record, assetPath, url) {
@@ -183,11 +194,21 @@ export async function mountPdfViewer(assetPath) {
   };
 
   try {
-    const pdfjsLib = await loadPdfJs();
-    if (token !== state.pdfViewer.token) return;
-    const loadingTask = pdfjsLib.getDocument({ url: source, withCredentials: false });
-    state.pdfViewer.loadingTask = loadingTask;
-    pdfDoc = await loadingTask.promise;
+    for (let attempt = 1; attempt <= PDF_LOAD_ATTEMPTS; attempt += 1) {
+      try {
+        const pdfjsLib = await loadPdfJs();
+        if (token !== state.pdfViewer.token) return;
+        const loadingTask = pdfjsLib.getDocument({ url: source, withCredentials: false });
+        state.pdfViewer.loadingTask = loadingTask;
+        pdfDoc = await loadingTask.promise;
+        break;
+      } catch (error) {
+        state.pdfViewer.loadingTask?.destroy?.();
+        state.pdfViewer.loadingTask = null;
+        if (token !== state.pdfViewer.token || attempt >= PDF_LOAD_ATTEMPTS) throw error;
+        await wait(PDF_LOAD_RETRY_MS * attempt);
+      }
+    }
     if (token !== state.pdfViewer.token) return;
     setPdfToolbarState(shell, pageNum, pdfDoc.numPages, false);
     stage.addEventListener("wheel", handleStageWheel, { passive: false });
