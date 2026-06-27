@@ -36,14 +36,26 @@ export function mapColorValue(record) {
   return (record.areaTags || record.categoryTags || ["Other"])[0] || "Other";
 }
 
+export function embeddingClusterLevelMeta(record) {
+  return record?.embeddingClusterLevels?.[state.mapEmbeddingClusterLevel] || null;
+}
+
 export function embeddingClusterMeta(record) {
+  const levelMeta = embeddingClusterLevelMeta(record);
+  if (levelMeta) return levelMeta;
   const clusterId = record?.embeddingClusterId;
   if (!clusterId) return null;
   return (state.mapData?.embeddingClusters || []).find((cluster) => cluster.id === clusterId) || null;
 }
 
 export function embeddingClusterColorLabel(record) {
-  return record?.embeddingClusterLabel || embeddingClusterMeta(record)?.label || record?.embeddingClusterId || "Embedding cluster";
+  const levelMeta = embeddingClusterLevelMeta(record);
+  return levelMeta?.label || record?.embeddingClusterLabel || embeddingClusterMeta(record)?.label || record?.embeddingClusterId || "Embedding cluster";
+}
+
+export function embeddingClusterColorId(record) {
+  const levelMeta = embeddingClusterLevelMeta(record);
+  return levelMeta?.id || record?.embeddingClusterId || "";
 }
 
 export function embeddingClusterSize(record) {
@@ -148,7 +160,7 @@ export function explainSemanticRelation(record, neighborRecord, score = 0) {
   const reasons = [];
   if (score) reasons.push(`${Number(score || 0).toFixed(2)} similarity`);
   if (tags.length) reasons.push(`shared ${tags.slice(0, 3).join(", ")}`);
-  if (record.embeddingClusterId && record.embeddingClusterId === neighborRecord.embeddingClusterId) reasons.push("same embedding cluster");
+  if (embeddingClusterColorId(record) && embeddingClusterColorId(record) === embeddingClusterColorId(neighborRecord)) reasons.push("same embedding cluster");
   if (record.clusterId && record.clusterId === neighborRecord.clusterId) reasons.push("same semantic area");
   if (record.group && record.group === neighborRecord.group) reasons.push("same group");
   if (neighborRecord.hasPdf || neighborRecord.hasPoster || neighborRecord.hasSlide) reasons.push(assetLabel(neighborRecord));

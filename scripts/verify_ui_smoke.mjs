@@ -301,10 +301,50 @@ await page.waitForTimeout(900);
 const embeddingMap = await page.evaluate(() => ({
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
   colorValue: document.querySelector("#mapColorSelect")?.value || "",
+  clusterLevelValue: document.querySelector("#mapClusterLevelSelect")?.value || "",
   legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
-  expectedLabels: (window.__icmlMapDebug?.mapData?.().embeddingClusters || [])
+  showMoreText: document.querySelector(".legend-more")?.textContent || "",
+  expectedLabels: ((window.__icmlMapDebug?.mapData?.().embeddingClusterLevels || [])
+    .find((level) => String(level.k) === (document.querySelector("#mapClusterLevelSelect")?.value || ""))
+    ?.clusters || [])
     .slice(0, 8)
     .map((cluster) => cluster.label || cluster.id),
+  expectedCount: (window.__icmlMapDebug?.mapData?.().embeddingClusterLevels || [])
+    .find((level) => String(level.k) === (document.querySelector("#mapClusterLevelSelect")?.value || ""))
+    ?.clusters.length || 0,
+}));
+const hiddenEmbeddingLegendCount = Number(embeddingMap.showMoreText.match(/\(([\d,]+)\)/)?.[1]?.replace(/,/g, "") || 0);
+if (hiddenEmbeddingLegendCount) await page.locator(".legend-more").click();
+await page.waitForTimeout(250);
+const embeddingExpandedMap = await page.evaluate(() => ({
+  legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
+  showMoreText: document.querySelector(".legend-more")?.textContent || "",
+  swatches: [...document.querySelectorAll(".legend-swatch")]
+    .slice(1)
+    .map((item) => getComputedStyle(item).backgroundColor),
+}));
+await page.locator("#mapSearchInput").fill("");
+await page.waitForTimeout(900);
+await page.locator("#mapClusterLevelSelect").selectOption("30", { force: true });
+await page.waitForTimeout(600);
+const embeddingLevel30 = await page.evaluate(() => ({
+  activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+  clusterLevelValue: document.querySelector("#mapClusterLevelSelect")?.value || "",
+  legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
+  showMoreText: document.querySelector(".legend-more")?.textContent || "",
+  expectedCount: (window.__icmlMapDebug?.mapData?.().embeddingClusterLevels || [])
+    .find((level) => String(level.k) === "30")
+    ?.clusters.length || 0,
+  resultCount: document.querySelector("#resultCount")?.innerText || "",
+}));
+await page.locator(".legend-more").click();
+await page.waitForTimeout(250);
+const embeddingLevel30Expanded = await page.evaluate(() => ({
+  legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
+  showMoreText: document.querySelector(".legend-more")?.textContent || "",
+  swatches: [...document.querySelectorAll(".legend-swatch")]
+    .slice(1)
+    .map((item) => getComputedStyle(item).backgroundColor),
 }));
 
 await page.locator('.tab[data-tab="paper"]').click();
@@ -464,11 +504,32 @@ if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
 }
 if (
   embeddingMap.colorValue !== "embedding-cluster"
+  || embeddingMap.clusterLevelValue !== "15"
   || !embeddingMap.activeSummary.includes("embedding cluster")
+  || !embeddingMap.activeSummary.includes("15 clusters")
+  || embeddingMap.expectedCount !== 15
   || embeddingMap.legendItems.length < 4
   || !embeddingMap.expectedLabels.some((label) => embeddingMap.legendItems.some((item) => item.includes(label)))
 ) {
-  throw new Error(`embedding cluster color mode should be selectable and render a legend: ${JSON.stringify(embeddingMap)}`);
+  throw new Error(`embedding cluster color mode should default to a precomputed 15-cluster level: ${JSON.stringify(embeddingMap)}`);
+}
+if (
+  hiddenEmbeddingLegendCount
+  && (embeddingExpandedMap.legendItems.length < embeddingMap.legendItems.length + hiddenEmbeddingLegendCount
+    || !embeddingExpandedMap.showMoreText.includes("Show less"))
+) {
+  throw new Error(`embedding cluster legend should expand filtered coarse clusters: ${JSON.stringify(embeddingExpandedMap)}`);
+}
+if (
+  embeddingLevel30.clusterLevelValue !== "30"
+  || embeddingLevel30.expectedCount !== 30
+  || !embeddingLevel30.activeSummary.includes("30 clusters")
+  || !embeddingLevel30.showMoreText.includes("Show more")
+  || embeddingLevel30Expanded.legendItems.length < 31
+  || !embeddingLevel30Expanded.showMoreText.includes("Show less")
+  || new Set(embeddingLevel30Expanded.swatches).size < Math.min(24, embeddingLevel30Expanded.swatches.length)
+) {
+  throw new Error(`embedding cluster level selector should expose precomputed 30-cluster map: ${JSON.stringify({ embeddingLevel30, embeddingLevel30Expanded })}`);
 }
 if (clusterLabelSearch.query !== "cluster 01" || clusterLabelSearch.parsedCount <= 0) {
   throw new Error(`embedding cluster labels should remain searchable without per-record generated labels: ${JSON.stringify(clusterLabelSearch)}`);

@@ -21,7 +21,9 @@ function domainShapeLegendItems(records) {
     }));
 }
 
-export function renderMapLegend(visibleRecords, onFilterChange) {
+const DEFAULT_LEGEND_LIMIT = 12;
+
+export function renderMapLegend(visibleRecords, onFilterChange, onLegendToggle) {
   if (!els.mapLegend) return;
   if (state.mapColor === "quality" || state.mapColor === "availability") {
     state.mapColor = "area-domain";
@@ -32,9 +34,13 @@ export function renderMapLegend(visibleRecords, onFilterChange) {
     const value = mapColorValue(record);
     counts.set(value, (counts.get(value) || 0) + 1);
   }
-  const items = [...counts.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 12);
+  const sortedItems = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+  const canExpand = state.mapColor === "embedding-cluster" && sortedItems.length > DEFAULT_LEGEND_LIMIT;
+  const items = canExpand && state.mapLegendExpanded
+    ? sortedItems
+    : sortedItems.slice(0, DEFAULT_LEGEND_LIMIT);
+  const hiddenCount = Math.max(0, sortedItems.length - items.length);
   const domainShapeItems = domainShapeLegendItems(visibleRecords);
   const allCount = visibleRecords.length;
   els.mapLegend.innerHTML = `
@@ -64,12 +70,20 @@ export function renderMapLegend(visibleRecords, onFilterChange) {
       <span>${escapeHtml(value)}</span>
       <strong>${count.toLocaleString()}</strong>
     </button>
-  `).join("");
+  `).join("") + (canExpand ? `
+    <button class="legend-more" type="button">
+      <span>${state.mapLegendExpanded ? "Show less" : `Show more (${hiddenCount.toLocaleString()})`}</span>
+    </button>
+  ` : "");
   els.mapLegend.querySelectorAll(".legend-item").forEach((button) => {
     button.addEventListener("click", () => {
       const value = button.dataset.value || "";
       state.mapFilterValue = state.mapFilterValue === value ? "" : value || "";
       onFilterChange?.();
     });
+  });
+  els.mapLegend.querySelector(".legend-more")?.addEventListener("click", () => {
+    state.mapLegendExpanded = !state.mapLegendExpanded;
+    onLegendToggle?.();
   });
 }

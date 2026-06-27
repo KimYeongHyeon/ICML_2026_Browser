@@ -35,6 +35,7 @@ def main() -> None:
     map_records = map_data.get("records", [])
     map_ids = {str(record["id"]) for record in map_records}
     embedding_clusters = map_data.get("embeddingClusters", [])
+    embedding_cluster_levels = map_data.get("embeddingClusterLevels", [])
     embedding_cluster_ids = {str(cluster.get("id")) for cluster in embedding_clusters}
     embedding_cluster_counts: dict[str, int] = {}
     errors: list[str] = []
@@ -57,6 +58,37 @@ def main() -> None:
             errors.append(f"embedding cluster {cluster_id} has invalid size: {cluster.get('size')}")
         if "fallback" in str(cluster.get("method") or "").lower():
             errors.append(f"embedding cluster {cluster_id} uses forbidden fallback method: {cluster.get('method')}")
+
+    expected_levels = [5, 10, 15, 20, 25, 30]
+    actual_levels = [int(level.get("k") or 0) for level in embedding_cluster_levels]
+    if actual_levels != expected_levels:
+        errors.append(f"embeddingClusterLevels must be precomputed as {expected_levels}, got {actual_levels}")
+    for level in embedding_cluster_levels:
+        k = int(level.get("k") or 0)
+        clusters = level.get("clusters") or []
+        assignments = level.get("assignments") or []
+        method = str(level.get("method") or "")
+        if method != "kmeans-umap-euclidean":
+            errors.append(f"embedding cluster level {k} has unexpected method: {method}")
+        if "fallback" in method.lower():
+            errors.append(f"embedding cluster level {k} uses forbidden fallback method: {method}")
+        if len(clusters) != k:
+            errors.append(f"embedding cluster level {k} has {len(clusters)} clusters")
+        if len(assignments) != len(map_records):
+            errors.append(f"embedding cluster level {k} assignment count mismatch: {len(assignments)}")
+        counts = {index: 0 for index in range(len(clusters))}
+        for assignment in assignments:
+            if not isinstance(assignment, int) or assignment < 0 or assignment >= len(clusters):
+                errors.append(f"embedding cluster level {k} has invalid assignment: {assignment}")
+                continue
+            counts[assignment] += 1
+        for cluster_index, cluster in enumerate(clusters):
+            if not str(cluster.get("id") or "").startswith(f"embedding-k{k:03d}-"):
+                errors.append(f"embedding cluster level {k} has invalid cluster id: {cluster.get('id')}")
+            if int(cluster.get("size") or 0) != counts.get(cluster_index, 0):
+                errors.append(f"embedding cluster level {k} size mismatch for {cluster.get('id')}")
+            if not str(cluster.get("method") or "").startswith("kmeans"):
+                errors.append(f"embedding cluster level {k} cluster has unexpected method: {cluster.get('method')}")
 
     for record in map_records:
         record_id = str(record.get("id"))
@@ -162,6 +194,7 @@ def main() -> None:
     print(f"- map records: {len(map_records):,}")
     print(f"- clusters: {len(map_data.get('clusters', [])):,}")
     print(f"- embedding clusters: {len(embedding_clusters):,}")
+    print(f"- embedding cluster levels: {', '.join(str(level.get('k')) for level in embedding_cluster_levels)}")
     if search_data:
         print(f"- search embeddings: {len(search_data.get('records', [])):,}")
 

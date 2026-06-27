@@ -206,6 +206,139 @@ def label_terms(records: list[dict[str, Any]], indexes: list[int], limit: int = 
     return [term for term, _ in counts.most_common(limit)]
 
 
+def squared_distance(left: list[float], right: list[float]) -> float:
+    return sum((float(a) - float(b)) ** 2 for a, b in zip(left, right))
+
+
+def standardize_points(points: list[list[float]]) -> list[list[float]]:
+    if not points:
+        return []
+    dimension = len(points[0])
+    means = [
+        sum(float(point[index]) for point in points) / len(points)
+        for index in range(dimension)
+    ]
+    scales = []
+    for index, mean in enumerate(means):
+        variance = sum((float(point[index]) - mean) ** 2 for point in points) / len(points)
+        scales.append(math.sqrt(variance) or 1.0)
+    return [
+        [
+            (float(point[index]) - means[index]) / scales[index]
+            for index in range(dimension)
+        ]
+        for point in points
+    ]
+
+
+def initialize_kmeans_centroids(points: list[list[float]], k: int) -> list[list[float]]:
+    mean = [
+        sum(point[index] for point in points) / len(points)
+        for index in range(len(points[0]))
+    ]
+    first = min(range(len(points)), key=lambda index: (squared_distance(points[index], mean), index))
+    selected = [first]
+    while len(selected) < k:
+        selected_set = set(selected)
+        next_index = max(
+            (index for index in range(len(points)) if index not in selected_set),
+            key=lambda index: (
+                min(squared_distance(points[index], points[centroid]) for centroid in selected),
+                -index,
+            ),
+        )
+        selected.append(next_index)
+    return [points[index][:] for index in selected]
+
+
+def kmeans_labels(points: list[list[float]], k: int, iterations: int = 40) -> list[int]:
+    if not points:
+        return []
+    k = max(1, min(k, len(points)))
+    scaled = standardize_points(points)
+    centroids = initialize_kmeans_centroids(scaled, k)
+    labels = [0] * len(scaled)
+    for _ in range(iterations):
+        changed = False
+        for index, point in enumerate(scaled):
+            label = min(range(k), key=lambda item: (squared_distance(point, centroids[item]), item))
+            if labels[index] != label:
+                labels[index] = label
+                changed = True
+        buckets = [[] for _ in range(k)]
+        for index, label in enumerate(labels):
+            buckets[label].append(index)
+        empty_labels = [label for label, bucket in enumerate(buckets) if not bucket]
+        for empty_label in empty_labels:
+            largest_label = max(range(k), key=lambda label: len(buckets[label]))
+            moved_index = max(
+                buckets[largest_label],
+                key=lambda index: squared_distance(scaled[index], centroids[largest_label]),
+            )
+            buckets[largest_label].remove(moved_index)
+            buckets[empty_label].append(moved_index)
+            labels[moved_index] = empty_label
+        centroids = [
+            [
+                sum(scaled[index][dimension] for index in bucket) / len(bucket)
+                for dimension in range(len(scaled[0]))
+            ]
+            for bucket in buckets
+        ]
+        if not changed and not empty_labels:
+            break
+    return labels
+
+
+def build_embedding_cluster_levels(
+    records: list[dict[str, Any]],
+    points: list[list[float]],
+    levels: list[int] | None = None,
+) -> list[dict[str, Any]]:
+    levels = levels or config.EMBEDDING_CLUSTER_LEVELS
+    result = []
+    for requested_k in levels:
+        k = max(1, min(int(requested_k), len(points)))
+        labels = kmeans_labels(points, k)
+        label_to_indexes: dict[int, list[int]] = {}
+        for index, label in enumerate(labels):
+            label_to_indexes.setdefault(label, []).append(index)
+        ordered_labels = sorted(
+            label_to_indexes,
+            key=lambda label: (-len(label_to_indexes[label]), label),
+        )
+        ordered_index_by_label = {
+            raw_label: position
+            for position, raw_label in enumerate(ordered_labels)
+        }
+        clusters = []
+        for raw_label in ordered_labels:
+            indexes = label_to_indexes[raw_label]
+            terms = label_terms(records, indexes)
+            label = f"Cluster {len(clusters) + 1:02d}"
+            if terms:
+                label = f"{label}: {' / '.join(terms[:2])}"
+            clusters.append({
+                "id": f"embedding-k{k:03d}-{len(clusters) + 1:03d}",
+                "label": label,
+                "size": len(indexes),
+                "topTerms": terms,
+                "method": "kmeans-umap-euclidean",
+            })
+        assignments = [
+            ordered_index_by_label[label]
+            for label in labels
+        ]
+        result.append({
+            "k": k,
+            "label": f"{k} clusters",
+            "method": "kmeans-umap-euclidean",
+            "clusters": clusters,
+            "assignments": assignments,
+        })
+    return result
+
+
 def embedding_cluster_space(vectors: list[list[float]]) -> list[list[float]]:
     if len(vectors) < 12:
         return normalize_vectors(vectors)
@@ -359,6 +492,7 @@ def build_semantic_payload(
         "records": map_records,
         "clusters": clusters,
         "embeddingClusters": embedding_clusters,
+        "embeddingClusterLevels": build_embedding_cluster_levels(records, projected_3d),
     }
     return map_payload, {"embeddingSource": embedding_source, "records": semantic_sidecar}
 
