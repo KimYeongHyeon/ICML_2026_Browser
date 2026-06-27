@@ -345,7 +345,11 @@ export function mountMiniGraph(graphData, selectedId) {
   applyForceAnchors(state.miniGraph, 0.035);
   state.miniGraph.cooldownTime?.(3200);
   state.miniGraph.resumeAnimation?.();
-  const fitMiniGraph = (duration = 220) => fitGraphToElement(state.miniGraph, state.miniGraph?.graphData?.() || graphData, container, { padding: 64, minZoom: 0.72, maxZoom: 4.4, duration });
+  const mountedGraph = state.miniGraph;
+  const fitMiniGraph = (duration = 220) => {
+    if (state.miniGraph !== mountedGraph || !container.isConnected) return;
+    fitGraphToElement(mountedGraph, mountedGraph.graphData?.() || graphData, container, { padding: 64, minZoom: 0.72, maxZoom: 4.4, duration });
+  };
   requestAnimationFrame(() => fitMiniGraph(0));
   window.setTimeout(() => fitMiniGraph(180), 180);
   window.setTimeout(() => fitMiniGraph(220), 900);

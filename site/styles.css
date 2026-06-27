@@ -2071,44 +2071,11 @@ button.stat-pill.saved-pill:hover {
   color: var(--text);
 }
 
-.study-pack {
-  display: grid;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fbfcfc;
-}
-
-.study-pack-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.study-pack-heading h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.study-pack-heading span,
 .why-line {
   color: var(--muted-2);
   font-size: 11px;
   font-weight: 750;
   line-height: 1.35;
-}
-
-.study-pack-item {
-  padding: 7px 6px;
-  border: 1px solid transparent;
-}
-
-.study-pack-item:hover {
-  border-color: #d7ebe5;
 }
 
 .neighbor-list {
