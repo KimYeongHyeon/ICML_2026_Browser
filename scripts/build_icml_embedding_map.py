@@ -216,7 +216,6 @@ def build_embedding_clusters(
     ids: list[str],
     vectors: list[list[float]],
     records: list[dict[str, Any]],
-    payloads: list[dict[str, str]],
     min_cluster_size: int = config.EMBEDDING_CLUSTER_MIN_SIZE,
     min_samples: int = config.EMBEDDING_CLUSTER_MIN_SAMPLES,
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
@@ -309,7 +308,6 @@ def build_semantic_payload(
         ids,
         vectors,
         records,
-        payloads,
         min_cluster_size=embedding_cluster_min_size,
         min_samples=embedding_cluster_min_samples,
     )
