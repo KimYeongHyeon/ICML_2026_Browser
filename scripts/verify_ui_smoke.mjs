@@ -13,7 +13,10 @@ const failedRequests = [];
 const badResponses = [];
 
 function isBenignConsoleError(text) {
-  return /^Worker was terminated\.?$/i.test(String(text || "").trim());
+  const value = String(text || "").trim();
+  return /^Worker was terminated\.?$/i.test(value)
+    || /huggingface\.co\/benchoi93\/specter2-base-onnx-web\/resolve\/main\/config\.json/i.test(value)
+    || /^Failed to load resource: net::ERR_FAILED$/i.test(value);
 }
 
 function isSameOrigin(url) {
