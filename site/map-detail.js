@@ -2,7 +2,6 @@ import { els } from "./dom.js";
 import { typeLabel } from "./records.js";
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
-import { countLabels } from "./map-layout.js";
 import { colorForValue } from "./map-tooltip.js";
 import {
   explainSemanticRelation,
@@ -30,6 +29,29 @@ export function configureMapDetail(deps) {
 
 function countLabelsHtml(items = []) {
   return items.slice(0, 3).map((item) => `<span>${escapeHtml(item.label)} <b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("");
+}
+
+function selectedMiniLabels(record) {
+  const labels = [
+    ...(record.areaTags || []).slice(0, 2).map((label) => ({ kind: "Area", label })),
+    ...(record.domainTags || []).slice(0, 2).map((label) => ({ kind: "Domain", label })),
+  ];
+  const clusterLabel = embeddingClusterColorLabel(record);
+  if (record.embeddingClusterId && clusterLabel) labels.push({ kind: "Cluster", label: clusterLabel });
+  if (!labels.length) labels.push({ kind: "Type", label: typeLabel(record.type) });
+  return labels;
+}
+
+function renderMiniSelectedLabels(record) {
+  return selectedMiniLabels(record)
+    .map((item) => `
+      <span data-node-label="${escapeHtml(item.kind)}">
+        <i style="background:${colorForValue(item.label)}"></i>
+        <em>${escapeHtml(item.kind)}</em>
+        ${escapeHtml(item.label)}
+      </span>
+    `)
+    .join("");
 }
 
 function renderTrendCards() {
@@ -229,8 +251,7 @@ export function semanticNeighborhood(record, depth = state.miniGraphDepth || "fi
   const scoreRange = Math.max(0.001, maxScore - minScore);
   const similarityPercent = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - minScore) / scoreRange));
   const sharedTags = (neighborRecord) => sharedSemanticTags(record, neighborRecord);
-  const topTags = countLabels(neighbors.map((item) => item.record.areaTags || [])).slice(0, 4);
-  return { neighbors, topTags, maxScore, similarityPercent, sharedTags, depth, graphData: { nodes, links } };
+  return { neighbors, maxScore, similarityPercent, sharedTags, depth, graphData: { nodes, links } };
 }
 
 export function destroyMiniGraph() {
@@ -369,7 +390,7 @@ export function renderMiniMap(record) {
   const depth = state.miniGraphDepth || "first";
   const neighborhood = semanticNeighborhood(record, depth);
   if (!neighborhood) return "";
-  const { neighbors, topTags, maxScore, similarityPercent, sharedTags } = neighborhood;
+  const { neighbors, maxScore, similarityPercent, sharedTags } = neighborhood;
   const deep = depth === "deep";
   return `
     <section class="mini-map-panel" data-mini-graph-record="${escapeHtml(record.id)}">
@@ -391,7 +412,7 @@ export function renderMiniMap(record) {
       </div>
       <div class="mini-selected-title">${escapeHtml(plainMathTitle(record.title))}</div>
       <div class="mini-tag-summary">
-        ${topTags.map(([tag, count]) => `<span><i style="background:${colorForValue(tag)}"></i>${escapeHtml(tag)} <b>${count}</b></span>`).join("")}
+        ${renderMiniSelectedLabels(record)}
       </div>
       <div class="neighbor-list">
         ${neighbors.map((item) => {

@@ -2011,6 +2011,13 @@ a:focus-visible {
   font-weight: 800;
 }
 
+.mini-tag-summary em {
+  color: var(--muted-2);
+  font-style: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
 .mini-tag-summary i {
   width: 8px;
   height: 8px;

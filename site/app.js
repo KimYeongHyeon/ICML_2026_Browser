@@ -306,6 +306,12 @@ function loadSearchEmbeddingsInBackground() {
     .finally(rerenderActiveMapQuery);
 }
 
+function updateClusterLevelVisibility() {
+  if (els.mapClusterLevelSetting) {
+    els.mapClusterLevelSetting.hidden = state.mapColor !== "embedding-cluster";
+  }
+}
+
 async function ensureMapData() {
   if (state.mapData?.records?.length) return state.mapData;
   if (!mapDataPromise) {
@@ -396,6 +402,7 @@ async function init() {
   renderDataHealthNote();
   refreshSearchWorkerIndex();
   updateHeader();
+  updateClusterLevelVisibility();
   renderAll();
   scheduleFullRecordsHydration();
   window.addEventListener("icml-semantic-search-ready", (event) => {
@@ -456,6 +463,7 @@ async function init() {
     els.mapColor.value = state.mapColor;
     state.mapFilterValue = "";
     state.mapLegendExpanded = false;
+    updateClusterLevelVisibility();
     clearMapSelection();
     renderMap();
   });
