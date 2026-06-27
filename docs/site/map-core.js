@@ -16,6 +16,8 @@ import {
 } from "./map-layout.js";
 
 let mapDeps = {};
+let mapRecordLookupSource = null;
+let mapRecordLookup = null;
 
 export function configureMapCore(deps) {
   mapDeps = deps;
@@ -23,7 +25,11 @@ export function configureMapCore(deps) {
 
 export function mapRecordById() {
   const records = state.mapData?.records || [];
-  return new Map(records.map((record) => [record.id, record]));
+  if (mapRecordLookupSource !== records) {
+    mapRecordLookupSource = records;
+    mapRecordLookup = new Map(records.map((record) => [record.id, record]));
+  }
+  return mapRecordLookup;
 }
 
 export function mapColorValue(record) {
