@@ -202,22 +202,26 @@ function renderDataHealthNote() {
 
 async function hydrateFullRecords() {
   if (!state.dataManifest || state.dataShardsLoaded) return;
+  let records;
   try {
-    const records = await loadShardRecords(state.dataManifest);
-    if (!records?.length) return;
-    const selectedId = state.selectedId;
-    const shouldRestoreMapViewer = state.tab === "map" && selectedId;
-    state.data.records = enrichPaperPresentationRecords(records);
-    state.dataShardsLoaded = true;
-    refreshSearchWorkerIndex();
-    queueWorkerSearch();
-    updateHeader();
-    renderAll();
-    if (shouldRestoreMapViewer) {
-      const selected = findDisplayRecord(selectedId);
-      if (selected) renderViewer(selected);
-    }
+    records = await loadShardRecords(state.dataManifest);
   } catch {
+    return;
+  }
+  if (!records?.length) return;
+  const selectedId = state.selectedId;
+  const shouldRestoreMapViewer = state.tab === "map" && selectedId;
+  const enrichedRecords = enrichPaperPresentationRecords(records);
+  enrichEmbeddingClusterRecords(enrichedRecords);
+  state.data.records = enrichedRecords;
+  state.dataShardsLoaded = true;
+  refreshSearchWorkerIndex();
+  queueWorkerSearch();
+  updateHeader();
+  renderAll();
+  if (shouldRestoreMapViewer) {
+    const selected = findDisplayRecord(selectedId);
+    if (selected) renderViewer(selected);
   }
 }
 
@@ -275,6 +279,27 @@ function loadSearchEmbeddingsInBackground() {
     .finally(rerenderActiveMapQuery);
 }
 
+function enrichEmbeddingClusterRecords(records) {
+  const clusters = new Map((state.mapData?.embeddingClusters || []).map((cluster) => [cluster.id, cluster]));
+  const missing = [];
+  for (const record of records || []) {
+    if (!record.embeddingClusterId) continue;
+    const cluster = clusters.get(record.embeddingClusterId);
+    if (!cluster?.label || !Array.isArray(cluster.topTerms)) {
+      missing.push(`${record.id}:${record.embeddingClusterId}`);
+      continue;
+    }
+    record.embeddingClusterLabel = cluster.label || "";
+    record.embeddingClusterKeywords = cluster.topTerms || [];
+    delete record._hayParts;
+    delete record._haystack;
+    delete record._queryVector;
+  }
+  if (missing.length) {
+    throw new Error(`Missing embedding cluster metadata for ${missing.length} records (${missing.slice(0, 5).join(", ")})`);
+  }
+}
+
 async function loadTrends() {
   if (state.trendsLoaded) return;
   state.trendsLoaded = true;
@@ -293,7 +318,6 @@ async function init() {
   state.data = loaded.data;
   state.dataManifest = loaded.manifest;
   state.data.records = enrichPaperPresentationRecords(state.data.records || []);
-  refreshSearchWorkerIndex();
   renderDataHealthNote();
   try {
     const mapResponse = await fetch(MAP_URL);
@@ -301,6 +325,8 @@ async function init() {
   } catch {
     state.mapData = null;
   }
+  enrichEmbeddingClusterRecords(state.data.records);
+  refreshSearchWorkerIndex();
   updateHeader();
   renderAll();
   void hydrateFullRecords();

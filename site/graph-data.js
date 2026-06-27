@@ -114,6 +114,12 @@ function colorFromPalette(value, palette) {
   return palette[value] || hashColor(value);
 }
 
+function embeddingClusterMeta(record, map) {
+  const clusterId = record?.embeddingClusterId;
+  if (!clusterId) return null;
+  return (map.embeddingClusters || []).find((cluster) => cluster.id === clusterId) || null;
+}
+
 function seededGraphPosition(id, record) {
   const area = firstTag(record?.areaTags, firstTag(record?.categoryTags, "Other"));
   const anchor = AREA_LAYOUT_ANCHORS[area] || AREA_LAYOUT_ANCHORS.Other;
@@ -155,12 +161,13 @@ function displayRecords(records) {
   return (records || []).filter((record) => record.type !== "poster");
 }
 
-function recordMatches(record, mapById, query, areaFilter, domainFilter, typeFilter) {
+function recordMatches(record, mapById, map, query, areaFilter, domainFilter, typeFilter) {
   if (!record.mapAvailable || !mapById.has(record.id)) return false;
   if (areaFilter !== "all" && !(record.areaTags || record.categoryTags || []).includes(areaFilter)) return false;
   if (domainFilter !== "all" && !(record.domainTags || []).includes(domainFilter)) return false;
   if (typeFilter !== "all" && record.type !== typeFilter) return false;
   if (!query) return true;
+  const cluster = embeddingClusterMeta(record, map);
   const haystack = [
     record.title,
     plainMathTitle(record.title),
@@ -169,7 +176,8 @@ function recordMatches(record, mapById, query, areaFilter, domainFilter, typeFil
     ...(record.areaTags || []),
     ...(record.domainTags || []),
     record.clusterLabel,
-    record.embeddingClusterLabel,
+    cluster?.label,
+    ...(cluster?.topTerms || []),
     ...(record.embeddingClusterKeywords || []),
   ].join(" ").toLowerCase();
   return haystack.includes(query);
@@ -200,7 +208,8 @@ export function buildSemanticGraph(index, map, options = {}) {
   const graphRecords = visibleRecords.filter((record) => record.mapAvailable && mapById.has(record.id));
   const matchedIds = new Set();
   const nodes = graphRecords.map((record) => {
-    const isMatch = recordMatches(record, mapById, query, areaFilter, domainFilter, typeFilter);
+    const cluster = embeddingClusterMeta(record, map);
+    const isMatch = recordMatches(record, mapById, map, query, areaFilter, domainFilter, typeFilter);
     if (isMatch) matchedIds.add(record.id);
     const position = projectedGraphPosition(mapById.get(record.id), record.id, record);
     const area = firstTag(record.areaTags, firstTag(record.categoryTags, "Other"));
@@ -217,7 +226,7 @@ export function buildSemanticGraph(index, map, options = {}) {
       area,
       domain,
       cluster: record.clusterLabel || "",
-      embeddingCluster: record.embeddingClusterLabel || "",
+      embeddingCluster: cluster?.label || record.embeddingClusterId || "",
       url: record.pageUrl || record.openreviewUrl || record.projectPageUrl || "",
       x: position.x,
       y: position.y,

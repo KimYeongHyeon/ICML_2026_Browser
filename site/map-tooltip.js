@@ -8,6 +8,7 @@ import {
   displayAvailabilityLabel,
   typeLabel,
 } from "./records.js";
+import { embeddingClusterColorLabel } from "./map-core.js";
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
@@ -71,7 +72,7 @@ export function graphTooltipHTML(node) {
     + `</div>`,
   );
   const foot = [`<span class="gt-type">${escapeHtml(typeLabel(record.type))}</span>`];
-  if (record.embeddingClusterLabel) foot.push(`<span class="gt-cluster">Cluster: ${escapeHtml(record.embeddingClusterLabel)}</span>`);
+  if (record.embeddingClusterId) foot.push(`<span class="gt-cluster">Cluster: ${escapeHtml(embeddingClusterColorLabel(record))}</span>`);
   if (record.clusterLabel) foot.push(`<span class="gt-cluster">${escapeHtml(record.clusterLabel)}</span>`);
   if (availability) {
     foot.push(`<span class="gt-status gt-status--${availabilityStatusKind(availability)}">${escapeHtml(String(availability))}</span>`);
