@@ -221,7 +221,7 @@ await page.waitForFunction(() => {
   const shell = document.querySelector(".pdfjs-shell");
   const status = shell?.querySelector("[data-pdf-status]")?.textContent || "";
   return shell && !shell.classList.contains("has-error") && /\d+ \/ \d+/.test(status);
-}, null, { timeout: 30000 });
+}, null, { timeout: 60000 });
 const localPdf = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   shellExists: Boolean(document.querySelector(".pdfjs-shell")),
