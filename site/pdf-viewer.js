@@ -195,16 +195,23 @@ export async function mountPdfViewer(assetPath) {
 
   try {
     for (let attempt = 1; attempt <= PDF_LOAD_ATTEMPTS; attempt += 1) {
+      let loadingTask = null;
       try {
         const pdfjsLib = await loadPdfJs();
         if (token !== state.pdfViewer.token) return;
-        const loadingTask = pdfjsLib.getDocument({ url: source, withCredentials: false });
+        loadingTask = pdfjsLib.getDocument({ url: source, withCredentials: false });
         state.pdfViewer.loadingTask = loadingTask;
         pdfDoc = await loadingTask.promise;
         break;
       } catch (error) {
-        state.pdfViewer.loadingTask?.destroy?.();
-        state.pdfViewer.loadingTask = null;
+        if (token !== state.pdfViewer.token) {
+          loadingTask?.destroy?.();
+          return;
+        }
+        if (state.pdfViewer.loadingTask === loadingTask) {
+          loadingTask?.destroy?.();
+          state.pdfViewer.loadingTask = null;
+        }
         if (token !== state.pdfViewer.token || attempt >= PDF_LOAD_ATTEMPTS) throw error;
         await wait(PDF_LOAD_RETRY_MS * attempt);
       }
