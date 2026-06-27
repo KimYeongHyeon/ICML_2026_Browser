@@ -306,7 +306,7 @@ if (!/^6,343 results/.test(initial.resultCount)) {
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
-if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\nclusters/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
+if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\narea groups/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
   throw new Error(`header should match compact design stats: ${initial.headerStats}`);
 }
 if (!/^6,343 results/.test(paper.resultCount)) {
@@ -384,8 +384,8 @@ if (!trendRepresentativeClick.selectedTitle || !trendRepresentativeClick.viewerT
 if (!map.hasCanvas || !map.activeSummary.includes("Map")) {
   throw new Error(`map smoke failed: ${JSON.stringify(map)}`);
 }
-if (!map.colorLabels.includes("Area + Domain") || !map.colorLabels.includes("Research area") || !map.colorLabels.includes("Embedding cluster")) {
-  throw new Error(`map color labels should distinguish area vs cluster: ${JSON.stringify(map)}`);
+if (!map.colorLabels.includes("Area + Domain") || !map.colorLabels.includes("Research area") || !map.colorLabels.includes("Semantic area group")) {
+  throw new Error(`map color labels should distinguish area, domain, and semantic group modes: ${JSON.stringify(map)}`);
 }
 if (!map.activeSummary.includes("global") || !map.activeSummary.includes("area + domain")) {
   throw new Error(`map summary should include both scope and color mode: ${JSON.stringify(map)}`);
