@@ -5,7 +5,6 @@ import { escapeHtml, plainMathTitle } from "./utils.js";
 import { countLabels } from "./map-layout.js";
 import { colorForValue } from "./map-tooltip.js";
 import {
-  buildTopicStudyPack,
   explainSemanticRelation,
   focusDepth,
   focusedGraphPosition,
@@ -233,7 +232,13 @@ export function destroyMiniGraph() {
 
 function fitGraphToElement(graph, graphData, element, options = {}) {
   if (!graph || !graphData?.nodes?.length || !element) return;
-  const bounds = graphData.nodes.reduce((box, node) => ({
+  const graphBox = graph.getGraphBbox?.();
+  const bounds = graphBox ? {
+    minX: Number(graphBox.x?.[0]) || 0,
+    maxX: Number(graphBox.x?.[1]) || 0,
+    minY: Number(graphBox.y?.[0]) || 0,
+    maxY: Number(graphBox.y?.[1]) || 0,
+  } : graphData.nodes.reduce((box, node) => ({
     minX: Math.min(box.minX, Number(node.x) || 0),
     maxX: Math.max(box.maxX, Number(node.x) || 0),
     minY: Math.min(box.minY, Number(node.y) || 0),
@@ -340,8 +345,11 @@ export function mountMiniGraph(graphData, selectedId) {
   applyForceAnchors(state.miniGraph, 0.035);
   state.miniGraph.cooldownTime?.(3200);
   state.miniGraph.resumeAnimation?.();
-  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 42, minZoom: 0.95, maxZoom: 5.2 }), 80);
-  window.setTimeout(() => fitGraphToElement(state.miniGraph, graphData, container, { padding: 44, minZoom: 0.95, maxZoom: 5.2, duration: 220 }), 700);
+  const fitMiniGraph = (duration = 220) => fitGraphToElement(state.miniGraph, state.miniGraph?.graphData?.() || graphData, container, { padding: 64, minZoom: 0.72, maxZoom: 4.4, duration });
+  requestAnimationFrame(() => fitMiniGraph(0));
+  window.setTimeout(() => fitMiniGraph(180), 180);
+  window.setTimeout(() => fitMiniGraph(220), 900);
+  window.setTimeout(() => fitMiniGraph(220), 1800);
 }
 
 export function renderMiniMap(record) {
@@ -350,27 +358,11 @@ export function renderMiniMap(record) {
   if (!neighborhood) return "";
   const { neighbors, topTags, maxScore, similarityPercent, sharedTags } = neighborhood;
   const deep = depth === "deep";
-  const studyPack = buildTopicStudyPack(record, { limit: 6 });
   return `
     <section class="mini-map-panel" data-mini-graph-record="${escapeHtml(record.id)}">
       <div class="mini-map-heading">
         <h3>Semantic neighborhood</h3>
         <span>${deep ? "deeper neighborhood" : "first-hop view"} · ${neighbors.length} nearest mapped records</span>
-      </div>
-      <div class="study-pack">
-        <div class="study-pack-heading">
-          <h4>Topic study pack</h4>
-          <span>closest + bridge records</span>
-        </div>
-        ${studyPack.map((item) => `
-          <button type="button" class="neighbor-item semantic-neighbor study-pack-item" data-id="${escapeHtml(item.record.id)}">
-            <span class="neighbor-rank">${item.rank}</span>
-            <span class="neighbor-main">
-              <strong>${escapeHtml(plainMathTitle(item.record.title))}</strong>
-              <small class="why-line">${escapeHtml(item.reason)}</small>
-            </span>
-          </button>
-        `).join("") || "<small>No study pack is available for this record.</small>"}
       </div>
       <div class="mini-graph-toolbar" aria-label="Semantic neighborhood controls">
         <button class="mini-graph-control" type="button" data-mini-action="zoom-out" title="Zoom out">-</button>
