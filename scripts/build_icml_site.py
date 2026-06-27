@@ -166,8 +166,45 @@ def semantic_freshness_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def slim_record(record: dict[str, Any]) -> dict[str, Any]:
-    omit = {"abstract", "localSupplementalPaths"}
-    return {key: value for key, value in record.items() if key not in omit}
+    keep = {
+        "areaTags",
+        "authors",
+        "availabilityLabel",
+        "availabilityStatus",
+        "bestAsset",
+        "bestAssetKind",
+        "category",
+        "categoryTags",
+        "clusterId",
+        "clusterLabel",
+        "decision",
+        "domainTags",
+        "embeddingClusterId",
+        "embeddingClusterKeywords",
+        "endTime",
+        "group",
+        "hasPdf",
+        "hasPoster",
+        "hasSlide",
+        "id",
+        "localPdfPath",
+        "localPosterPath",
+        "localSlidePath",
+        "mapAvailable",
+        "openreviewUrl",
+        "pageUrl",
+        "pdfUrl",
+        "presentationLabels",
+        "presentationType",
+        "projectPageUrl",
+        "roomName",
+        "session",
+        "startTime",
+        "status",
+        "title",
+        "type",
+    }
+    return {key: value for key, value in record.items() if key in keep}
 
 
 def relative_site_data_url(path: Path) -> str:
@@ -184,7 +221,7 @@ def write_sharded_payload(payload: dict[str, Any]) -> None:
     startup_payload = {
         "generatedAt": payload.get("generatedAt"),
         "summary": payload.get("summary", {}),
-        "records": [slim_record(record) for record in records],
+        "records": [slim_record(record) for record in records if record.get("type") != "poster"],
     }
     write_json_payload(STARTUP_OUT, startup_payload)
 
@@ -207,7 +244,6 @@ def write_sharded_payload(payload: dict[str, Any]) -> None:
         "generatedAt": payload.get("generatedAt"),
         "summary": payload.get("summary", {}),
         "startupUrl": relative_site_data_url(STARTUP_OUT),
-        "fallbackUrl": relative_site_data_url(OUT),
         "shards": shards,
     })
 

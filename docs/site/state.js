@@ -7,6 +7,7 @@ export const state = {
   group: "all",
   asset: "all",
   selectedId: "",
+  viewerMapRequested: false,
   visibleCount: PAGE_SIZE,
   data: null,
   dataManifest: null,
