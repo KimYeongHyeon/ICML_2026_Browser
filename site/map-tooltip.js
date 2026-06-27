@@ -12,8 +12,25 @@ import { embeddingClusterColorLabel } from "./map-core.js";
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
+function hashString(value) {
+  let hash = 0;
+  for (const char of String(value)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash;
+}
+
+function embeddingClusterColor(value) {
+  const text = String(value || "");
+  const match = text.match(/\bCluster\s+(\d+)/i) || text.match(/embedding-cluster-(\d+)/i);
+  const index = match ? Math.max(0, Number(match[1]) - 1) : hashString(text);
+  const hue = Math.round((index * 137.508) % 360);
+  const saturation = [82, 68, 76, 88][index % 4];
+  const lightness = [43, 55, 36, 62][Math.floor(index / 4) % 4];
+  return `hsl(${hue} ${saturation}% ${lightness}%)`;
+}
+
 export function colorForValue(value) {
   const colorMode = ["quality", "availability"].includes(state.mapColor) ? "area-domain" : state.mapColor;
+  if (colorMode === "embedding-cluster") return embeddingClusterColor(value);
   const palette = {
     "area-domain": AREA_COLORS,
     area: AREA_COLORS,
@@ -22,9 +39,7 @@ export function colorForValue(value) {
     availability: AVAILABILITY_COLORS,
   }[colorMode];
   if (palette?.[value]) return palette[value];
-  let hash = 0;
-  for (const char of String(value)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  const hue = hash % 360;
+  const hue = hashString(value) % 360;
   return `hsl(${hue} 72% 58%)`;
 }
 

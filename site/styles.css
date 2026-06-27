@@ -1236,6 +1236,23 @@ a:focus-visible {
   font-size: 11px;
 }
 
+.legend-more {
+  width: 100%;
+  min-height: 25px;
+  border: 1px solid #cfe4dd;
+  border-radius: 9px;
+  background: #eef4f2;
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 850;
+}
+
+.legend-more:hover {
+  background: #e3f0ec;
+  color: var(--text);
+}
+
 .map-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 400px);
