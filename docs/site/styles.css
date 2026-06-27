@@ -135,7 +135,7 @@ h2 {
   line-height: 1;
 }
 
-.stat-pill:not(.saved-pill) {
+.stat-pill {
   border-color: transparent;
   background: transparent;
   padding-left: 0;
@@ -448,10 +448,6 @@ a:focus-visible {
   box-shadow: inset 3px 0 0 #9db4e0;
 }
 
-.result-item.is-queued {
-  border-color: #f4dc9b;
-}
-
 .result-kicker {
   display: flex;
   align-items: center;
@@ -609,69 +605,6 @@ a:focus-visible {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
-}
-
-.action.saved-toggle {
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-}
-
-.action.saved-toggle:hover {
-  border-color: #fcd34d;
-  color: #b45309;
-}
-
-.action.saved-toggle.is-saved {
-  background: #fffbeb;
-  border-color: #fcd34d;
-  color: #b45309;
-}
-
-.queue-status-control {
-  display: grid;
-  gap: 3px;
-  min-width: 132px;
-}
-
-.queue-status-control span {
-  color: var(--muted-2);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.queue-status-control select {
-  min-height: 40px;
-  border-radius: 12px;
-  color: var(--accent-strong);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-button.stat-pill.saved-pill {
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-}
-
-button.stat-pill.saved-pill:hover {
-  border-color: #fcd34d;
-}
-
-.stat-pill.saved-pill.is-active {
-  background: #fffbeb;
-  border-color: #fcd34d;
-  color: #b45309;
-}
-
-.queue-breakdown {
-  max-width: 210px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.25;
 }
 
 .viewer-meta {

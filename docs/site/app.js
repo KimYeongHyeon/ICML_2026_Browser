@@ -27,8 +27,6 @@ import {
   resetResultWindow,
   queueWorkerSearch,
   refreshSearchWorkerIndex,
-  setQueueStatus,
-  toggleSaved,
   updateHeader,
   updateSelects,
 } from "./browse.js";
@@ -69,10 +67,6 @@ import {
   showGraphTooltip,
 } from "./map-interactions.js";
 import { renderMapLegend } from "./map-legend.js";
-import {
-  loadStudyQueue,
-  queuedIds,
-} from "./saved.js";
 import { loadSearchEmbeddings } from "./semantic-search.js";
 
 configureMapCore({ findDisplayRecord });
@@ -175,9 +169,7 @@ configureViewer({
   renderMap,
   renderMiniMap,
   renderResults,
-  setQueueStatus,
   semanticNeighborhood,
-  toggleSaved,
   updateHeader,
 });
 
@@ -294,8 +286,6 @@ async function init() {
   state.data = loaded.data;
   state.dataManifest = loaded.manifest;
   state.data.records = enrichPaperPresentationRecords(state.data.records || []);
-  state.studyQueue = loadStudyQueue();
-  state.savedIds = queuedIds(state.studyQueue);
   refreshSearchWorkerIndex();
   renderDataHealthNote();
   try {
