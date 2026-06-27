@@ -32,11 +32,9 @@ import {
   updateHeader,
   updateSelects,
 } from "./browse.js";
-import { colorForValue } from "./map-tooltip.js";
 import {
   buildGraphData,
   configureMapCore,
-  mapColorValue,
   mapRecordById,
   mapSearchSummary,
   mapSemanticSearchIds,
@@ -46,7 +44,6 @@ import {
   applyMapMotionSettings,
   configureMapEngine,
   destroyGraphEngine,
-  domainShapeValue,
   ensureCytoscapeLibrary,
   fitForceGraph,
   reflowMap,
@@ -71,6 +68,7 @@ import {
   installMapPointerInteractions,
   showGraphTooltip,
 } from "./map-interactions.js";
+import { renderMapLegend } from "./map-legend.js";
 import {
   loadStudyQueue,
   queuedIds,
@@ -108,79 +106,6 @@ configureMapInteractions({
   renderViewer,
 });
 
-function domainShapeLegendItems(records) {
-  const counts = new Map();
-  for (const record of records) {
-    const domain = (record.domainTags || ["General"])[0] || "General";
-    counts.set(domain, (counts.get(domain) || 0) + 1);
-  }
-  return [...counts.entries()]
-    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
-    .slice(0, 8)
-    .map(([domain, count]) => ({
-      count,
-      domain,
-      shape: domainShapeValue({ domainTags: [domain] }),
-    }));
-}
-
-function renderMapLegend(visibleRecords) {
-  if (!els.mapLegend) return;
-  if (state.mapColor === "quality" || state.mapColor === "availability") {
-    state.mapColor = "area-domain";
-    if (els.mapColor) els.mapColor.value = state.mapColor;
-  }
-  const counts = new Map();
-  for (const record of visibleRecords) {
-    const value = mapColorValue(record);
-    counts.set(value, (counts.get(value) || 0) + 1);
-  }
-  const items = [...counts.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 12);
-  const domainShapeItems = domainShapeLegendItems(visibleRecords);
-  const allCount = visibleRecords.length;
-  els.mapLegend.innerHTML = `
-    ${state.mapColor === "area-domain" ? `
-      <div class="legend-note">
-        <span>Fill = research area. Shape = domain below. Ring = domain accent. Click an area to filter.</span>
-        <span class="legend-shape-row" aria-label="Domain shape map">
-          ${domainShapeItems.map((item) => `
-            <span title="${escapeHtml(`${item.domain}: ${item.count.toLocaleString()} records`)}">
-              <i class="legend-shape legend-shape-${escapeHtml(item.shape)}"></i>
-              <em>${escapeHtml(item.domain)}</em>
-              <strong>${item.count.toLocaleString()}</strong>
-            </span>
-          `).join("")}
-        </span>
-        <b>Each shape marks the domain tag shown next to it.</b>
-      </div>
-    ` : ""}
-    <button class="legend-item legend-all${state.mapFilterValue ? "" : " is-active"}" type="button" data-value="" title="Show all color groups">
-      <span class="legend-swatch legend-swatch-all"></span>
-      <span>All</span>
-      <strong>${allCount.toLocaleString()}</strong>
-    </button>
-  ` + items.map(([value, count]) => `
-    <button class="legend-item${state.mapFilterValue === value ? " is-active" : ""}" type="button" data-value="${escapeHtml(value)}" title="${escapeHtml(state.mapColor === "area-domain" ? `Filter area: ${value}` : value)}">
-      <span class="legend-swatch" style="background:${colorForValue(value)}"></span>
-      <span>${escapeHtml(value)}</span>
-      <strong>${count.toLocaleString()}</strong>
-    </button>
-  `).join("");
-  els.mapLegend.querySelectorAll(".legend-item").forEach((button) => {
-    button.addEventListener("click", () => {
-      const value = button.dataset.value || "";
-      state.mapFilterValue = state.mapFilterValue === value ? "" : value || "";
-      state.selectedId = "";
-      clearMapSelection();
-      resetResultWindow();
-      renderMap();
-      renderViewer(null);
-    });
-  });
-}
-
 async function renderMap() {
   if (state.tab !== "map") return;
   const renderToken = ++state.mapRenderToken;
@@ -193,7 +118,13 @@ async function renderMap() {
   const mapById = mapRecordById();
   const legendRecords = getFilteredRecords({ ignoreMapFilter: true }).filter((record) => record.mapAvailable && mapById.has(record.id));
   const visibleRecords = getFilteredRecords().filter((record) => record.mapAvailable && mapById.has(record.id));
-  renderMapLegend(legendRecords);
+  renderMapLegend(legendRecords, () => {
+    state.selectedId = "";
+    clearMapSelection();
+    resetResultWindow();
+    renderMap();
+    renderViewer(null);
+  });
   els.resultCount.textContent = `${visibleRecords.length.toLocaleString()} mapped records`;
   const query = normalize(state.query);
   els.activeSummary.textContent = activeFilterSummary("Map", [
