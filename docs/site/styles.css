@@ -2190,10 +2190,74 @@ button.stat-pill.saved-pill:hover {
   font-size: 12px;
 }
 
-.selection-stat-block span {
-  display: flex;
+.selection-block-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.selection-block-head > strong {
+  font-size: 12px;
+}
+
+.selection-sample-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: end;
+  gap: 6px;
+  min-width: max-content;
+}
+
+.selection-sample-controls button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.selection-sample-controls button:hover:not(:disabled),
+.selection-sample-controls button:focus-visible:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--line));
+  outline: none;
+}
+
+.selection-sample-controls button:disabled {
+  color: var(--muted-2);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.selection-sample-controls em {
+  min-width: 32px;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.selection-sample-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.selection-stat-block span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 10px;
   min-width: 0;
   color: var(--muted);
@@ -2209,9 +2273,49 @@ button.stat-pill.saved-pill:hover {
   white-space: nowrap;
 }
 
+.selection-stat-block .selection-sample-controls {
+  display: inline-flex;
+  grid-template-columns: none;
+  gap: 6px;
+}
+
+.selection-stat-block .selection-sample-controls em {
+  min-width: 32px;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.selection-stat-block-groups {
+  gap: 10px;
+}
+
+.selection-stat-block-groups .selection-stat-row {
+  align-items: start;
+  gap: 12px;
+}
+
+.selection-stat-block-groups .selection-stat-label {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.28;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .selection-stat-block b {
+  min-width: 3ch;
   color: var(--text);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .selection-stat-block small {

@@ -40,7 +40,7 @@ function renderTrendCards() {
       <div class="trend-panel-head">
         <p class="eyebrow">Semantic trends</p>
         <h3>Research currents</h3>
-        <span>${trends.length.toLocaleString()} embedding-derived clusters</span>
+        <span>${trends.length.toLocaleString()} semantic area groups</span>
       </div>
       <div class="trend-list">
         ${trends.map((trend, index) => `
@@ -49,7 +49,7 @@ function renderTrendCards() {
               <span class="neighbor-rank">${index + 1}</span>
               <span>
                 <strong>${escapeHtml(trend.name || trend.clusterLabel || "Semantic trend")}</strong>
-                <em>${Number(trend.size || 0).toLocaleString()} records · ${escapeHtml(trend.clusterLabel || "mapped cluster")}</em>
+                <em>${Number(trend.size || 0).toLocaleString()} records · ${escapeHtml(trend.clusterLabel || "semantic area group")}</em>
               </span>
             </button>
             <p>${escapeHtml(trend.summary || "")}</p>

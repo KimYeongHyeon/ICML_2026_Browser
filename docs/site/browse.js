@@ -152,7 +152,7 @@ export function updateHeader() {
   const records = displayRecords();
   const papers = records.filter((record) => record.type === "paper");
   const workshops = records.filter((record) => record.type === "workshop");
-  const clusters = new Set(records.map((record) => record.clusterId).filter(Boolean)).size;
+  const areaGroups = new Set(records.map((record) => record.clusterLabel || record.clusterId).filter(Boolean)).size;
   state.savedIds = queuedIds(state.studyQueue);
   if (!state.savedIds.size) {
     state.queueOnly = false;
@@ -173,7 +173,7 @@ export function updateHeader() {
     : "";
   els.headerStats.innerHTML = savedPill + statusText + [
     ["records", papers.length + workshops.length],
-    ["clusters", clusters],
+    ["area groups", areaGroups],
     ["workshops", workshops.length],
   ].filter(([, value]) => value > 0)
     .map(([label, value]) => `<span class="stat-pill"><strong>${value.toLocaleString()}</strong> ${label}</span>`)
