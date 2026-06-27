@@ -40,7 +40,7 @@ function renderTrendCards() {
       <div class="trend-panel-head">
         <p class="eyebrow">Semantic trends</p>
         <h3>Research currents</h3>
-        <span>${trends.length.toLocaleString()} semantic area groups</span>
+        <span>${trends.length.toLocaleString()} embedding clusters</span>
       </div>
       <div class="trend-list">
         ${trends.map((trend, index) => `
@@ -49,7 +49,7 @@ function renderTrendCards() {
               <span class="neighbor-rank">${index + 1}</span>
               <span>
                 <strong>${escapeHtml(trend.name || trend.clusterLabel || "Semantic trend")}</strong>
-                <em>${Number(trend.size || 0).toLocaleString()} records · ${escapeHtml(trend.clusterLabel || "semantic area group")}</em>
+                <em>${Number(trend.size || 0).toLocaleString()} records · ${escapeHtml(trend.clusterLabel || "embedding cluster")}</em>
               </span>
             </button>
             <p>${escapeHtml(trend.summary || "")}</p>
@@ -97,6 +97,8 @@ export function renderMapDetail(record) {
   const topScore = neighborScores.length ? Math.max(...neighborScores) : 0;
   const areaLabel = (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ") || "Other";
   const domainLabel = (record.domainTags || ["General"]).slice(0, 2).join(", ") || "General";
+  const embeddingClusterLabel = record.embeddingClusterLabel || "Embedding cluster";
+  const embeddingClusterSize = Number(record.embeddingClusterSize || 0);
   const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
@@ -106,6 +108,7 @@ export function renderMapDetail(record) {
       <div class="badges">
         ${(record.areaTags || []).slice(0, 3).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
         ${(record.domainTags || []).slice(0, 2).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
+        ${record.embeddingClusterLabel ? `<span class="badge">Cluster: ${escapeHtml(record.embeddingClusterLabel)}</span>` : ""}
         <span class="badge">${escapeHtml(record.embeddingTextQuality || "unavailable")}</span>
       </div>
       <div class="selection-stat-grid">
@@ -116,6 +119,10 @@ export function renderMapDetail(record) {
       <div class="selection-stat-block">
         <strong>Area / domain</strong>
         <span><em>${escapeHtml(areaLabel)}</em><b>${escapeHtml(domainLabel)}</b></span>
+      </div>
+      <div class="selection-stat-block">
+        <strong>Embedding cluster</strong>
+        <span><em>${escapeHtml(embeddingClusterLabel)}</em><b>${embeddingClusterSize ? embeddingClusterSize.toLocaleString() : "HDBSCAN"}</b></span>
       </div>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">

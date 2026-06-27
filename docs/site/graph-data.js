@@ -169,6 +169,8 @@ function recordMatches(record, mapById, query, areaFilter, domainFilter, typeFil
     ...(record.areaTags || []),
     ...(record.domainTags || []),
     record.clusterLabel,
+    record.embeddingClusterLabel,
+    ...(record.embeddingClusterKeywords || []),
   ].join(" ").toLowerCase();
   return haystack.includes(query);
 }
@@ -215,6 +217,7 @@ export function buildSemanticGraph(index, map, options = {}) {
       area,
       domain,
       cluster: record.clusterLabel || "",
+      embeddingCluster: record.embeddingClusterLabel || "",
       url: record.pageUrl || record.openreviewUrl || record.projectPageUrl || "",
       x: position.x,
       y: position.y,

@@ -73,6 +73,74 @@ def test_compute_neighbors_resolves_known_ids() -> None:
     assert 0.0 <= neighbors["a"][0]["score"] <= 1.0
 
 
+def test_embedding_clusters_are_not_area_aliases() -> None:
+    builder = importlib.import_module("scripts.build_icml_embedding_map")
+    titles = [
+        "Reasoning Language Benchmarks",
+        "Prompt Reasoning Evaluation",
+        "Agent Planning Benchmarks",
+        "Language Reasoning Agents",
+        "Mechanistic Circuit Analysis",
+        "Representation Geometry for Interpretability",
+        "Feature Circuits in Transformers",
+        "Activation Patching for Interpretability",
+    ]
+    records = [
+        {"id": f"llm-{index}", "type": "paper", "title": title, "abstract": title, "group": "Main Conference"}
+        for index, title in enumerate(titles)
+    ]
+    payloads = [
+        {"text": "LLM reasoning language model benchmark", "quality": "title_abstract"},
+        {"text": "LLM reasoning language model evaluation", "quality": "title_abstract"},
+        {"text": "LLM reasoning prompt planning", "quality": "title_abstract"},
+        {"text": "LLM reasoning agent benchmark", "quality": "title_abstract"},
+        {"text": "LLM mechanistic interpretability circuit analysis", "quality": "title_abstract"},
+        {"text": "LLM mechanistic interpretability representation geometry", "quality": "title_abstract"},
+        {"text": "LLM mechanistic interpretability feature circuits", "quality": "title_abstract"},
+        {"text": "LLM mechanistic interpretability activation patching", "quality": "title_abstract"},
+    ]
+    vectors = [
+        [1.0, 0.0, 0.0],
+        [0.98, 0.02, 0.0],
+        [0.96, -0.01, 0.02],
+        [0.94, 0.03, -0.01],
+        [-1.0, 0.0, 0.0],
+        [-0.98, -0.02, 0.0],
+        [-0.96, 0.01, -0.02],
+        [-0.94, -0.03, 0.01],
+    ]
+    map_payload, sidecar = builder.build_semantic_payload(
+        records,
+        vectors,
+        payloads,
+        {"sourceFingerprint": "sha256:test"},
+        embedding_cluster_min_size=2,
+        embedding_cluster_min_samples=1,
+    )
+    area_cluster_ids = {record["clusterId"] for record in map_payload["records"]}
+    embedding_cluster_ids = {
+        record["embeddingClusterId"]
+        for record in map_payload["records"]
+        if record["embeddingClusterId"] != "embedding-noise"
+    }
+    sidecar_cluster_ids = {
+        item["embeddingClusterId"]
+        for item in sidecar["records"].values()
+        if item["embeddingClusterId"] != "embedding-noise"
+    }
+    assert area_cluster_ids == {"cluster-llms"}
+    assert len(embedding_cluster_ids) >= 2
+    assert embedding_cluster_ids == sidecar_cluster_ids
+    assert map_payload["embeddingClusters"]
+    label_tokens = " ".join(
+        token
+        for cluster in map_payload["embeddingClusters"]
+        for token in cluster.get("topTerms", [])
+    )
+    assert "conference" not in label_tokens
+    assert "paper" not in label_tokens
+
+
 def test_search_embedding_payload_is_quantized_and_excludes_posters() -> None:
     builder = importlib.import_module("scripts.build_icml_embedding_map")
     records = [
@@ -98,6 +166,7 @@ def run() -> None:
     test_lexical_embedder_prefers_shared_terms()
     test_infer_controlled_tags_uses_area_and_domain_keywords()
     test_compute_neighbors_resolves_known_ids()
+    test_embedding_clusters_are_not_area_aliases()
     test_search_embedding_payload_is_quantized_and_excludes_posters()
     print("embedding map unit tests passed")
 

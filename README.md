@@ -64,8 +64,7 @@ A typical use case is:
 2. Open a relevant paper or workshop record.
 3. Read the abstract and source metadata.
 4. Use the semantic neighborhood to find related work.
-5. Add records to the Study Queue for later reading.
-6. Open local PDFs or official source pages when available.
+5. Open local PDFs or official source pages when available.
 
 The interface is designed for conference preparation: fast scanning first, deep reading second.
 
@@ -89,6 +88,7 @@ The semantic map and related-paper surfaces are built from paper metadata and ab
 The current index uses SPECTER2-style scientific-paper embeddings for:
 
 - map coordinates,
+- HDBSCAN embedding clusters,
 - nearest-neighbor links,
 - semantic search,
 - semantic neighborhood views.

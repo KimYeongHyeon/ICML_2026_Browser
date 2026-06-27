@@ -28,12 +28,12 @@ jobs:
         if: inputs.mode == 'scientific'
         run: |
           python -m pip install --upgrade pip
-          python -m pip install sentence-transformers umap-learn numpy
+          python -m pip install sentence-transformers umap-learn numpy hdbscan
       - name: Install lightweight embedding dependencies
         if: inputs.mode != 'scientific'
         run: |
           python -m pip install --upgrade pip
-          python -m pip install numpy umap-learn
+          python -m pip install numpy umap-learn hdbscan
       - name: Rebuild site data and semantic artifacts
         env:
           ICML_BUILD_SEMANTIC_MAP: "1"

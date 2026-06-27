@@ -7,6 +7,9 @@ export function installMapDebugProbe() {
     forceZoom() {
       return state.mapGraph?.zoom?.() || null;
     },
+    mapData() {
+      return state.mapData || {};
+    },
     mapSearchInfo() {
       return {
         seedCount: state.mapSearchSeedIds.size,

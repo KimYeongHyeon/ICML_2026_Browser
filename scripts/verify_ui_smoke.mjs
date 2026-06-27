@@ -267,6 +267,16 @@ const map = await page.evaluate(() => ({
 }));
 map.forceZoomBeforeWheel = forceZoomBeforeWheel;
 map.forceZoomAfterWheel = forceZoomAfterWheel;
+await page.locator("#mapColorSelect").selectOption("embedding-cluster", { force: true });
+await page.waitForTimeout(900);
+const embeddingMap = await page.evaluate(() => ({
+  activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+  colorValue: document.querySelector("#mapColorSelect")?.value || "",
+  legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
+  expectedLabels: (window.__icmlMapDebug?.mapData?.().embeddingClusters || [])
+    .slice(0, 8)
+    .map((cluster) => cluster.label || cluster.id),
+}));
 
 const report = {
   baseUrl,
@@ -284,6 +294,7 @@ const report = {
   trendCardClick,
   trendRepresentativeClick,
   map,
+  embeddingMap,
   mapSearch,
   mapTooltip,
   cytoscapeTooltip,
@@ -384,8 +395,8 @@ if (!trendRepresentativeClick.selectedTitle || !trendRepresentativeClick.viewerT
 if (!map.hasCanvas || !map.activeSummary.includes("Map")) {
   throw new Error(`map smoke failed: ${JSON.stringify(map)}`);
 }
-if (!map.colorLabels.includes("Area + Domain") || !map.colorLabels.includes("Research area") || !map.colorLabels.includes("Semantic area group")) {
-  throw new Error(`map color labels should distinguish area, domain, and semantic group modes: ${JSON.stringify(map)}`);
+if (!map.colorLabels.includes("Area + Domain") || !map.colorLabels.includes("Research area") || !map.colorLabels.includes("Embedding cluster") || !map.colorLabels.includes("Semantic area group")) {
+  throw new Error(`map color labels should distinguish area, domain, embedding cluster, and semantic group modes: ${JSON.stringify(map)}`);
 }
 if (!map.activeSummary.includes("global") || !map.activeSummary.includes("area + domain")) {
   throw new Error(`map summary should include both scope and color mode: ${JSON.stringify(map)}`);
@@ -401,6 +412,14 @@ if (!/(Biology|General|Scientific Discovery|Social Science|Robotics|Medical)\s+\
 }
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);
+}
+if (
+  embeddingMap.colorValue !== "embedding-cluster"
+  || !embeddingMap.activeSummary.includes("embedding cluster")
+  || embeddingMap.legendItems.length < 4
+  || !embeddingMap.expectedLabels.some((label) => embeddingMap.legendItems.some((item) => item.includes(label)))
+) {
+  throw new Error(`embedding cluster color mode should be selectable and render a legend: ${JSON.stringify(embeddingMap)}`);
 }
 if (
   !mapSearch.seedCount

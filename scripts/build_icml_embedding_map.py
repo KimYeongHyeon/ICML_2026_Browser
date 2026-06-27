@@ -90,9 +90,13 @@ class ScientificEmbedder:
 
 def tokenize(text: str) -> list[str]:
     stopwords = {
-        "and", "are", "based", "for", "from", "into", "of", "on", "or", "the",
-        "this", "through", "to", "towards", "using", "via", "with",
-        "context", "record", "title", "type", "poster", "workshop",
+        "across", "also", "and", "are", "based", "but", "can", "for", "from",
+        "how", "into", "its", "more", "not", "of", "on", "or", "our", "than",
+        "that", "the", "their", "these", "this", "through", "to", "towards",
+        "under", "using", "via", "when", "where", "which", "while", "with",
+        "abstract", "conference", "context", "data", "main", "method", "methods",
+        "model", "models", "paper", "papers", "record", "results", "show",
+        "study", "title", "type", "poster", "workshop",
     }
     raw_tokens = re.findall(r"[a-z0-9][a-z0-9+\-]{1,}", text.lower())
     tokens = [token.strip("-+") for token in raw_tokens]
@@ -169,11 +173,124 @@ def project_vectors(vectors: list[list[float]], dimension: int) -> list[list[flo
         return []
     try:
         import umap
-        reducer = umap.UMAP(n_components=dimension, random_state=config.MAP_RANDOM_SEED, metric="cosine")
-        projected = reducer.fit_transform(vectors)
-        return [[float(value) for value in row] for row in projected]
-    except ImportError:
-        return [vector[:dimension] + [0.0] * max(0, dimension - len(vector)) for vector in vectors]
+    except ImportError as exc:
+        raise SystemExit("umap-learn is required for semantic map builds.") from exc
+    n_neighbors = min(15, max(2, len(vectors) - 1))
+    reducer = umap.UMAP(
+        n_components=dimension,
+        random_state=config.MAP_RANDOM_SEED,
+        metric="cosine",
+        n_neighbors=n_neighbors,
+        init="random",
+    )
+    projected = reducer.fit_transform(vectors)
+    return [[float(value) for value in row] for row in projected]
+
+
+def normalize_vectors(vectors: list[list[float]]) -> list[list[float]]:
+    normalized = []
+    for vector in vectors:
+        norm = math.sqrt(sum(float(value) * float(value) for value in vector)) or 1.0
+        normalized.append([float(value) / norm for value in vector])
+    return normalized
+
+
+def cluster_label_text(record: dict[str, Any]) -> str:
+    return " ".join(str(record.get(key) or "") for key in ("title", "abstract"))
+
+
+def label_terms(records: list[dict[str, Any]], indexes: list[int], limit: int = 5) -> list[str]:
+    counts: Counter[str] = Counter()
+    for index in indexes:
+        counts.update(tokenize(cluster_label_text(records[index])))
+    return [term for term, _ in counts.most_common(limit)]
+
+
+def embedding_cluster_space(vectors: list[list[float]]) -> list[list[float]]:
+    if len(vectors) < 12:
+        return normalize_vectors(vectors)
+    return project_vectors(vectors, min(12, max(2, len(vectors) - 3)))
+
+
+def build_embedding_clusters(
+    ids: list[str],
+    vectors: list[list[float]],
+    records: list[dict[str, Any]],
+    payloads: list[dict[str, str]],
+    min_cluster_size: int = config.EMBEDDING_CLUSTER_MIN_SIZE,
+    min_samples: int = config.EMBEDDING_CLUSTER_MIN_SAMPLES,
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    try:
+        import numpy as np
+        import hdbscan
+    except ImportError as exc:
+        raise SystemExit(
+            "hdbscan and numpy are required for embedding clusters. "
+            "Install semantic-map dependencies before rebuilding."
+        ) from exc
+
+    if not ids:
+        return {}, []
+    matrix = np.asarray(embedding_cluster_space(vectors), dtype=np.float32)
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=max(2, min_cluster_size),
+        min_samples=max(1, min_samples),
+        metric="euclidean",
+        cluster_selection_method="eom",
+    )
+    raw_labels = [int(label) for label in clusterer.fit_predict(matrix)]
+    label_to_indexes: dict[int, list[int]] = {}
+    for index, raw_label in enumerate(raw_labels):
+        label_to_indexes.setdefault(raw_label, []).append(index)
+
+    ordered_labels = sorted(
+        (label for label in label_to_indexes if label >= 0),
+        key=lambda label: (-len(label_to_indexes[label]), label),
+    )
+    id_by_label = {
+        raw_label: f"embedding-cluster-{position + 1:03d}"
+        for position, raw_label in enumerate(ordered_labels)
+    }
+
+    clusters: list[dict[str, Any]] = []
+    for raw_label in ordered_labels:
+        indexes = label_to_indexes[raw_label]
+        terms = label_terms(records, indexes)
+        label = f"Cluster {len(clusters) + 1:02d}"
+        if terms:
+            label = f"{label}: {' / '.join(terms[:2])}"
+        clusters.append({
+            "id": id_by_label[raw_label],
+            "label": label,
+            "size": len(indexes),
+            "topTerms": terms,
+            "method": "hdbscan-umap-euclidean",
+        })
+
+    if -1 in label_to_indexes:
+        indexes = label_to_indexes[-1]
+        terms = label_terms(records, indexes)
+        clusters.append({
+            "id": "embedding-noise",
+            "label": "Embedding outliers",
+            "size": len(indexes),
+            "topTerms": terms,
+            "method": "hdbscan-umap-euclidean",
+        })
+
+    cluster_by_id = {cluster["id"]: cluster for cluster in clusters}
+    assignments: dict[str, dict[str, Any]] = {}
+    for record_id, raw_label in zip(ids, raw_labels):
+        cluster_id = id_by_label.get(raw_label, "embedding-noise")
+        cluster = cluster_by_id[cluster_id]
+        assignments[record_id] = {
+            "id": cluster_id,
+            "label": cluster["label"],
+            "size": cluster["size"],
+            "keywords": cluster["topTerms"],
+            "method": cluster["method"],
+        }
+    return assignments, clusters
 
 
 def build_semantic_payload(
@@ -181,11 +298,21 @@ def build_semantic_payload(
     vectors: list[list[float]],
     payloads: list[dict[str, str]],
     embedding_source: dict[str, Any],
+    embedding_cluster_min_size: int = config.EMBEDDING_CLUSTER_MIN_SIZE,
+    embedding_cluster_min_samples: int = config.EMBEDDING_CLUSTER_MIN_SAMPLES,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     ids = [str(record["id"]) for record in records]
     projected_2d = project_vectors(vectors, 2)
     projected_3d = project_vectors(vectors, 3)
     neighbors = compute_neighbors(ids, vectors, config.NEIGHBOR_COUNT)
+    embedding_assignments, embedding_clusters = build_embedding_clusters(
+        ids,
+        vectors,
+        records,
+        payloads,
+        min_cluster_size=embedding_cluster_min_size,
+        min_samples=embedding_cluster_min_samples,
+    )
     map_records = []
     semantic_sidecar = {}
 
@@ -194,12 +321,17 @@ def build_semantic_payload(
         tags = infer_controlled_tags(payload["text"])
         cluster_id = f"cluster-{tags['areaTags'][0].lower().replace(' ', '-')}"
         cluster_label = tags["areaTags"][0]
+        embedding_cluster = embedding_assignments[record_id]
         map_records.append({
             "id": record_id,
             "x": round(point_2d[0], 6),
             "y": round(point_2d[1], 6),
             "z": round(point_3d[2] if len(point_3d) > 2 else 0.0, 6),
             "clusterId": cluster_id,
+            "embeddingClusterId": embedding_cluster["id"],
+            "embeddingClusterLabel": embedding_cluster["label"],
+            "embeddingClusterSize": embedding_cluster["size"],
+            "embeddingClusterMethod": embedding_cluster["method"],
             "nearestNeighbors": neighbors[record_id],
         })
         semantic_sidecar[record_id] = {
@@ -207,6 +339,11 @@ def build_semantic_payload(
             "domainTags": tags["domainTags"],
             "clusterId": cluster_id,
             "clusterLabel": cluster_label,
+            "embeddingClusterId": embedding_cluster["id"],
+            "embeddingClusterLabel": embedding_cluster["label"],
+            "embeddingClusterSize": embedding_cluster["size"],
+            "embeddingClusterKeywords": embedding_cluster["keywords"],
+            "embeddingClusterMethod": embedding_cluster["method"],
             "classificationConfidence": 0.6 if payload["quality"] == "title_abstract" else 0.35,
             "classificationReason": f"Keyword-supported semantic classification from {payload['quality']} text.",
             "embeddingTextQuality": payload["quality"],
@@ -226,9 +363,10 @@ def build_semantic_payload(
             "kind": "smoke",
             "dimension": len(vectors[0]) if vectors else 0,
         },
-        "projection": {"method": "umap-or-vector-fallback", "randomSeed": config.MAP_RANDOM_SEED},
+        "projection": {"method": "umap-cosine", "randomSeed": config.MAP_RANDOM_SEED},
         "records": map_records,
         "clusters": clusters,
+        "embeddingClusters": embedding_clusters,
     }
     return map_payload, {"embeddingSource": embedding_source, "records": semantic_sidecar}
 
