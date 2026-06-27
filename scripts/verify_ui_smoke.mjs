@@ -349,7 +349,10 @@ const embeddingMap = await page.evaluate(() => ({
     ?.clusters.length || 0,
 }));
 const hiddenEmbeddingLegendCount = Number(embeddingMap.showMoreText.match(/\(([\d,]+)\)/)?.[1]?.replace(/,/g, "") || 0);
-if (hiddenEmbeddingLegendCount) await page.locator(".legend-more").click();
+if (hiddenEmbeddingLegendCount) {
+  await page.waitForFunction(() => document.querySelector(".legend-more")?.isConnected);
+  await page.locator(".legend-more").last().click({ force: true });
+}
 await page.waitForTimeout(250);
 const embeddingExpandedMap = await page.evaluate(() => ({
   legendItems: [...document.querySelectorAll(".legend-item")].map((item) => item.textContent || ""),
