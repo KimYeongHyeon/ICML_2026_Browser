@@ -341,7 +341,7 @@ async function renderReferences() {
       <div class="selection-stat-grid reference-stat-grid">
         ${referenceStat("matched records", summary.matchedRecords || summary.pdfRecords)}
         ${referenceStat("reference sets", summary.recordsWithReferences)}
-        ${referenceStat("reference strings", summary.referenceStrings)}
+        ${referenceStat("overlap groups", summary.recordsWithOverlaps)}
         ${referenceStat("unique references", summary.uniqueReferenceKeys)}
       </div>
       <div class="reference-analysis-grid">
