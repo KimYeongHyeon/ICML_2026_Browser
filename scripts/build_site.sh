@@ -30,7 +30,7 @@ fi
 python3 scripts/build_icml_trends.py
 python3 scripts/build_icml_study_features.py
 if [[ "${ICML_BUILD_REFERENCES:-1}" == "1" ]]; then
-  python3 scripts/build_icml_references.py --source pdf
+  python3 scripts/build_icml_references.py
 fi
 scripts/verify_site_contract.sh "$INDEX_PATH"
 
