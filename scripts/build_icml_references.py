@@ -534,6 +534,16 @@ def sorted_bucket(bucket: dict[str, dict[str, int]]) -> list[dict[str, Any]]:
   ]
 
 
+def merge_bucket_counts(bucket: dict[str, dict[str, int]], items: list[dict[str, Any]]) -> None:
+  for item in items:
+    label = str(item.get("label") or "")
+    if not label:
+      continue
+    target = bucket.setdefault(label, {"records": 0, "references": 0})
+    target["records"] += int(item.get("records") or 0)
+    target["references"] += int(item.get("references") or 0)
+
+
 def limited_records(index: dict[str, Any], offset: int, limit: Optional[int]) -> list[dict[str, Any]]:
   records = [record for record in index.get("records", []) if isinstance(record, dict)]
   start = max(0, offset)
@@ -663,7 +673,7 @@ def build_manifest(
       "sharedRefsPerOverlap": MAX_SHARED_REFS_PER_OVERLAP,
     },
     "summary": {
-      "recordCount": len(records),
+      "recordCount": len(manifest_records),
       "manifestRecords": len(manifest_records),
       "offset": int(source.get("offset") or 0),
       "limit": source.get("limit"),
@@ -742,6 +752,7 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
   author_counter: Counter[str] = Counter()
   ref_samples: dict[str, dict[str, Any]] = {}
   type_bucket: dict[str, dict[str, int]] = {}
+  merged_buckets: dict[str, dict[str, dict[str, int]]] = {"type": {}, "area": {}, "domain": {}, "category": {}}
   errors: list[dict[str, Any]] = []
 
   out_records = out_root / "records"
@@ -755,6 +766,9 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
     validate(manifest, chunk_root)
     chunk_manifests.append(manifest)
     errors.extend(manifest.get("errors") or [])
+    reference_counts = ((manifest.get("analysis") or {}).get("referenceCounts") or {})
+    for key, field in (("type", "byType"), ("area", "byArea"), ("domain", "byDomain"), ("category", "byCategory")):
+      merge_bucket_counts(merged_buckets[key], reference_counts.get(field) or [])
     for record_id, entry in sorted((manifest.get("records") or {}).items()):
       record_id = str(record_id)
       payload = read_json(manifest_record_path(chunk_root, entry))
@@ -824,9 +838,6 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
     manifest_records[record_id] = merged_entry
 
   summaries = [manifest.get("summary") or {} for manifest in chunk_manifests]
-  total_record_count = sum(summary_int(summary, "recordCount") for summary in summaries)
-  if not total_record_count:
-    total_record_count = sum(len(manifest.get("records") or {}) for manifest in chunk_manifests)
   reference_strings = sum(int(payload.get("referenceCount") or 0) for payload in record_payloads.values())
   top_references = [
     {
@@ -848,7 +859,7 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
     },
     "limits": merged_limits(chunk_manifests),
     "summary": {
-      "recordCount": total_record_count,
+      "recordCount": len(manifest_records),
       "manifestRecords": len(manifest_records),
       "offset": 0,
       "limit": None,
@@ -871,10 +882,10 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
       "topReferences": top_references,
       "topAuthors": [{"author": author, "count": count} for author, count in author_counter.most_common(TOP_AUTHORS)],
       "referenceCounts": {
-        "byType": sorted_bucket(type_bucket),
-        "byArea": [],
-        "byDomain": [],
-        "byCategory": [],
+        "byType": sorted_bucket(merged_buckets["type"] or type_bucket),
+        "byArea": sorted_bucket(merged_buckets["area"]),
+        "byDomain": sorted_bucket(merged_buckets["domain"]),
+        "byCategory": sorted_bucket(merged_buckets["category"]),
       },
     },
     "errors": errors[:50],
@@ -1115,6 +1126,22 @@ def self_check() -> None:
 
   with tempfile.TemporaryDirectory() as temp_dir:
     root = Path(temp_dir)
+    manifest = build_manifest(
+      INDEX_PATH,
+      root / "single",
+      {"generatedAt": "test", "records": []},
+      [
+        {"id": "with-refs", "type": "paper", "title": "With References", "category": "LLMs", "areaTags": ["LLMs"], "domainTags": ["General"]},
+        {"id": "empty", "type": "paper", "title": "Empty References", "category": "Vision", "areaTags": ["Vision"], "domainTags": ["Biology"]},
+      ],
+      {"with-refs": [{"key": "one-ref", "raw": "One Ref", "title": "One Ref", "authors": []}]},
+      {"kind": "self-check"},
+      [],
+    )
+    assert manifest["summary"]["recordCount"] == 1
+    assert manifest["summary"]["manifestRecords"] == 1
+    assert set(manifest["records"]) == {"with-refs"}
+
     chunk_dir = root / "chunks"
     for index, record_id in enumerate(("paper-a", "paper-b")):
       chunk_root = chunk_dir / f"chunk-{index}"
@@ -1156,6 +1183,14 @@ def self_check() -> None:
             "overlapCount": 0,
           },
         },
+        "analysis": {
+          "referenceCounts": {
+            "byType": [{"label": "paper", "records": 1, "references": 2}],
+            "byArea": [{"label": f"Area {index}", "records": 1, "references": 2}],
+            "byDomain": [{"label": "General", "records": 1, "references": 2}],
+            "byCategory": [{"label": "LLMs", "records": 1, "references": 2}],
+          },
+        },
         "errors": [],
       })
     merged = merge_chunks(chunk_dir, root / "merged")
@@ -1167,6 +1202,9 @@ def self_check() -> None:
     assert merged["summary"]["cachedRecords"] == 1
     assert merged["summary"]["uniqueReferenceKeys"] == 2
     assert merged["summary"]["recordsWithOverlaps"] == 2
+    assert [item["label"] for item in merged["analysis"]["referenceCounts"]["byArea"]] == ["Area 0", "Area 1"]
+    assert merged["analysis"]["referenceCounts"]["byDomain"] == [{"label": "General", "records": 2, "references": 4}]
+    assert merged["analysis"]["referenceCounts"]["byCategory"] == [{"label": "LLMs", "records": 2, "references": 4}]
     assert merged["records"]["paper-a"]["overlapCount"] == 1
     paper_a = read_json(root / "merged" / "records" / record_filename("paper-a"))
     assert len(paper_a["references"]) == 1
@@ -1189,6 +1227,7 @@ def main() -> None:
   parser.add_argument("--timeout", type=int, default=30)
   parser.add_argument("--sleep", type=float, default=0.1)
   parser.add_argument("--merge-chunks", type=Path, help="Merge chunk subdirectories containing manifest.json and records/*.json.")
+  parser.add_argument("--publish", action="store_true", help="Allow writing the checked-in docs/site/data/references artifact.")
   parser.add_argument("--self-check", action="store_true")
   parser.add_argument("--validate", nargs="?", const=str(MANIFEST_PATH), help="Validate an existing manifest and exit.")
   args = parser.parse_args()
@@ -1207,6 +1246,8 @@ def main() -> None:
   if args.merge_chunks:
     if args.out_root is None:
       raise SystemExit("--merge-chunks requires explicit --out-root")
+    if args.out_root.resolve() == OUT_ROOT.resolve() and not args.publish:
+      raise SystemExit("--publish is required to write docs/site/data/references")
     manifest = merge_chunks(args.merge_chunks, args.out_root)
     validate(manifest, args.out_root)
     print(f"Wrote {display_path(args.out_root / 'manifest.json')}")
@@ -1217,6 +1258,9 @@ def main() -> None:
   if (args.offset != 0 or args.limit is not None) and out_root.resolve() == OUT_ROOT.resolve():
     out_root = DEFAULT_SMOKE_OUT_ROOT
     print(f"Bounded run writes {display_path(out_root)} to preserve {rel(OUT_ROOT)}")
+  elif args.source == "openalex" and out_root.resolve() == OUT_ROOT.resolve() and not args.publish:
+    out_root = DEFAULT_SMOKE_OUT_ROOT
+    print(f"Online run writes {display_path(out_root)}; pass --publish to replace {rel(OUT_ROOT)}")
 
   manifest = build(
     args.index,
