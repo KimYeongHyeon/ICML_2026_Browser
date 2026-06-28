@@ -1113,13 +1113,31 @@ def build_openalex(
   remote_pdf_records = 0
   crossref_reference_records = 0
   title_entries: dict[str, dict[str, Any]] = {}
+  total_records = len(records)
 
-  for record in records:
+  print(
+    f"Collecting references: offset={offset} limit={limit or 'all'} records={total_records} "
+    f"fallbacks={fallbacks} pdfFallback={pdf_fallback}",
+    flush=True,
+  )
+
+  def print_progress(processed: int) -> None:
+    if processed == 1 or processed % 25 == 0 or processed == total_records:
+      print(
+        f"Reference progress {processed}/{total_records}: "
+        f"matched={matched_records} cached={cached_records} "
+        f"fallback={fallback_records} pdfFallback={pdf_fallback_records} "
+        f"remotePdf={remote_pdf_records} errors={len(errors)}",
+        flush=True,
+      )
+
+  for processed, record in enumerate(records, start=1):
     record_id = str(record.get("id") or "")
     title = str(record.get("title") or "")
     title_key = normalize_title(title)
     if not title_key:
       refs_by_record[record_id] = []
+      print_progress(processed)
       continue
     if title_key in title_entries:
       cached = title_entries[title_key]
@@ -1132,6 +1150,7 @@ def build_openalex(
       if cached.get("fallback"):
         fallback_records += 1
         crossref_reference_records += len(cached["entries"])
+      print_progress(processed)
       continue
     try:
       lookup, was_cached = cached_openalex_lookup(title, cache, mailto, timeout, sleep)
@@ -1201,6 +1220,7 @@ def build_openalex(
       title_entries[title_key] = {"entries": entries, "matched": False, "fallback": bool(entries)}
       refs_by_record[record_id] = entries
       write_json(cache_path, cache)
+    print_progress(processed)
 
   source = {
     "kind": "openalex",
