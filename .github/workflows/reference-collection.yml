@@ -33,18 +33,20 @@ jobs:
         env:
           OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
         run: |
-          python3 scripts/build_icml_references.py \
-            --source openalex \
-            --fallbacks crossref \
-            --pdf-fallback \
-            --record-types paper,workshop \
-            --offset "${{ matrix.offset }}" \
-            --limit 50 \
-            --sleep 1.0 \
-            --timeout 30 \
-            --cache-path "/tmp/icml_refs_cache_${{ matrix.offset }}.json" \
-            --out-root "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
-          python3 - <<'PY'
+          collect_chunk() {
+            rm -rf "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
+            python3 scripts/build_icml_references.py \
+              --source openalex \
+              --fallbacks crossref \
+              --pdf-fallback \
+              --record-types paper,workshop \
+              --offset "${{ matrix.offset }}" \
+              --limit 50 \
+              --sleep 1.0 \
+              --timeout 30 \
+              --cache-path "/tmp/icml_refs_cache_${{ matrix.offset }}.json" \
+              --out-root "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
+            python3 - <<'PY'
           import json
           from pathlib import Path
 
@@ -56,6 +58,8 @@ jobs:
           if errors >= 25 and record_count < 10 and reference_strings < 100:
             raise SystemExit(f"Reference chunk quality gate failed: {summary}")
           PY
+          }
+          collect_chunk || { echo "Chunk quality failed once; retrying after cooldown."; sleep 180; collect_chunk; }
       - uses: actions/upload-artifact@v4
         with:
           name: refs-${{ matrix.offset }}
