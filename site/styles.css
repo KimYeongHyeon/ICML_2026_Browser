@@ -175,8 +175,8 @@ h2 {
 
 .is-references-tab .workspace {
   grid-template-columns: minmax(0, 1fr);
-  height: auto;
-  min-height: calc(100vh - 74px);
+  height: calc(100vh - 74px);
+  min-height: 0;
 }
 
 .is-map-tab .filters,
@@ -806,10 +806,12 @@ a:focus-visible {
 }
 
 .references-view {
+  flex: 1 1 auto;
   overflow: auto;
   min-height: 0;
   padding: 28px;
   background: var(--bg);
+  scrollbar-gutter: stable;
 }
 
 .references-view[hidden] {
@@ -856,6 +858,7 @@ a:focus-visible {
   display: grid;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -872,6 +875,7 @@ a:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-content: start;
 }
 
 .reference-chip {
@@ -894,6 +898,9 @@ a:focus-visible {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 10px;
+  max-height: min(36vh, 360px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .reference-record-item {
@@ -923,6 +930,7 @@ a:focus-visible {
 .reference-selected {
   display: grid;
   gap: 10px;
+  min-height: 0;
   margin-top: 6px;
   padding-top: 12px;
   border-top: 1px solid var(--line-soft);
@@ -940,6 +948,14 @@ a:focus-visible {
 .reference-selected-head strong {
   color: var(--text);
   overflow-wrap: anywhere;
+}
+
+.reference-top-list,
+.reference-selected-samples,
+.reference-overlap-list {
+  max-height: min(34vh, 340px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .viewer-frame iframe {
