@@ -18,6 +18,8 @@ import {
   mountPdfViewer,
   renderAssetOpenFallback,
 } from "./pdf-viewer.js";
+import { recordStudy } from "./study-features.js";
+import { renderStudyPanel } from "./study-ui.js";
 
 let viewerDeps = {};
 
@@ -170,6 +172,30 @@ function renderAbstractBlock(record) {
   return `<div class="viewer-abstract"><h3>Abstract</h3><div class="viewer-abstract-body">${renderSafeTextBlocks(abstract)}</div></div>`;
 }
 
+function openStudyRecord(recordId) {
+  const selected = viewerDeps.findDisplayRecord(recordId);
+  if (!selected) return;
+  state.selectedId = recordId;
+  state.studyCompareSourceId = "";
+  state.studyCompareTargetId = "";
+  viewerDeps.renderResults();
+  viewerDeps.renderMap();
+  renderViewer(selected);
+}
+
+function mountStudyPanelActions(record) {
+  els.viewerFrame.querySelectorAll("[data-study-id]").forEach((button) => {
+    button.addEventListener("click", () => openStudyRecord(button.dataset.studyId));
+  });
+  els.viewerFrame.querySelectorAll(".compare-candidate").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.studyCompareSourceId = record.id;
+      state.studyCompareTargetId = button.dataset.compareId || "";
+      renderViewer(record);
+    });
+  });
+}
+
 export function renderViewer(record) {
   viewerDeps.destroyMiniGraph();
   destroyPdfViewer();
@@ -280,6 +306,16 @@ export function renderViewer(record) {
         renderViewer(selected);
       });
     });
+  }
+  if (record.mapAvailable && state.viewerMapRequested && !state.studyFeaturesLoaded && viewerDeps.ensureStudyFeatures) {
+    void viewerDeps.ensureStudyFeatures().then(() => {
+      if (state.selectedId === record.id) renderViewer(record);
+    });
+  }
+  const studyPanel = renderStudyPanel(record, recordStudy(record.id), viewerDeps.findDisplayRecord);
+  if (studyPanel) {
+    els.viewerFrame.insertAdjacentHTML("beforeend", studyPanel);
+    mountStudyPanelActions(record);
   }
   els.viewerFrame.scrollTop = 0;
   queueMathTypeset(document.body);
