@@ -2,16 +2,24 @@
 from __future__ import annotations
 
 import argparse
+import email.utils
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
+import time
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from itertools import combinations
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +27,8 @@ INDEX_PATH = ROOT / "docs/site/data/icml2026_index.json"
 OUT_ROOT = ROOT / "docs/site/data/references"
 MANIFEST_PATH = OUT_ROOT / "manifest.json"
 RECORDS_ROOT = OUT_ROOT / "records"
+DEFAULT_CACHE_PATH = ROOT / ".cache/icml_references_openalex.json"
+DEFAULT_SMOKE_OUT_ROOT = Path("/tmp/icml_refs_smoke")
 
 MAX_REFERENCES_PER_RECORD = 64
 MAX_REFERENCE_TEXT = 220
@@ -27,6 +37,14 @@ MAX_OVERLAPS_PER_RECORD = 16
 MAX_SHARED_REFS_PER_OVERLAP = 5
 TOP_REFERENCES = 80
 TOP_AUTHORS = 80
+OPENALEX_API = "https://api.openalex.org"
+OPENALEX_SEARCH_PAGE_SIZE = 5
+OPENALEX_DETAIL_PAGE_SIZE = 25
+CROSSREF_API = "https://api.crossref.org"
+CROSSREF_SEARCH_ROWS = 3
+HTTP_RETRY_ATTEMPTS = 3
+HTTP_RETRY_MAX_SLEEP = 5.0
+TRANSIENT_HTTP_STATUSES = {429, 500, 502, 503, 504}
 
 REFERENCE_HEADING_RE = re.compile(r"^\s*(?:\d+\s+)?(references|bibliography|works cited)\b", re.I)
 STOP_HEADING_RE = re.compile(r"^\s*(?:\d+\s+)?(appendix|supplementary material|checklist|acknowledg(e)?ments?)\b", re.I)
@@ -34,6 +52,19 @@ NUMBERED_REF_RE = re.compile(r"^\s*(?:\[\d{1,3}\]|\d{1,3}[.)])\s+")
 AUTHOR_START_RE = re.compile(r"^[A-Z][A-Za-z'`-]+,\s+(?:[A-Z]\.|[A-Z][a-z])")
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b")
 URL_RE = re.compile(r"https?://\S+|doi:\S+", re.I)
+LATEX_WORDS = {
+  r"\alpha": " alpha ",
+  r"\beta": " beta ",
+  r"\gamma": " gamma ",
+  r"\delta": " delta ",
+  r"\epsilon": " epsilon ",
+  r"\lambda": " lambda ",
+  r"\mathbb": " ",
+  r"\mathcal": " ",
+  r"\mathrm": " ",
+  r"\mathbf": " ",
+  r"\text": " ",
+}
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -56,8 +87,41 @@ def normalize_key(value: str) -> str:
   return " ".join(text.split())[:160]
 
 
+def normalize_title(value: str) -> str:
+  text = compact_text(value).lower()
+  for old, new in LATEX_WORDS.items():
+    text = text.replace(old, new)
+  text = re.sub(r"\\[a-zA-Z]+", " ", text)
+  text = re.sub(r"[$^_{}]", " ", text)
+  text = re.sub(r"[^a-z0-9]+", " ", text)
+  return " ".join(text.split())
+
+
+def titles_match(index_title: str, openalex_title: str) -> bool:
+  left = normalize_title(index_title)
+  right = normalize_title(openalex_title)
+  if not left or not right:
+    return False
+  if left == right:
+    return True
+  if len(left) >= 24 and len(right) >= 24 and (left in right or right in left):
+    return True
+  score = SequenceMatcher(None, left, right).ratio()
+  left_tokens = set(left.split())
+  right_tokens = set(right.split())
+  overlap = len(left_tokens & right_tokens) / max(1, len(left_tokens | right_tokens))
+  return score >= 0.92 or (score >= 0.84 and overlap >= 0.86)
+
+
 def rel(path: Path) -> str:
   return path.relative_to(ROOT).as_posix()
+
+
+def display_path(path: Path) -> str:
+  try:
+    return rel(path)
+  except ValueError:
+    return str(path)
 
 
 def record_filename(record_id: str) -> str:
@@ -181,6 +245,280 @@ def reference_entry(ref: str) -> dict[str, Any]:
   }
 
 
+def openalex_id(value: str) -> str:
+  return value.rstrip("/").rsplit("/", 1)[-1]
+
+
+def openalex_authors(work: dict[str, Any]) -> list[str]:
+  authors: list[str] = []
+  for authorship in work.get("authorships") or []:
+    author = authorship.get("author") or {}
+    name = compact_text(author.get("display_name"))
+    if name:
+      authors.append(name)
+    if len(authors) >= 10:
+      break
+  return authors
+
+
+def openalex_source(work: dict[str, Any]) -> str:
+  location = work.get("primary_location") or {}
+  source = location.get("source") or {}
+  return compact_text(source.get("display_name"))
+
+
+def openalex_reference_entry(work: dict[str, Any]) -> dict[str, Any]:
+  title = compact_text(work.get("display_name"))[:140]
+  source = openalex_source(work)
+  year = work.get("publication_year")
+  raw_parts = [title]
+  if year:
+    raw_parts.append(str(year))
+  if source:
+    raw_parts.append(source)
+  return {
+    "key": normalize_key(title or str(work.get("id") or "")),
+    "raw": ". ".join(raw_parts)[:MAX_REFERENCE_TEXT],
+    "title": title,
+    "authors": openalex_authors(work),
+    "year": year,
+    "source": source,
+    "openAlexId": openalex_id(str(work.get("id") or "")),
+  }
+
+
+def load_openalex_cache(path: Path) -> dict[str, Any]:
+  if not path.exists():
+    return {"titleLookups": {}, "works": {}, "crossrefTitleLookups": {}}
+  cache = read_json(path)
+  cache.setdefault("titleLookups", {})
+  cache.setdefault("works", {})
+  cache.setdefault("crossrefTitleLookups", {})
+  return cache
+
+
+def retry_after_seconds(error: urllib.error.HTTPError, fallback: float) -> float:
+  value = error.headers.get("Retry-After", "")
+  if value.isdigit():
+    return min(HTTP_RETRY_MAX_SLEEP, max(0.0, float(value)))
+  if value:
+    try:
+      retry_at = email.utils.parsedate_to_datetime(value)
+      return min(HTTP_RETRY_MAX_SLEEP, max(0.0, retry_at.timestamp() - time.time()))
+    except (TypeError, ValueError, IndexError, OverflowError):
+      pass
+  return min(HTTP_RETRY_MAX_SLEEP, fallback)
+
+
+def request_json(url: str, headers: dict[str, str], timeout: int, sleep: float) -> dict[str, Any]:
+  base_delay = sleep if sleep > 0 else 1.0
+  for attempt in range(HTTP_RETRY_ATTEMPTS):
+    try:
+      request = urllib.request.Request(url, headers=headers)
+      with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+      if exc.code not in TRANSIENT_HTTP_STATUSES or attempt == HTTP_RETRY_ATTEMPTS - 1:
+        raise
+      delay = retry_after_seconds(exc, base_delay * (2 ** attempt))
+      sleep_if_needed(delay)
+  raise RuntimeError("unreachable HTTP retry state")
+
+
+def openalex_params(params: dict[str, str], mailto: str) -> dict[str, str]:
+  request_params = dict(params)
+  if mailto:
+    request_params["mailto"] = mailto
+  api_key = os.environ.get("OPENALEX_API_KEY")
+  if api_key:
+    request_params["api_key"] = api_key
+  return request_params
+
+
+def openalex_get(path: str, params: dict[str, str], mailto: str, timeout: int, sleep: float) -> dict[str, Any]:
+  url = f"{OPENALEX_API}{path}?{urllib.parse.urlencode(openalex_params(params, mailto))}"
+  headers = {"User-Agent": f"icml-2026-materials-browser/1.0 mailto:{mailto or 'none'}"}
+  return request_json(url, headers, timeout, sleep)
+
+
+def sleep_if_needed(seconds: float) -> None:
+  if seconds > 0:
+    time.sleep(seconds)
+
+
+def cached_openalex_lookup(
+  title: str,
+  cache: dict[str, Any],
+  mailto: str,
+  timeout: int,
+  sleep: float,
+) -> tuple[dict[str, Any], bool]:
+  key = normalize_title(title)
+  title_cache = cache["titleLookups"]
+  if key in title_cache:
+    return title_cache[key], True
+
+  payload = openalex_get(
+    "/works",
+    {
+      "filter": f"title.search:{key}",
+      "per-page": str(OPENALEX_SEARCH_PAGE_SIZE),
+      "select": "id,display_name,publication_year,referenced_works,authorships,primary_location",
+    },
+    mailto,
+    timeout,
+    sleep,
+  )
+  sleep_if_needed(sleep)
+  candidates = payload.get("results") or []
+  matched = next((work for work in candidates if titles_match(title, str(work.get("display_name") or ""))), None)
+  result = {"matched": bool(matched), "work": matched}
+  if not matched:
+    result["candidates"] = [compact_text(work.get("display_name")) for work in candidates[:3]]
+  title_cache[key] = result
+  return result, False
+
+
+def fetch_openalex_work_details(
+  ids: list[str],
+  cache: dict[str, Any],
+  mailto: str,
+  timeout: int,
+  sleep: float,
+) -> None:
+  works = cache["works"]
+  missing = [work_id for work_id in ids if work_id and work_id not in works]
+  for index in range(0, len(missing), OPENALEX_DETAIL_PAGE_SIZE):
+    chunk = missing[index:index + OPENALEX_DETAIL_PAGE_SIZE]
+    payload = openalex_get(
+      "/works",
+      {
+        "filter": f"ids.openalex:{'|'.join(chunk)}",
+        "per-page": str(OPENALEX_DETAIL_PAGE_SIZE),
+        "select": "id,display_name,publication_year,authorships,primary_location",
+      },
+      mailto,
+      timeout,
+      sleep,
+    )
+    for work in payload.get("results") or []:
+      works[str(work.get("id") or "")] = work
+    for work_id in chunk:
+      works.setdefault(work_id, None)
+    sleep_if_needed(sleep)
+
+
+def openalex_reference_entries(
+  work: dict[str, Any],
+  cache: dict[str, Any],
+  mailto: str,
+  timeout: int,
+  sleep: float,
+) -> list[dict[str, Any]]:
+  ref_ids = [str(work_id) for work_id in (work.get("referenced_works") or [])[:MAX_REFERENCES_PER_RECORD]]
+  fetch_openalex_work_details(ref_ids, cache, mailto, timeout, sleep)
+  entries = []
+  for work_id in ref_ids:
+    ref_work = cache["works"].get(work_id)
+    if ref_work:
+      entry = openalex_reference_entry(ref_work)
+      if entry["key"]:
+        entries.append(entry)
+  return entries
+
+
+def crossref_get(path: str, params: dict[str, str], mailto: str, timeout: int, sleep: float) -> dict[str, Any]:
+  if mailto:
+    params = {**params, "mailto": mailto}
+  url = f"{CROSSREF_API}{path}?{urllib.parse.urlencode(params)}"
+  headers = {"User-Agent": f"icml-2026-materials-browser/1.0 mailto:{mailto or 'none'}"}
+  return request_json(url, headers, timeout, sleep)
+
+
+def crossref_first_text(value: Any) -> str:
+  if isinstance(value, list):
+    return compact_text(value[0] if value else "")
+  return compact_text(value)
+
+
+def crossref_item_title(item: dict[str, Any]) -> str:
+  return crossref_first_text(item.get("title"))
+
+
+def crossref_reference_authors(ref: dict[str, Any]) -> list[str]:
+  author = compact_text(ref.get("author"))
+  if not author:
+    return []
+  return [name.strip() for name in re.split(r"\s+(?:and|&)\s+", author) if name.strip()][:10]
+
+
+def crossref_reference_entry(ref: dict[str, Any]) -> dict[str, Any]:
+  doi = compact_text(ref.get("DOI") or ref.get("doi"))
+  title = compact_text(ref.get("article-title") or ref.get("volume-title"))[:140]
+  year = compact_text(ref.get("year"))
+  raw = compact_text(ref.get("unstructured"))
+  if not raw:
+    raw = ". ".join(part for part in (title, year, doi) if part)[:MAX_REFERENCE_TEXT]
+  entry: dict[str, Any] = {
+    "key": normalize_key(doi or title or raw),
+    "raw": raw[:MAX_REFERENCE_TEXT],
+    "title": title,
+    "authors": crossref_reference_authors(ref),
+    "source": "Crossref",
+  }
+  if year.isdigit():
+    entry["year"] = int(year)
+  if doi:
+    entry["doi"] = doi
+  return entry
+
+
+def crossref_reference_entries(item: dict[str, Any]) -> list[dict[str, Any]]:
+  entries: list[dict[str, Any]] = []
+  seen: set[str] = set()
+  for ref in (item.get("reference") or [])[:MAX_REFERENCES_PER_RECORD]:
+    if not isinstance(ref, dict):
+      continue
+    entry = crossref_reference_entry(ref)
+    key = str(entry.get("key") or "")
+    if key and key not in seen:
+      seen.add(key)
+      entries.append(entry)
+  return entries
+
+
+def cached_crossref_lookup(
+  title: str,
+  cache: dict[str, Any],
+  mailto: str,
+  timeout: int,
+  sleep: float,
+) -> tuple[dict[str, Any], bool]:
+  key = normalize_title(title)
+  title_cache = cache["crossrefTitleLookups"]
+  if key in title_cache:
+    return title_cache[key], True
+
+  payload = crossref_get(
+    "/works",
+    {
+      "query.title": compact_text(title),
+      "rows": str(CROSSREF_SEARCH_ROWS),
+    },
+    mailto,
+    timeout,
+    sleep,
+  )
+  sleep_if_needed(sleep)
+  candidates = (payload.get("message") or {}).get("items") or []
+  matched = next((item for item in candidates if titles_match(title, crossref_item_title(item))), None)
+  result = {"matched": bool(matched), "work": matched}
+  if not matched:
+    result["candidates"] = [crossref_item_title(item) for item in candidates[:3]]
+  title_cache[key] = result
+  return result, False
+
+
 def count_bucket(bucket: dict[str, dict[str, int]], label: str, ref_count: int) -> None:
   if not label:
     return
@@ -196,19 +534,28 @@ def sorted_bucket(bucket: dict[str, dict[str, int]]) -> list[dict[str, Any]]:
   ]
 
 
-def build(index_path: Path, out_root: Path, extractor: str, timeout: int) -> dict[str, Any]:
-  index = read_json(index_path)
-  records = index.get("records", [])
-  extractor_path = shutil.which(extractor) if "/" not in extractor else extractor
-  if not extractor_path:
-    raise SystemExit("pdftotext not found; install poppler or pass --pdftotext")
+def limited_records(index: dict[str, Any], offset: int, limit: Optional[int]) -> list[dict[str, Any]]:
+  records = [record for record in index.get("records", []) if isinstance(record, dict)]
+  start = max(0, offset)
+  if limit is None:
+    return records[start:]
+  return records[start:start + max(0, limit)]
 
+
+def build_manifest(
+  index_path: Path,
+  out_root: Path,
+  index: dict[str, Any],
+  records: list[dict[str, Any]],
+  refs_by_record: dict[str, list[dict[str, Any]]],
+  source: dict[str, Any],
+  errors: list[dict[str, str]],
+) -> dict[str, Any]:
   out_records = out_root / "records"
   out_records.mkdir(parents=True, exist_ok=True)
   for stale in out_records.glob("*.json"):
     stale.unlink()
 
-  errors: list[dict[str, str]] = []
   ref_counter: Counter[str] = Counter()
   author_counter: Counter[str] = Counter()
   ref_samples: dict[str, dict[str, Any]] = {}
@@ -216,24 +563,12 @@ def build(index_path: Path, out_root: Path, extractor: str, timeout: int) -> dic
   record_payloads: dict[str, dict[str, Any]] = {}
   manifest_records: dict[str, dict[str, Any]] = {}
   buckets: dict[str, dict[str, dict[str, int]]] = {"type": {}, "area": {}, "domain": {}, "category": {}}
-
-  pdf_records = [record for record in records if record.get("localPdfPath")]
-  for record in pdf_records:
+  for record in records:
     record_id = str(record.get("id") or "")
-    pdf_path = ROOT / str(record.get("localPdfPath"))
-    if not pdf_path.exists():
-      errors.append({"id": record_id, "path": str(record.get("localPdfPath")), "error": "missing_pdf"})
-      continue
-
-    try:
-      refs = split_references(reference_section(extract_pdf_text(pdf_path, str(extractor_path), timeout)))
-    except Exception as exc:
-      errors.append({"id": record_id, "path": rel(pdf_path), "error": compact_text(exc)})
-      refs = []
-
-    entries = [entry for entry in (reference_entry(ref) for ref in refs) if entry["key"]]
+    entries = [entry for entry in refs_by_record.get(record_id, []) if entry.get("key")]
     keys = {str(entry["key"]) for entry in entries}
-    record_keys[record_id] = keys
+    if keys:
+      record_keys[record_id] = keys
     for entry in entries:
       key = str(entry["key"])
       ref_counter[key] += 1
@@ -254,6 +589,7 @@ def build(index_path: Path, out_root: Path, extractor: str, timeout: int) -> dic
       "type": record.get("type"),
       "title": record.get("title"),
       "referenceCount": ref_count,
+      "referenceKeys": sorted(keys),
       "references": entries[:MAX_REFERENCE_SAMPLE],
       "overlaps": [],
     }
@@ -317,8 +653,7 @@ def build(index_path: Path, out_root: Path, extractor: str, timeout: int) -> dic
     "source": {
       "indexPath": rel(index_path),
       "indexGeneratedAt": index.get("generatedAt", ""),
-      "pdftotext": str(extractor_path),
-      "pdfRecords": len(pdf_records),
+      **source,
     },
     "limits": {
       "referencesPerRecord": MAX_REFERENCES_PER_RECORD,
@@ -328,13 +663,23 @@ def build(index_path: Path, out_root: Path, extractor: str, timeout: int) -> dic
       "sharedRefsPerOverlap": MAX_SHARED_REFS_PER_OVERLAP,
     },
     "summary": {
-      "recordCount": len(manifest_records),
-      "pdfRecords": len(pdf_records),
+      "recordCount": len(records),
+      "manifestRecords": len(manifest_records),
+      "offset": int(source.get("offset") or 0),
+      "limit": source.get("limit"),
+      "fallbacks": source.get("fallbacks", ""),
+      "matchedRecords": int(source.get("matchedRecords") or 0),
+      "unmatchedRecords": int(source.get("unmatchedRecords") or 0),
+      "cachedRecords": int(source.get("cachedRecords") or 0),
+      "crossrefMatchedRecords": int(source.get("crossrefMatchedRecords") or 0),
+      "fallbackRecords": int(source.get("fallbackRecords") or 0),
+      "crossrefReferenceRecords": int(source.get("crossrefReferenceRecords") or 0),
       "recordsWithReferences": sum(1 for payload in record_payloads.values() if payload["referenceCount"]),
       "referenceStrings": total_refs,
       "uniqueReferenceKeys": len(ref_counter),
       "recordsWithOverlaps": sum(1 for values in overlaps_by_record.values() if values),
       "extractionErrors": len(errors),
+      "errors": len(errors),
     },
     "records": manifest_records,
     "analysis": {
@@ -351,6 +696,349 @@ def build(index_path: Path, out_root: Path, extractor: str, timeout: int) -> dic
   }
   write_json(out_root / "manifest.json", manifest)
   return manifest
+
+
+def manifest_record_path(chunk_root: Path, entry: dict[str, Any]) -> Path:
+  url = str(entry.get("url") or "")
+  prefix = "site/data/references/"
+  if not url.startswith(prefix):
+    raise SystemExit(f"Invalid chunk reference URL: {url}")
+  return chunk_root / url.removeprefix(prefix)
+
+
+def summary_int(summary: dict[str, Any], key: str) -> int:
+  return int(summary.get(key) or 0)
+
+
+def chunk_manifest_paths(chunk_dir: Path) -> list[Path]:
+  paths = sorted(path / "manifest.json" for path in chunk_dir.iterdir() if (path / "manifest.json").is_file())
+  if not paths:
+    raise SystemExit(f"No chunk manifests found under {chunk_dir}")
+  return paths
+
+
+def merged_limits(manifests: list[dict[str, Any]]) -> dict[str, int]:
+  limits = {
+    "referencesPerRecord": MAX_REFERENCES_PER_RECORD,
+    "referenceSample": MAX_REFERENCE_SAMPLE,
+    "referenceTextChars": MAX_REFERENCE_TEXT,
+    "overlapsPerRecord": MAX_OVERLAPS_PER_RECORD,
+    "sharedRefsPerOverlap": MAX_SHARED_REFS_PER_OVERLAP,
+  }
+  for manifest in manifests:
+    for key in list(limits):
+      limits[key] = max(limits[key], int((manifest.get("limits") or {}).get(key) or limits[key]))
+  return limits
+
+
+def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
+  manifest_paths = chunk_manifest_paths(chunk_dir)
+  chunk_manifests: list[dict[str, Any]] = []
+  manifest_records: dict[str, dict[str, Any]] = {}
+  record_payloads: dict[str, dict[str, Any]] = {}
+  record_entries: dict[str, dict[str, Any]] = {}
+  record_keys: dict[str, set[str]] = {}
+  ref_counter: Counter[str] = Counter()
+  author_counter: Counter[str] = Counter()
+  ref_samples: dict[str, dict[str, Any]] = {}
+  type_bucket: dict[str, dict[str, int]] = {}
+  errors: list[dict[str, Any]] = []
+
+  out_records = out_root / "records"
+  out_records.mkdir(parents=True, exist_ok=True)
+  for stale in out_records.glob("*.json"):
+    stale.unlink()
+
+  for manifest_path in manifest_paths:
+    chunk_root = manifest_path.parent
+    manifest = read_json(manifest_path)
+    validate(manifest, chunk_root)
+    chunk_manifests.append(manifest)
+    errors.extend(manifest.get("errors") or [])
+    for record_id, entry in sorted((manifest.get("records") or {}).items()):
+      record_id = str(record_id)
+      payload = read_json(manifest_record_path(chunk_root, entry))
+      if payload.get("id") != record_id:
+        raise SystemExit(f"Reference payload id mismatch for {record_id}")
+      existing_payload = record_payloads.get(record_id)
+      if existing_payload is not None and existing_payload != payload:
+        raise SystemExit(f"Conflicting duplicate chunk payload for {record_id}")
+
+      if existing_payload is not None:
+        continue
+      record_payloads[record_id] = payload
+      record_entries[record_id] = dict(entry)
+      references = [ref for ref in (payload.get("references") or []) if ref.get("key")]
+      reference_keys = payload.get("referenceKeys") or [ref["key"] for ref in references]
+      keys = {str(key) for key in reference_keys if key}
+      reference_count = int(payload.get("referenceCount") or entry.get("referenceCount") or len(keys))
+      if keys:
+        record_keys[record_id] = keys
+      for key in keys:
+        ref_counter[key] += 1
+      count_bucket(type_bucket, str(payload.get("type") or ""), reference_count)
+      for ref in references:
+        key = str(ref["key"])
+        ref_samples.setdefault(key, ref)
+        for author in ref.get("authors") or []:
+          author_counter[str(author)] += 1
+
+  overlaps_by_record: dict[str, list[dict[str, Any]]] = defaultdict(list)
+  for left_id, right_id in combinations(sorted(record_keys), 2):
+    shared = record_keys[left_id] & record_keys[right_id]
+    if len(shared) < 2:
+      continue
+    left_keys = record_keys[left_id]
+    right_keys = record_keys[right_id]
+    score = len(shared) / max(1, len(left_keys | right_keys))
+    shared_refs = sorted(shared, key=lambda key: (-ref_counter[key], key))[:MAX_SHARED_REFS_PER_OVERLAP]
+    for source_id, target_id in ((left_id, right_id), (right_id, left_id)):
+      target_payload = record_payloads.get(target_id, {})
+      overlaps_by_record[source_id].append({
+        "recordId": target_id,
+        "title": target_payload.get("title", ""),
+        "sharedCount": len(shared),
+        "score": round(score, 4),
+        "references": [
+          {
+            "key": key,
+            "title": ref_samples.get(key, {}).get("title", ""),
+            "raw": ref_samples.get(key, {}).get("raw", ""),
+          }
+          for key in shared_refs
+        ],
+      })
+
+  for record_id, payload in record_payloads.items():
+    overlaps = sorted(
+      overlaps_by_record.get(record_id, []),
+      key=lambda item: (-int(item["sharedCount"]), -float(item["score"]), str(item["title"])),
+    )[:MAX_OVERLAPS_PER_RECORD]
+    payload = {**payload, "overlaps": overlaps}
+    filename = record_filename(record_id)
+    write_json(out_records / filename, payload)
+    merged_entry = record_entries.get(record_id, {})
+    merged_entry["url"] = f"site/data/references/records/{filename}"
+    merged_entry["referenceCount"] = int(payload.get("referenceCount") or 0)
+    merged_entry["overlapCount"] = len(overlaps)
+    manifest_records[record_id] = merged_entry
+
+  summaries = [manifest.get("summary") or {} for manifest in chunk_manifests]
+  total_record_count = sum(summary_int(summary, "recordCount") for summary in summaries)
+  if not total_record_count:
+    total_record_count = sum(len(manifest.get("records") or {}) for manifest in chunk_manifests)
+  reference_strings = sum(int(payload.get("referenceCount") or 0) for payload in record_payloads.values())
+  top_references = [
+    {
+      "key": key,
+      "count": count,
+      "title": ref_samples.get(key, {}).get("title", ""),
+      "authors": ref_samples.get(key, {}).get("authors", []),
+      "raw": ref_samples.get(key, {}).get("raw", ""),
+    }
+    for key, count in ref_counter.most_common(TOP_REFERENCES)
+  ]
+  manifest = {
+    "generatedAt": datetime.now(timezone.utc).isoformat(),
+    "source": {
+      "kind": "openalex-chunked",
+      "description": "Merged OpenAlex reference chunks",
+      "chunkCount": len(chunk_manifests),
+      "chunkDir": display_path(chunk_dir),
+    },
+    "limits": merged_limits(chunk_manifests),
+    "summary": {
+      "recordCount": total_record_count,
+      "manifestRecords": len(manifest_records),
+      "offset": 0,
+      "limit": None,
+      "fallbacks": ",".join(sorted({str(summary.get("fallbacks") or "") for summary in summaries if summary.get("fallbacks")})),
+      "matchedRecords": sum(summary_int(summary, "matchedRecords") for summary in summaries),
+      "unmatchedRecords": sum(summary_int(summary, "unmatchedRecords") for summary in summaries),
+      "cachedRecords": sum(summary_int(summary, "cachedRecords") for summary in summaries),
+      "crossrefMatchedRecords": sum(summary_int(summary, "crossrefMatchedRecords") for summary in summaries),
+      "fallbackRecords": sum(summary_int(summary, "fallbackRecords") for summary in summaries),
+      "crossrefReferenceRecords": sum(summary_int(summary, "crossrefReferenceRecords") for summary in summaries),
+      "recordsWithReferences": sum(1 for payload in record_payloads.values() if int(payload.get("referenceCount") or 0)),
+      "referenceStrings": reference_strings,
+      "uniqueReferenceKeys": len(ref_counter),
+      "recordsWithOverlaps": sum(1 for values in overlaps_by_record.values() if values),
+      "extractionErrors": sum(summary_int(summary, "extractionErrors") for summary in summaries),
+      "errors": sum(summary_int(summary, "errors") for summary in summaries),
+    },
+    "records": manifest_records,
+    "analysis": {
+      "topReferences": top_references,
+      "topAuthors": [{"author": author, "count": count} for author, count in author_counter.most_common(TOP_AUTHORS)],
+      "referenceCounts": {
+        "byType": sorted_bucket(type_bucket),
+        "byArea": [],
+        "byDomain": [],
+        "byCategory": [],
+      },
+    },
+    "errors": errors[:50],
+  }
+  write_json(out_root / "manifest.json", manifest)
+  return manifest
+
+
+def build_pdf(index_path: Path, out_root: Path, extractor: str, timeout: int, offset: int, limit: Optional[int]) -> dict[str, Any]:
+  index = read_json(index_path)
+  extractor_path = shutil.which(extractor) if "/" not in extractor else extractor
+  if not extractor_path:
+    raise SystemExit("pdftotext not found; install poppler or pass --pdftotext")
+
+  records = [record for record in limited_records(index, offset, limit) if record.get("localPdfPath")]
+  errors: list[dict[str, str]] = []
+  refs_by_record: dict[str, list[dict[str, Any]]] = {}
+  for record in records:
+    record_id = str(record.get("id") or "")
+    pdf_path = ROOT / str(record.get("localPdfPath"))
+    if not pdf_path.exists():
+      errors.append({"id": record_id, "path": str(record.get("localPdfPath")), "error": "missing_pdf"})
+      continue
+    try:
+      refs = split_references(reference_section(extract_pdf_text(pdf_path, str(extractor_path), timeout)))
+    except (RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
+      errors.append({"id": record_id, "path": rel(pdf_path), "error": compact_text(exc)})
+      refs = []
+    refs_by_record[record_id] = [entry for entry in (reference_entry(ref) for ref in refs) if entry["key"]]
+
+  source = {
+    "kind": "pdf",
+    "description": "PDF reference extraction fallback via pdftotext",
+    "offset": offset,
+    "limit": limit,
+    "fallbacks": "none",
+    "pdftotext": str(extractor_path),
+    "pdfRecords": len(records),
+    "matchedRecords": sum(1 for refs in refs_by_record.values() if refs),
+    "unmatchedRecords": sum(1 for refs in refs_by_record.values() if not refs),
+    "cachedRecords": 0,
+  }
+  return build_manifest(index_path, out_root, index, records, refs_by_record, source, errors)
+
+
+def build_openalex(
+  index_path: Path,
+  out_root: Path,
+  cache_path: Path,
+  mailto: str,
+  timeout: int,
+  sleep: float,
+  offset: int,
+  limit: Optional[int],
+  fallbacks: str,
+) -> dict[str, Any]:
+  index = read_json(index_path)
+  records = limited_records(index, offset, limit)
+  cache = load_openalex_cache(cache_path)
+  errors: list[dict[str, str]] = []
+  refs_by_record: dict[str, list[dict[str, Any]]] = {}
+  cached_records = 0
+  matched_records = 0
+  crossref_matched_records = 0
+  fallback_records = 0
+  crossref_reference_records = 0
+  title_entries: dict[str, dict[str, Any]] = {}
+
+  for record in records:
+    record_id = str(record.get("id") or "")
+    title = str(record.get("title") or "")
+    title_key = normalize_title(title)
+    if not title_key:
+      refs_by_record[record_id] = []
+      continue
+    if title_key in title_entries:
+      cached = title_entries[title_key]
+      refs_by_record[record_id] = cached["entries"]
+      cached_records += 1
+      if cached["matched"]:
+        matched_records += 1
+      if cached.get("crossrefMatched"):
+        crossref_matched_records += 1
+      if cached.get("fallback"):
+        fallback_records += 1
+        crossref_reference_records += len(cached["entries"])
+      continue
+    try:
+      lookup, was_cached = cached_openalex_lookup(title, cache, mailto, timeout, sleep)
+      if was_cached:
+        cached_records += 1
+      matched = bool(lookup.get("matched") and lookup.get("work"))
+      if lookup.get("matched") and lookup.get("work"):
+        matched_records += 1
+        entries = openalex_reference_entries(lookup["work"], cache, mailto, timeout, sleep)
+      else:
+        entries = []
+      crossref_matched = False
+      fallback = False
+      if matched and not entries and fallbacks == "crossref":
+        try:
+          crossref_lookup, _ = cached_crossref_lookup(title, cache, mailto, timeout, sleep)
+          crossref_matched = bool(crossref_lookup.get("matched") and crossref_lookup.get("work"))
+          if crossref_matched:
+            crossref_matched_records += 1
+            entries = crossref_reference_entries(crossref_lookup["work"])
+            if entries:
+              fallback = True
+              fallback_records += 1
+              crossref_reference_records += len(entries)
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+          errors.append({"id": record_id, "title": title[:140], "source": "crossref", "error": compact_text(exc)})
+      title_entries[title_key] = {
+        "entries": entries,
+        "matched": matched,
+        "crossrefMatched": crossref_matched,
+        "fallback": fallback,
+      }
+      refs_by_record[record_id] = entries
+      write_json(cache_path, cache)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+      errors.append({"id": record_id, "title": title[:140], "error": compact_text(exc)})
+      title_entries[title_key] = {"entries": [], "matched": False}
+      refs_by_record[record_id] = []
+      write_json(cache_path, cache)
+
+  source = {
+    "kind": "openalex",
+    "description": "Online OpenAlex bibliographic lookup by conservative title match",
+    "api": OPENALEX_API,
+    "crossrefApi": CROSSREF_API,
+    "offset": offset,
+    "limit": limit,
+    "fallbacks": fallbacks,
+    "openAlexApiKey": bool(os.environ.get("OPENALEX_API_KEY")),
+    "cachePath": display_path(cache_path),
+    "matchedRecords": matched_records,
+    "unmatchedRecords": len(records) - matched_records,
+    "cachedRecords": cached_records,
+    "crossrefMatchedRecords": crossref_matched_records,
+    "fallbackRecords": fallback_records,
+    "crossrefReferenceRecords": crossref_reference_records,
+  }
+  return build_manifest(index_path, out_root, index, records, refs_by_record, source, errors)
+
+
+def build(
+  index_path: Path,
+  out_root: Path,
+  source: str,
+  extractor: str,
+  cache_path: Path,
+  mailto: str,
+  timeout: int,
+  sleep: float,
+  offset: int,
+  limit: Optional[int],
+  fallbacks: str,
+) -> dict[str, Any]:
+  if source == "openalex":
+    return build_openalex(index_path, out_root, cache_path, mailto, timeout, sleep, offset, limit, fallbacks)
+  if source == "pdf":
+    return build_pdf(index_path, out_root, extractor, timeout, offset, limit)
+  raise SystemExit(f"Unsupported source: {source}")
 
 
 def validate(manifest: dict[str, Any], root: Path) -> None:
@@ -379,14 +1067,136 @@ def validate(manifest: dict[str, Any], root: Path) -> None:
         raise SystemExit(f"Reference text exceeds bound for {record_id}")
 
 
+def self_check() -> None:
+  assert [record["id"] for record in limited_records({"records": [{"id": "a"}, {"id": "b"}, {"id": "c"}]}, 1, 1)] == ["b"]
+  old_api_key = os.environ.get("OPENALEX_API_KEY")
+  try:
+    os.environ.pop("OPENALEX_API_KEY", None)
+    params = openalex_params({"filter": "title.search:test"}, "test@example.com")
+    assert params == {"filter": "title.search:test", "mailto": "test@example.com"}
+    os.environ["OPENALEX_API_KEY"] = "__self_check_openalex_key__"
+    keyed_params = openalex_params({"filter": "title.search:test"}, "")
+    assert keyed_params == {"filter": "title.search:test", "api_key": "__self_check_openalex_key__"}
+  finally:
+    if old_api_key is None:
+      os.environ.pop("OPENALEX_API_KEY", None)
+    else:
+      os.environ["OPENALEX_API_KEY"] = old_api_key
+
+  retry_error = urllib.error.HTTPError("https://example.test", 429, "rate limited", {"Retry-After": "2"}, None)
+  assert retry_after_seconds(retry_error, 1.0) == 2.0
+  assert titles_match(r"$\alpha$-PFN: Fast Entropy Search via In-Context Learning", "alpha-PFN: Fast Entropy Search via In-Context Learning")
+  assert not titles_match("Fast Entropy Search via In-Context Learning", "A Tutorial on the Cross-Entropy Method")
+  entry = openalex_reference_entry({
+    "id": "https://openalex.org/W123",
+    "display_name": "A Small Test Work",
+    "publication_year": 2024,
+    "authorships": [{"author": {"display_name": "Ada Lovelace"}}],
+    "primary_location": {"source": {"display_name": "Test Venue"}},
+  })
+  assert entry["key"] == "a small test work"
+  assert entry["openAlexId"] == "W123"
+  assert entry["authors"] == ["Ada Lovelace"]
+  crossref_entries = crossref_reference_entries({
+    "reference": [
+      {
+        "DOI": "10.5555/example",
+        "article-title": "A Crossref Test Work",
+        "author": "Lovelace, Ada and Hopper, Grace",
+        "year": "2025",
+        "unstructured": "Lovelace, Ada and Hopper, Grace. A Crossref Test Work. 2025. doi:10.5555/example",
+      }
+    ],
+  })
+  assert crossref_entries[0]["key"] == "10 5555 example"
+  assert crossref_entries[0]["source"] == "Crossref"
+  assert crossref_entries[0]["doi"] == "10.5555/example"
+  assert crossref_entries[0]["authors"] == ["Lovelace, Ada", "Hopper, Grace"]
+
+  with tempfile.TemporaryDirectory() as temp_dir:
+    root = Path(temp_dir)
+    chunk_dir = root / "chunks"
+    for index, record_id in enumerate(("paper-a", "paper-b")):
+      chunk_root = chunk_dir / f"chunk-{index}"
+      filename = record_filename(record_id)
+      references = [
+        {"key": "shared-ref-0", "raw": "Shared Reference 0", "title": "Shared Reference 0", "authors": ["Ada Lovelace"]},
+        {"key": "shared-ref-1", "raw": "Shared Reference 1", "title": "Shared Reference 1", "authors": ["Grace Hopper"]},
+      ]
+      reference_keys = [ref["key"] for ref in references]
+      payload = {
+        "id": record_id,
+        "type": "paper",
+        "title": f"Paper {index}",
+        "referenceCount": len(reference_keys),
+        "referenceKeys": reference_keys,
+        "references": references[:1],
+        "overlaps": [],
+      }
+      write_json(chunk_root / "records" / filename, payload)
+      write_json(chunk_root / "manifest.json", {
+        "limits": {
+          "referencesPerRecord": MAX_REFERENCES_PER_RECORD,
+          "referenceSample": MAX_REFERENCE_SAMPLE,
+          "referenceTextChars": MAX_REFERENCE_TEXT,
+          "overlapsPerRecord": MAX_OVERLAPS_PER_RECORD,
+          "sharedRefsPerOverlap": MAX_SHARED_REFS_PER_OVERLAP,
+        },
+        "summary": {
+          "recordCount": 1,
+          "manifestRecords": 1,
+          "matchedRecords": 1,
+          "unmatchedRecords": 0,
+          "cachedRecords": index,
+        },
+        "records": {
+          record_id: {
+            "url": f"site/data/references/records/{filename}",
+            "referenceCount": len(reference_keys),
+            "overlapCount": 0,
+          },
+        },
+        "errors": [],
+      })
+    merged = merge_chunks(chunk_dir, root / "merged")
+    validate(merged, root / "merged")
+    assert merged["source"]["kind"] == "openalex-chunked"
+    assert merged["source"]["chunkCount"] == 2
+    assert merged["summary"]["recordCount"] == 2
+    assert merged["summary"]["manifestRecords"] == 2
+    assert merged["summary"]["cachedRecords"] == 1
+    assert merged["summary"]["uniqueReferenceKeys"] == 2
+    assert merged["summary"]["recordsWithOverlaps"] == 2
+    assert merged["records"]["paper-a"]["overlapCount"] == 1
+    paper_a = read_json(root / "merged" / "records" / record_filename("paper-a"))
+    assert len(paper_a["references"]) == 1
+    assert paper_a["referenceKeys"] == reference_keys
+    assert paper_a["overlaps"][0]["recordId"] == "paper-b"
+    assert paper_a["overlaps"][0]["sharedCount"] == 2
+
+
 def main() -> None:
   parser = argparse.ArgumentParser(description="Build lazy-loaded ICML reference overlap data.")
   parser.add_argument("--index", type=Path, default=INDEX_PATH)
-  parser.add_argument("--out-root", type=Path, default=OUT_ROOT)
+  parser.add_argument("--out-root", type=Path, default=None)
+  parser.add_argument("--source", choices=["openalex", "pdf"], default="openalex")
+  parser.add_argument("--offset", type=int, default=0)
+  parser.add_argument("--limit", type=int, default=None)
+  parser.add_argument("--fallbacks", choices=["crossref", "none"], default="crossref")
+  parser.add_argument("--cache-path", type=Path, default=DEFAULT_CACHE_PATH)
+  parser.add_argument("--mailto", default="")
   parser.add_argument("--pdftotext", default="pdftotext")
   parser.add_argument("--timeout", type=int, default=30)
+  parser.add_argument("--sleep", type=float, default=0.1)
+  parser.add_argument("--merge-chunks", type=Path, help="Merge chunk subdirectories containing manifest.json and records/*.json.")
+  parser.add_argument("--self-check", action="store_true")
   parser.add_argument("--validate", nargs="?", const=str(MANIFEST_PATH), help="Validate an existing manifest and exit.")
   args = parser.parse_args()
+
+  if args.self_check:
+    self_check()
+    print("self-check ok")
+    return
 
   if args.validate:
     manifest = read_json(Path(args.validate))
@@ -394,9 +1204,35 @@ def main() -> None:
     print(json.dumps(manifest.get("summary", {}), indent=2, ensure_ascii=False))
     return
 
-  manifest = build(args.index, args.out_root, args.pdftotext, args.timeout)
-  validate(manifest, args.out_root)
-  print(f"Wrote {rel(args.out_root / 'manifest.json')}")
+  if args.merge_chunks:
+    if args.out_root is None:
+      raise SystemExit("--merge-chunks requires explicit --out-root")
+    manifest = merge_chunks(args.merge_chunks, args.out_root)
+    validate(manifest, args.out_root)
+    print(f"Wrote {display_path(args.out_root / 'manifest.json')}")
+    print(json.dumps(manifest["summary"], indent=2, ensure_ascii=False))
+    return
+
+  out_root = args.out_root or OUT_ROOT
+  if (args.offset != 0 or args.limit is not None) and out_root.resolve() == OUT_ROOT.resolve():
+    out_root = DEFAULT_SMOKE_OUT_ROOT
+    print(f"Bounded run writes {display_path(out_root)} to preserve {rel(OUT_ROOT)}")
+
+  manifest = build(
+    args.index,
+    out_root,
+    args.source,
+    args.pdftotext,
+    args.cache_path,
+    args.mailto,
+    args.timeout,
+    args.sleep,
+    args.offset,
+    args.limit,
+    args.fallbacks,
+  )
+  validate(manifest, out_root)
+  print(f"Wrote {display_path(out_root / 'manifest.json')}")
   print(json.dumps(manifest["summary"], indent=2, ensure_ascii=False))
 
 
