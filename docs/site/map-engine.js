@@ -10,8 +10,8 @@ import {
   domainRingColor,
 } from "./map-tooltip.js";
 
-const scriptPromises = new Map();
 let engineDeps = {};
+let cytoscapePromise = null;
 
 export function configureMapEngine(deps) {
   engineDeps = deps;
@@ -344,31 +344,19 @@ export function zoomMap(multiplier) {
   }
 }
 
-function loadScriptOnce(src) {
-  if (scriptPromises.has(src)) return scriptPromises.get(src);
-  const promise = new Promise((resolve, reject) => {
-    const existing = [...document.scripts].find((item) => item.src === src);
-    if (existing?.dataset.loaded === "true") {
-      resolve();
-      return;
-    }
-    const script = existing || document.createElement("script");
-    script.src = src;
+export async function ensureCytoscapeLibrary() {
+  if (typeof window.cytoscape === "function") return;
+  cytoscapePromise ||= new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = CYTOSCAPE_URL;
     script.async = true;
-    script.dataset.dynamic = "true";
     script.addEventListener("load", () => {
-      script.dataset.loaded = "true";
       resolve();
     }, { once: true });
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
-    if (!existing) document.head.append(script);
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${CYTOSCAPE_URL}`)), { once: true });
+    document.head.append(script);
   });
-  scriptPromises.set(src, promise);
-  return promise;
-}
-
-export async function ensureCytoscapeLibrary() {
-  await loadScriptOnce(CYTOSCAPE_URL);
+  await cytoscapePromise;
 }
 
 function normalizedGraphPositionFn(nodes) {

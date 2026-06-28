@@ -71,7 +71,6 @@ import { loadSearchEmbeddings } from "./semantic-search.js";
 
 let fullRecordsPromise = null;
 let mapDataPromise = null;
-let mapPreloadScheduled = false;
 let searchEmbeddingsStarted = false;
 
 configureMapCore({ findDisplayRecord });
@@ -250,11 +249,8 @@ function scheduleFullRecordsHydration() {
 }
 
 function scheduleMapDataPreload() {
-  if (mapPreloadScheduled || state.mapData?.records?.length) return;
-  mapPreloadScheduled = true;
-  const preload = () => {
-    void ensureMapData();
-  };
+  if (state.mapData?.records?.length) return;
+  const preload = () => void ensureMapData();
   if ("requestIdleCallback" in window) {
     window.requestIdleCallback(preload, { timeout: 1800 });
   } else {

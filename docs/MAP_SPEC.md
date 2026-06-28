@@ -25,17 +25,15 @@ ICML can use `/virtual/2026/poster/{id}` as the presentation page for an accepte
 
 The UI must not imply that a poster page is a paper PDF. If a paper record has a `/poster/{id}` source URL but no public/local PDF, it remains accepted-paper metadata with an `Official paper presentation page` link.
 
-## 2. Map Surfaces
+## 2. Map Surface
 
-There are three graph surfaces in the project.
+The project has one public graph surface.
 
 | Surface | File | Purpose | Engine |
 | --- | --- | --- | --- |
 | Main Map tab | `docs/index.html`, `docs/site/app.js` | Integrated exploration inside the materials browser | ForceGraph by default, Cytoscape.js optional |
-| Sigma page | `docs/sigma.html`, `docs/site/sigma-page.js` | Separate graph-engine experiment | Sigma.js + Graphology, canvas fallback if needed |
-| Cosmograph page | `docs/cosmograph.html`, `docs/site/cosmograph-page.js` | Separate Cosmograph-oriented cockpit page | Cosmograph attempted first, local canvas fallback when blocked |
 
-The separate graph pages must remain separate pages. They should not become tabs inside the main Browser unless explicitly requested.
+Standalone Sigma/Cosmograph experiment pages were removed after the main Map tab became the canonical exploration surface.
 
 ## 3. Data Contract
 
@@ -682,7 +680,6 @@ Robustness requirements:
 Required commands:
 
 ```bash
-node scripts/verify_graph_pages.mjs http://127.0.0.1:57996/
 node scripts/verify_ui_smoke.mjs http://127.0.0.1:57996/
 scripts/verify_site_contract.sh docs/site/data/icml2026_index.json
 python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json
@@ -692,34 +689,15 @@ python3 scripts/test_embedding_map_units.py
 Screenshot verification:
 
 - `docs/index.html` main Map tab at desktop size
-- `docs/sigma.html`
-- `docs/cosmograph.html`
 - hover tooltip visible on graph
 - click-selected detail panel visible
-
-## 15. Minimum Redesign Task List
-
-Priority order:
-
-1. Make separate map pages a coherent dark research cockpit.
-2. Convert left panel to dark control console.
-3. Apply graph-stage gradient background.
-4. Reduce node visual radius and opacity for 13k records.
-5. Reduce edge opacity so edges become texture.
-6. Keep labels off by default.
-7. Add hover and selected rings.
-8. Improve right detail panel into a real paper inspection panel.
-9. Connect search/filter state to graph style without destroying spatial context.
-10. Regenerate real semantic coordinates for all records.
-
-The highest immediate visual impact comes from tasks 1-5.
 
 ## 16. Non-Goals
 
 Do not do these unless explicitly requested:
 
 - rebuild the whole site in React/Next.js
-- turn separate graph pages into main-page tabs
+- add standalone graph experiment pages
 - embed OpenReview PDFs directly in iframes
 - show all labels at once
 - add decorative hero sections
