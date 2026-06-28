@@ -44,6 +44,18 @@ jobs:
             --timeout 30 \
             --cache-path "/tmp/icml_refs_cache_${{ matrix.offset }}.json" \
             --out-root "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}/manifest.json").read_text())
+          summary = manifest["summary"]
+          record_count = int(summary.get("recordCount") or 0)
+          errors = int(summary.get("errors") or 0)
+          reference_strings = int(summary.get("referenceStrings") or 0)
+          if errors >= 25 and record_count < 10 and reference_strings < 100:
+            raise SystemExit(f"Reference chunk quality gate failed: {summary}")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: refs-${{ matrix.offset }}

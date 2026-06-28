@@ -333,7 +333,12 @@ def reference_entries_from_remote_pdf(record: dict[str, Any], extractor: str, ti
   pdf_url = record_pdf_url(record)
   if not pdf_url:
     return []
-  headers = {"User-Agent": "ICML2026ReferenceCollector/1.0", "Referer": "https://openreview.net/"}
+  headers = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+    "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": str(record.get("openreviewUrl") or "https://openreview.net/"),
+  }
   body, content_type = request_bytes(pdf_url, headers, timeout, sleep)
   if not body.startswith(b"%PDF") and "pdf" not in content_type.lower():
     raise RuntimeError(f"remote_pdf_not_pdf:{content_type or 'unknown'}")
