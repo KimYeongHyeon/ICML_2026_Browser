@@ -1131,6 +1131,13 @@ def build_openalex(
         flush=True,
       )
 
+  def collect_pdf_fallback_entries(record: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]:
+    pdf_path = ROOT / str(record.get("localPdfPath") or "")
+    if record.get("localPdfPath") and pdf_path.exists():
+      return reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout), False
+    entries = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
+    return entries, bool(entries)
+
   for processed, record in enumerate(records, start=1):
     record_id = str(record.get("id") or "")
     title = str(record.get("title") or "")
@@ -1152,6 +1159,25 @@ def build_openalex(
         crossref_reference_records += len(cached["entries"])
       print_progress(processed)
       continue
+    if pdf_fallback and record_pdf_url(record):
+      try:
+        entries, was_remote_pdf = collect_pdf_fallback_entries(record)
+        if entries:
+          if was_remote_pdf:
+            remote_pdf_records += 1
+          fallback_records += 1
+          pdf_fallback_records += 1
+          title_entries[title_key] = {
+            "entries": entries,
+            "matched": False,
+            "crossrefMatched": False,
+            "fallback": True,
+          }
+          refs_by_record[record_id] = entries
+          print_progress(processed)
+          continue
+      except (urllib.error.URLError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
+        errors.append({"id": record_id, "title": title[:140], "source": "pdf_first", "error": compact_text(exc)})
     try:
       lookup, was_cached = cached_openalex_lookup(title, cache, mailto, timeout, sleep)
       if was_cached:
@@ -1179,13 +1205,9 @@ def build_openalex(
           errors.append({"id": record_id, "title": title[:140], "source": "crossref", "error": compact_text(exc)})
       if pdf_fallback and not entries:
         try:
-          pdf_path = ROOT / str(record.get("localPdfPath") or "")
-          if record.get("localPdfPath") and pdf_path.exists():
-            entries = reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout)
-          else:
-            entries = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
-            if entries:
-              remote_pdf_records += 1
+          entries, was_remote_pdf = collect_pdf_fallback_entries(record)
+          if was_remote_pdf:
+            remote_pdf_records += 1
           if entries:
             fallback = True
             fallback_records += 1
@@ -1204,13 +1226,9 @@ def build_openalex(
       entries = []
       if pdf_fallback:
         try:
-          pdf_path = ROOT / str(record.get("localPdfPath") or "")
-          if record.get("localPdfPath") and pdf_path.exists():
-            entries = reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout)
-          else:
-            entries = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
-            if entries:
-              remote_pdf_records += 1
+          entries, was_remote_pdf = collect_pdf_fallback_entries(record)
+          if was_remote_pdf:
+            remote_pdf_records += 1
           if entries:
             fallback_records += 1
             pdf_fallback_records += 1
