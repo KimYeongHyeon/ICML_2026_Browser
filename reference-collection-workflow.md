@@ -31,6 +31,8 @@ python3 scripts/build_icml_references.py --validate /tmp/icml_refs_smoke/manifes
 
 ## Full Online Collection
 
+The repository includes a scheduled/manual GitHub Actions workflow named `Collect references`. It runs the same chunked flow below across the whole index, then merges, validates, and commits `docs/site/data/references`.
+
 Use chunks so rate limits, network failures, or one bad title match cannot destroy the checked-in reference artifact.
 
 ```bash
@@ -69,6 +71,10 @@ Check the merged summary:
 - `referenceStrings`: total collected reference entries.
 - `recordsWithOverlaps`: records sharing references with another record.
 - `errors`: request or parse failures that need reruns.
+
+## PDF Extraction Quality
+
+The PDF fallback is intentionally conservative. It drops short titles, author-only fragments, page ranges, URL-only fragments, and other broken `pdftotext` artifacts before writing shards. This can reduce the raw count, but it keeps the overlap graph from being driven by extraction noise.
 
 ## Publish
 
