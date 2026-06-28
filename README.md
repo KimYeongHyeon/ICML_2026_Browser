@@ -113,7 +113,7 @@ A build step extracts bibliography sections with `pdftotext`, filters noisy cita
 - reference metadata is stored in a small manifest plus lazy-loaded per-record shards,
 - the References tab can show common citation titles, overlap lists, and a visual overlap graph without slowing the first page load.
 
-Online enrichment currently uses conservative title matching against OpenAlex, with Crossref fallback when a matched OpenAlex work exposes no references. API keys stay in environment variables or GitHub secrets; checked-in artifacts store only public reference metadata and a boolean indicating whether a key was present.
+Online enrichment currently uses conservative title matching against OpenAlex, with Crossref fallback when a matched OpenAlex work exposes no references. When scholarly APIs do not expose references, the collection workflow falls back to public local/OpenReview PDFs and extracts references with `pdftotext`. API keys stay in environment variables or GitHub secrets; checked-in artifacts store only public reference metadata and a boolean indicating whether a key was present.
 
 The checked-in artifact may still be partial when public scholarly APIs do not expose references for a record. The scheduled `Collect references` workflow is the full-coverage path: it chunks the whole index, queries OpenAlex/Crossref with `OPENALEX_API_KEY`, merges the shards, validates the result, and commits improved public reference data.
 

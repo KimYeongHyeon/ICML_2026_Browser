@@ -1,6 +1,6 @@
 # ICML 2026 Reference Collection Workflow
 
-This workflow collects every reference that is publicly obtainable from the current ICML Atlas records through OpenAlex, with Crossref as a fallback when OpenAlex matches a paper but returns no bibliography.
+This workflow collects every reference that is publicly obtainable from the current ICML Atlas records through OpenAlex, with Crossref as a fallback when OpenAlex matches a paper but returns no bibliography. If those scholarly APIs do not expose references, the workflow falls back to public local/OpenReview PDFs and extracts the bibliography with `pdftotext`.
 
 It does not guarantee that every ICML paper has references. Some matched OpenAlex/Crossref works currently expose no `referenced_works` or reference list. Those records must remain explicit zero-reference records, not guessed data.
 
@@ -74,7 +74,7 @@ Check the merged summary:
 
 ## PDF Extraction Quality
 
-The PDF fallback is intentionally conservative. It drops short titles, author-only fragments, page ranges, URL-only fragments, and other broken `pdftotext` artifacts before writing shards. This can reduce the raw count, but it keeps the overlap graph from being driven by extraction noise.
+The PDF fallback is intentionally conservative. It drops short titles, author-only fragments, page ranges, URL-only fragments, and other broken `pdftotext` artifacts before writing shards. This can reduce the raw count, but it keeps the overlap graph from being driven by extraction noise. Remote PDFs are streamed to a temporary file for extraction and are not committed by this workflow.
 
 ## Publish
 
