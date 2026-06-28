@@ -472,9 +472,12 @@ const referencesTab = await page.evaluate(() => ({
   activeSummary: document.querySelector("#activeSummary")?.textContent || "",
   statText: document.querySelector(".reference-stat-grid")?.textContent || "",
   topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
+  topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
+  viewOverflowY: getComputedStyle(document.querySelector("#referencesView")).overflowY,
+  recordListOverflowY: getComputedStyle(document.querySelector(".reference-record-list")).overflowY,
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
 
@@ -590,11 +593,16 @@ if (
   || !/reference records/.test(referencesTab.resultCount)
   || !referencesTab.topReferenceCount
   || !referencesTab.recordCount
+  || referencesTab.viewOverflowY !== "auto"
+  || referencesTab.recordListOverflowY !== "auto"
   || !referencesTab.viewerHidden
   || !referenceRequests.some((url) => /\/site\/data\/references\/manifest\.json/.test(url))
   || !referenceRequests.some((url) => /\/site\/data\/references\/records\//.test(url))
 ) {
   throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
+}
+if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.topReferenceText)) {
+  throw new Error(`References top list should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);
 }
 if (!referencesTab.selectedSampleCount || !/extracted refs/i.test(referencesTab.selectedText)) {
   throw new Error(`References selected record should show extracted reference samples: ${JSON.stringify(referencesTab)}`);

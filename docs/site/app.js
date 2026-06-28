@@ -269,6 +269,41 @@ function referenceCountChips(items = []) {
   `).join("");
 }
 
+function referenceDisplayText(item = {}) {
+  return plainMathTitle(item.title || item.raw || item.key || "").replace(/\s+/g, " ").trim();
+}
+
+function looksLikeCitationTitle(text) {
+  const value = String(text || "").trim();
+  if (value.length < 18) return false;
+  if (/^(url\s+https?:|https?:|arxiv preprint|openreview\.net|association for computational linguistics)$/i.test(value)) return false;
+  if (/^(and|[a-z]\.)\s+/i.test(value)) return false;
+  if (/^[A-Za-z]{1,3},\s*[A-Z]\./.test(value)) return false;
+  if (/[a-z]{3,}[A-Z]\.,/.test(value)) return false;
+  if (/^(?:[A-Z][\w'’.-]+,\s*(?:[A-Z]\.|[A-Z][a-z]+|et al\.?)\s*){2,}$/u.test(value)) return false;
+  if (/^[A-Z]\.,?\s+/.test(value) || /^[A-Z][\w'’.-]+,\s+[A-Z]\.?[, ]/.test(value)) return false;
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 3) return false;
+  return /[a-z]{3,}/i.test(value);
+}
+
+function referenceCitationItems(items = [], limit = 12) {
+  const seen = new Set();
+  return items
+    .map((item) => ({ ...item, displayText: referenceDisplayText(item) }))
+    .filter((item) => {
+      const key = item.displayText.toLowerCase();
+      if (!looksLikeCitationTitle(item.displayText) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function referenceBadge(value) {
+  return value ? `<b>${escapeHtml(String(value))}</b>` : "";
+}
+
 function renderReferencesLoading() {
   els.referencesView.innerHTML = `<div class="empty-state"><strong>Loading references</strong><span>Reading the citation overlap index.</span></div>`;
 }
@@ -288,6 +323,7 @@ async function renderReferences() {
     .filter((item) => item.record)
     .sort((left, right) => (right.overlapCount - left.overlapCount) || (right.referenceCount - left.referenceCount))
     .slice(0, 16);
+  const topReferences = referenceCitationItems(manifest.analysis?.topReferences || [], 12);
   els.resultCount.textContent = `${Number(summary.recordCount || 0).toLocaleString()} reference records`;
   els.activeSummary.textContent = activeFilterSummary("References", [
     `${Number(summary.recordsWithReferences || 0).toLocaleString()} reference sets`,
@@ -310,9 +346,9 @@ async function renderReferences() {
       </div>
       <div class="reference-analysis-grid">
         <article class="reference-panel-block">
-          <h3>Most cited reference strings</h3>
-          <div class="reference-sample-list">
-            ${(manifest.analysis?.topReferences || []).slice(0, 12).map((item) => `<span>${escapeHtml(item.title || item.raw || item.key || "")}<b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("")}
+          <h3>Most cited reference titles</h3>
+          <div class="reference-sample-list reference-top-list">
+            ${topReferences.map((item) => `<span>${escapeHtml(item.displayText)}<b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("") || "<small>No clean citation titles available yet.</small>"}
           </div>
         </article>
         <article class="reference-panel-block">
@@ -353,7 +389,7 @@ async function renderReferenceSelection(recordId) {
   target.innerHTML = `<div class="empty-state compact"><strong>Loading overlap</strong><span>Reading one record shard.</span></div>`;
   const payload = await loadReferenceRecord(recordId);
   if (state.tab !== "references" || !target.isConnected) return;
-  const references = (payload?.references || []).slice(0, 5);
+  const references = referenceCitationItems(payload?.references || [], 5);
   const overlaps = (payload?.overlaps || []).slice(0, 10);
   target.innerHTML = `
     <div class="reference-selected-head">
@@ -361,7 +397,7 @@ async function renderReferenceSelection(recordId) {
       <span>${Number(payload?.referenceCount || 0).toLocaleString()} extracted refs</span>
     </div>
     <div class="reference-sample-list reference-selected-samples">
-      ${references.map((item) => `<span>${escapeHtml(item.title || item.raw || item.key || "")}<b>${escapeHtml(String(item.year || item.key || ""))}</b></span>`).join("") || "<small>No extracted reference sample in this shard.</small>"}
+      ${references.map((item) => `<span>${escapeHtml(item.displayText)}${referenceBadge(item.year || item.source || "")}</span>`).join("") || "<small>No clean citation sample in this shard yet.</small>"}
     </div>
     <div class="reference-overlap-list">
       ${overlaps.map((item, index) => {
