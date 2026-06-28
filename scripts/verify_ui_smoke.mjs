@@ -11,6 +11,7 @@ const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
 const consoleErrors = [];
 const failedRequests = [];
 const badResponses = [];
+const referenceRequests = [];
 
 function isBenignConsoleError(text) {
   const value = String(text || "").trim();
@@ -30,8 +31,15 @@ page.on("pageerror", (error) => {
   if (!isBenignConsoleError(error.message)) consoleErrors.push(error.message);
 });
 page.on("requestfailed", (request) => {
-  if (isSameOrigin(request.url())) {
-    failedRequests.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ""}`.trim());
+  const failure = request.failure()?.errorText || "";
+  const expectedAbort = /\.pdf(?:$|[?#])/i.test(request.url()) && /ERR_ABORTED/i.test(failure);
+  if (isSameOrigin(request.url()) && !expectedAbort) {
+    failedRequests.push(`${request.method()} ${request.url()} ${failure}`.trim());
+  }
+});
+page.on("request", (request) => {
+  if (isSameOrigin(request.url()) && /\/site\/data\/references\//.test(request.url())) {
+    referenceRequests.push(request.url());
   }
 });
 page.on("response", (response) => {
@@ -99,6 +107,7 @@ const initial = await page.evaluate(() => ({
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
 }));
+const initialReferenceRequestCount = referenceRequests.length;
 
 const embeddingLookupCompleteness = await page.evaluate(async () => {
   const [index, map, manifest] = await Promise.all([
@@ -146,13 +155,21 @@ const paperSpotlight = await page.evaluate(() => ({
 await page.locator("#searchInput").fill("Hierarchical Multi-Agent");
 await page.waitForTimeout(300);
 await page.locator(".result-item").first().click();
-await page.waitForTimeout(100);
+await page.waitForFunction(() => {
+  const status = document.querySelector("[data-pdf-status]")?.textContent || "";
+  const hasSourceFallback = /Official paper presentation page/i.test(document.querySelector("#viewerFrame")?.innerText || "");
+  return /\d+ \/ \d+/.test(status) || hasSourceFallback;
+}, null, { timeout: 30000 });
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
+  hasPdfShell: Boolean(document.querySelector(".pdfjs-shell")),
+  pdfStatus: document.querySelector("[data-pdf-status]")?.textContent || "",
+  pdfCanvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
+  pdfCanvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
   viewerAbstractText: document.querySelector(".viewer-abstract-body")?.innerText || "",
   actionLabels: [...document.querySelectorAll("#viewerActions .action")].map((item) => item.textContent || ""),
   openReviewPdfHref: [...document.querySelectorAll("#viewerActions .action")]
@@ -231,6 +248,7 @@ const localPdf = await page.evaluate(() => ({
   canvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
   canvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
 }));
+const referenceRequestsBeforeTab = referenceRequests.length;
 
 await page.route(/224-speedrunning-gpt3.*\.pdf/i, async (route) => {
   await page.waitForTimeout(350);
@@ -275,6 +293,7 @@ await page.waitForTimeout(500);
 const trendCardClick = await page.evaluate(() => ({
   selectedTitle: document.querySelector(".map-detail-card h3")?.textContent || "",
   viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+  activeTab: document.querySelector(".tab.is-active")?.dataset.tab || "",
 }));
 await page.locator('.tab[data-tab="workshop"]').click();
 await page.waitForTimeout(200);
@@ -285,7 +304,10 @@ await page.waitForTimeout(500);
 const trendRepresentativeClick = await page.evaluate(() => ({
   selectedTitle: document.querySelector(".map-detail-card h3")?.textContent || "",
   viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+  activeTab: document.querySelector(".tab.is-active")?.dataset.tab || "",
 }));
+await page.locator('.tab[data-tab="map"]').click();
+await page.waitForSelector("#mapCanvas canvas", { timeout: 30000 });
 await page.waitForTimeout(500);
 const mapBox = await page.locator("#mapCanvas").boundingBox();
 const forceZoomBeforeWheel = await page.evaluate(() => window.__icmlMapDebug?.forceZoom?.() || null);
@@ -395,14 +417,32 @@ const clusterLabelSearch = await page.evaluate(() => {
   };
 });
 
+await page.locator('.tab[data-tab="references"]').click();
+await page.waitForSelector(".reference-dashboard", { timeout: 30000 });
+await page.waitForSelector(".reference-selected .reference-overlap-list", { timeout: 30000 });
+const referencesTab = await page.evaluate(() => ({
+  active: document.querySelector('.tab[data-tab="references"]')?.classList.contains("is-active") || false,
+  title: document.querySelector(".reference-dashboard h2")?.textContent || "",
+  resultCount: document.querySelector("#resultCount")?.textContent || "",
+  activeSummary: document.querySelector("#activeSummary")?.textContent || "",
+  statText: document.querySelector(".reference-stat-grid")?.textContent || "",
+  topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
+  recordCount: document.querySelectorAll(".reference-record-item").length,
+  selectedText: document.querySelector(".reference-selected")?.textContent || "",
+  viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
+}));
+
 const report = {
   baseUrl,
   initial,
+  initialReferenceRequestCount,
   embeddingLookupCompleteness,
   paper,
   paperSpotlight,
   paperLatex,
   localPdf,
+  referenceRequestsBeforeTab,
+  referencesTab,
   rapidPdfSwitch,
   miniTooltip,
   miniControlsBefore,
@@ -420,6 +460,7 @@ const report = {
   consoleErrors,
   failedRequests,
   badResponses,
+  referenceRequests,
 };
 
 console.log(JSON.stringify(report, null, 2));
@@ -435,6 +476,9 @@ if (!/^6,343 results/.test(initial.resultCount)) {
 }
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
+}
+if (initialReferenceRequestCount !== 0) {
+  throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
 }
 if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\narea groups/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
   throw new Error(`header should match compact design stats: ${initial.headerStats}`);
@@ -454,20 +498,41 @@ if (paperLatex.viewerKind.includes("Paper · Poster")) {
 if (!paperLatex.viewerKind.includes("PAPER · MAIN CONFERENCE")) {
   throw new Error(`paper identity should stay main-conference even when ICML source URL is /poster/{id}: ${JSON.stringify(paperLatex)}`);
 }
-if (/Poster source page/i.test(paperLatex.viewerFrameText) || !/Official paper presentation page/i.test(paperLatex.viewerFrameText)) {
+if (
+  !paperLatex.hasPdfShell
+  && (/Poster source page/i.test(paperLatex.viewerFrameText) || !/Official paper presentation page/i.test(paperLatex.viewerFrameText))
+) {
   throw new Error(`paper /poster/{id} source page should be labeled as a paper presentation page: ${JSON.stringify(paperLatex)}`);
 }
-if (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta)) {
-  throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked: ${JSON.stringify(paperLatex)}`);
+if (paperLatex.hasPdfShell && (!/\d+ \/ \d+/.test(paperLatex.pdfStatus) || !paperLatex.pdfCanvasWidth || !paperLatex.pdfCanvasHeight)) {
+  throw new Error(`downloaded main-conference PDF should render through PDF.js: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.hasPdfShell && (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta))) {
+  throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked when no local PDF is available: ${JSON.stringify(paperLatex)}`);
 }
 if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
   throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
 }
-if (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO")) {
+if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO"))) {
   throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
 }
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
+}
+if (referenceRequestsBeforeTab !== 0) {
+  throw new Error(`reference data should not load before opening the References tab: ${JSON.stringify(referenceRequests)}`);
+}
+if (
+  !referencesTab.active
+  || referencesTab.title !== "Reference analysis"
+  || !/reference records/.test(referencesTab.resultCount)
+  || !referencesTab.topReferenceCount
+  || !referencesTab.recordCount
+  || !referencesTab.viewerHidden
+  || !referenceRequests.some((url) => /\/site\/data\/references\/manifest\.json/.test(url))
+  || !referenceRequests.some((url) => /\/site\/data\/references\/records\//.test(url))
+) {
+  throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
 }
 if (!rapidPdfSwitch.viewerTitle.includes("MoSE") || rapidPdfSwitch.hasError || !/\d+ \/ \d+/.test(rapidPdfSwitch.status) || !rapidPdfSwitch.canvasWidth || !rapidPdfSwitch.canvasHeight) {
   throw new Error(`stale failed PDF loads must not clear the newly selected PDF viewer task: ${JSON.stringify(rapidPdfSwitch)}`);
@@ -521,10 +586,10 @@ if (
 ) {
   throw new Error(`semantic trend cards should expose keywords, summary, and representative papers: ${JSON.stringify(trendsInitial)}`);
 }
-if (!trendCardClick.selectedTitle || !trendCardClick.viewerTitle) {
-  throw new Error(`clicking a trend card should focus a representative record: ${JSON.stringify(trendCardClick)}`);
+if (!trendCardClick.viewerTitle || !["paper", "workshop"].includes(trendCardClick.activeTab)) {
+  throw new Error(`clicking a trend card should open a representative record in the existing viewer: ${JSON.stringify(trendCardClick)}`);
 }
-if (!trendRepresentativeClick.selectedTitle || !trendRepresentativeClick.viewerTitle) {
+if (!trendRepresentativeClick.viewerTitle || !["paper", "workshop"].includes(trendRepresentativeClick.activeTab)) {
   throw new Error(`clicking a trend representative should open the existing viewer: ${JSON.stringify(trendRepresentativeClick)}`);
 }
 if (!map.hasCanvas || !map.activeSummary.includes("Map")) {

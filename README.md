@@ -56,6 +56,12 @@ In the map legend:
 - node shape and ring represent domain,
 - the shape legend labels the actual domain names, not generic shape names.
 
+### References
+
+The References view is a separate top-level tab for citation-overlap analysis. It summarizes bibliography strings extracted from local PDFs and highlights records that share references.
+
+It is deliberately separate from the Map view: Map answers “what is semantically nearby?”, while References answers “what cites similar prior work?”
+
 ## Reading Workflow
 
 A typical use case is:
@@ -85,7 +91,7 @@ This means some records are currently metadata-first. They are still useful for 
 
 The semantic map and related-paper surfaces are built from paper metadata and abstracts.
 
-The current index uses SPECTER2-style scientific-paper embeddings for:
+The current index uses SPECTER2-level scientific-paper embeddings over title and abstract text for:
 
 - map coordinates,
 - HDBSCAN embedding clusters,
@@ -94,6 +100,20 @@ The current index uses SPECTER2-style scientific-paper embeddings for:
 - semantic neighborhood views.
 
 When the browser-side query embedding model is still loading, the map can show an immediate lexical fallback and then rerender with semantic matches once the model is ready.
+
+The embedding artifacts are generated offline and shipped as static JSON. They are kept separate from the startup payload so the site can render the main browser before loading heavier map/search data.
+
+## References
+
+The References view analyzes citation overlap from PDFs that are already available in the local archive. It is not part of the first-page startup path and it does not require a backend.
+
+A build step extracts bibliography sections with `pdftotext`, normalizes reference strings, and computes overlap between papers that cite the same works. This is intentionally separate from the main index:
+
+- startup data does not include references,
+- reference metadata is stored in a small manifest plus lazy-loaded per-record shards,
+- the References tab can show common citation strings and records with shared references without slowing the first page load.
+
+Future enrichment can use public scholarly graph sources such as Semantic Scholar, OpenAlex, Crossref, or Connected Papers-like citation services when they provide reliable public access for a matched paper. Those sources should augment the local PDF-derived reference graph, not replace it.
 
 ## Current Limitations
 

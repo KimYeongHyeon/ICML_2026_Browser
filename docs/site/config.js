@@ -3,6 +3,7 @@ export const DATA_MANIFEST_URL = "site/data/icml2026_index.manifest.json";
 export const MAP_URL = "site/data/icml2026_map.json";
 export const SEARCH_EMBEDDINGS_URL = "site/data/icml2026_search_embeddings.json";
 export const TRENDS_URL = "site/data/icml2026_trends.json";
+export const REFERENCES_MANIFEST_URL = "site/data/references/manifest.json";
 export const PAGE_SIZE = 80;
 export const REPO_CDN_BASE = "https://cdn.jsdelivr.net/gh/KimYeongHyeon/ICML_2026_Browser@main/";
 export const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";

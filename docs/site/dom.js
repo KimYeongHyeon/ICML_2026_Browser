@@ -11,6 +11,7 @@ export const els = {
   resultCount: document.querySelector("#resultCount"),
   activeSummary: document.querySelector("#activeSummary"),
   results: document.querySelector("#results"),
+  referencesView: document.querySelector("#referencesView"),
   mapView: document.querySelector("#mapView"),
   mapCanvas: document.querySelector("#mapCanvas"),
   mapDetail: document.querySelector("#mapDetail"),

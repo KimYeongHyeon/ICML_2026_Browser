@@ -56,8 +56,9 @@ function assetActionLabel(record) {
 function assetUrl(path) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
+  const isLocalHost = ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
   if (window.location.hostname.endsWith("github.io")) return `${REPO_CDN_BASE}${path}`;
-  if (String(path).startsWith("icml_2026_materials/") && !window.location.pathname.includes("/docs/")) return `${REPO_CDN_BASE}${path}`;
+  if (!isLocalHost && String(path).startsWith("icml_2026_materials/") && !window.location.pathname.includes("/docs/")) return `${REPO_CDN_BASE}${path}`;
   return new URL(`${LOCAL_ASSET_PREFIX}${path}`, window.location.href).href;
 }
 

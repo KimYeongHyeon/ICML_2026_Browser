@@ -1,7 +1,6 @@
 import {
   MAP_URL,
   SEARCH_EMBEDDINGS_URL,
-  TRENDS_URL,
 } from "./config.js";
 import {
   loadIndexData,
@@ -10,7 +9,7 @@ import {
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
 import { state } from "./state.js";
-import { escapeHtml, normalize } from "./utils.js";
+import { escapeHtml, normalize, plainMathTitle } from "./utils.js";
 import {
   configureViewer,
   renderViewer,
@@ -65,7 +64,13 @@ import {
   showGraphTooltip,
 } from "./map-interactions.js";
 import { renderMapLegend } from "./map-legend.js";
+import { renderSemanticInsightPanel } from "./semantic-insights.js";
 import { loadSearchEmbeddings } from "./semantic-search.js";
+import { loadTrends } from "./trends.js";
+import {
+  loadReferenceRecord,
+  loadReferencesManifest,
+} from "./references.js";
 
 let fullRecordsPromise = null;
 let mapDataPromise = null;
@@ -142,6 +147,7 @@ async function renderMap() {
     state.mapFilterValue,
     mapSearchSummary(visibleRecords, query),
   ]);
+  renderSemanticInsightPanel(visibleRecords, query);
   if (!visibleRecords.length) {
     destroyGraphEngine();
     els.mapCanvas.innerHTML = `<div class="empty-state"><strong>No mapped records</strong><span>Adjust the filters.</span></div>`;
@@ -244,9 +250,136 @@ function scheduleMapDataPreload() {
   }
 }
 
+function referenceStat(label, value) {
+  return `<span><strong>${Number(value || 0).toLocaleString()}</strong>${escapeHtml(label)}</span>`;
+}
+
+function referenceCountChips(items = []) {
+  return items.slice(0, 10).map((item) => `
+    <span class="reference-chip"><b>${escapeHtml(item.label || item.author || "")}</b>${Number(item.references || item.count || 0).toLocaleString()}</span>
+  `).join("");
+}
+
+function renderReferencesLoading() {
+  els.referencesView.innerHTML = `<div class="empty-state"><strong>Loading references</strong><span>Reading the PDF-derived citation overlap index.</span></div>`;
+}
+
+async function renderReferences() {
+  if (state.tab !== "references") return;
+  if (!state.referencesManifestLoaded) renderReferencesLoading();
+  const manifest = await loadReferencesManifest();
+  if (state.tab !== "references") return;
+  if (!manifest) {
+    els.referencesView.innerHTML = `<div class="empty-state"><strong>No reference index</strong><span>Run the reference builder after collecting PDFs.</span></div>`;
+    return;
+  }
+  const summary = manifest.summary || {};
+  const records = Object.entries(manifest.records || {})
+    .map(([id, entry]) => ({ id, ...entry, record: findDisplayRecord(id) }))
+    .filter((item) => item.record)
+    .sort((left, right) => (right.overlapCount - left.overlapCount) || (right.referenceCount - left.referenceCount))
+    .slice(0, 16);
+  els.resultCount.textContent = `${Number(summary.recordCount || 0).toLocaleString()} reference records`;
+  els.activeSummary.textContent = activeFilterSummary("References", [
+    `${Number(summary.recordsWithReferences || 0).toLocaleString()} extracted bibliographies`,
+    `${Number(summary.recordsWithOverlaps || 0).toLocaleString()} overlap groups`,
+  ]);
+  els.referencesView.innerHTML = `
+    <section class="reference-dashboard">
+      <div class="reference-dashboard-head">
+        <div>
+          <p class="eyebrow">PDF-derived citations</p>
+          <h2>Reference analysis</h2>
+        </div>
+        <span>Lazy-loaded · not part of startup</span>
+      </div>
+      <div class="selection-stat-grid reference-stat-grid">
+        ${referenceStat("PDFs scanned", summary.pdfRecords)}
+        ${referenceStat("bibliographies", summary.recordsWithReferences)}
+        ${referenceStat("reference strings", summary.referenceStrings)}
+        ${referenceStat("unique references", summary.uniqueReferenceKeys)}
+      </div>
+      <div class="reference-analysis-grid">
+        <article class="reference-panel-block">
+          <h3>Most cited reference strings</h3>
+          <div class="reference-sample-list">
+            ${(manifest.analysis?.topReferences || []).slice(0, 12).map((item) => `<span>${escapeHtml(item.title || item.raw || item.key || "")}<b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("")}
+          </div>
+        </article>
+        <article class="reference-panel-block">
+          <h3>Reference concentration</h3>
+          <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byArea || [])}</div>
+          <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byDomain || [])}</div>
+        </article>
+      </div>
+      <article class="reference-panel-block">
+        <h3>Records with citation overlap</h3>
+        <div class="reference-record-list">
+          ${records.map((item, index) => `
+            <button class="reference-record-item" type="button" data-id="${escapeHtml(item.id)}">
+              <span class="neighbor-rank">${index + 1}</span>
+              <span>
+                <strong>${escapeHtml(plainMathTitle(item.record.title))}</strong>
+                <small>${Number(item.referenceCount || 0).toLocaleString()} refs · ${Number(item.overlapCount || 0).toLocaleString()} overlapping records</small>
+              </span>
+            </button>
+          `).join("") || "<small>No overlap records yet. More PDFs will improve this view.</small>"}
+        </div>
+        <div class="reference-selected" id="referenceSelected"></div>
+      </article>
+    </section>
+  `;
+  els.referencesView.querySelectorAll(".reference-record-item").forEach((button) => {
+    button.addEventListener("click", () => {
+      void renderReferenceSelection(button.dataset.id);
+    });
+  });
+  if (records[0]) void renderReferenceSelection(records[0].id);
+}
+
+async function renderReferenceSelection(recordId) {
+  const target = els.referencesView.querySelector("#referenceSelected");
+  if (!target) return;
+  const record = findDisplayRecord(recordId);
+  target.innerHTML = `<div class="empty-state compact"><strong>Loading overlap</strong><span>Reading one record shard.</span></div>`;
+  const payload = await loadReferenceRecord(recordId);
+  if (state.tab !== "references" || !target.isConnected) return;
+  const overlaps = (payload?.overlaps || []).slice(0, 10);
+  target.innerHTML = `
+    <div class="reference-selected-head">
+      <strong>${escapeHtml(plainMathTitle(record?.title || payload?.title || recordId))}</strong>
+      <span>${Number(payload?.referenceCount || 0).toLocaleString()} extracted refs</span>
+    </div>
+    <div class="reference-overlap-list">
+      ${overlaps.map((item, index) => {
+        const overlapRecord = findDisplayRecord(item.recordId);
+        return `
+          <button class="reference-overlap-item" type="button" data-id="${escapeHtml(item.recordId)}">
+            <span class="neighbor-rank">${index + 1}</span>
+            <span>
+              <strong>${escapeHtml(plainMathTitle(overlapRecord?.title || item.title || item.recordId))}</strong>
+              <small>${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap</small>
+            </span>
+          </button>
+        `;
+      }).join("") || "<small>No strong overlap yet for this record.</small>"}
+    </div>
+  `;
+  target.querySelectorAll(".reference-overlap-item").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selectedRecord = findDisplayRecord(button.dataset.id);
+      state.tab = selectedRecord?.type === "workshop" ? "workshop" : "paper";
+      state.selectedId = button.dataset.id;
+      renderAll();
+    });
+  });
+}
+
 function renderAll() {
   els.tabs.forEach((button) => {
-    const count = button.dataset.tab === "map"
+    const count = button.dataset.tab === "references"
+      ? 1
+      : button.dataset.tab === "map"
       ? displayRecords().filter((record) => record.mapAvailable && (!state.mapData?.records?.length || mapRecordById().has(record.id))).length
       : displayRecords().filter((record) => record.type === button.dataset.tab).length;
     button.hidden = count === 0;
@@ -255,10 +388,13 @@ function renderAll() {
   updateSelects();
   resetResultWindow();
   const isMap = state.tab === "map";
+  const isReferences = state.tab === "references";
   document.body.classList.toggle("is-map-tab", isMap);
-  els.results.hidden = isMap;
+  document.body.classList.toggle("is-references-tab", isReferences);
+  els.results.hidden = isMap || isReferences;
   els.mapView.hidden = !isMap;
-  const selected = isMap ? null : ensureVisibleSelection();
+  els.referencesView.hidden = !isReferences;
+  const selected = isMap || isReferences ? null : ensureVisibleSelection();
   if (!isMap && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
   } else if (isMap && state.mapGraph && state.mapLive) {
@@ -266,6 +402,7 @@ function renderAll() {
   }
   renderResults();
   renderMap();
+  void renderReferences();
   renderViewer(selected);
 }
 
@@ -293,6 +430,22 @@ function rerenderActiveMapQuery() {
   if (state.tab !== "map") return;
   if (!normalize(state.query)) return;
   void renderMap();
+}
+
+function openTrendRepresentative(recordId) {
+  const record = findDisplayRecord(recordId);
+  if (!record) return;
+  state.tab = record.type === "workshop" ? "workshop" : "paper";
+  state.selectedId = record.id;
+  state.query = "";
+  els.search.value = "";
+  if (els.mapSearch) els.mapSearch.value = "";
+  state.category = "all";
+  state.group = "all";
+  state.asset = "all";
+  els.asset.value = "all";
+  clearMapSelection();
+  renderAll();
 }
 
 function loadSearchEmbeddingsInBackground() {
@@ -377,17 +530,6 @@ function enrichEmbeddingClusterRecords(records) {
   }
 }
 
-async function loadTrends() {
-  if (state.trendsLoaded) return;
-  state.trendsLoaded = true;
-  try {
-    const response = await fetch(TRENDS_URL);
-    state.trendData = response.ok ? await response.json() : null;
-  } catch {
-    state.trendData = null;
-  }
-}
-
 async function init() {
   installMapDebugProbe();
   els.results.innerHTML = `<div class="empty-state"><strong>Loading index</strong><span>Reading the local ICML 2026 manifest.</span></div>`;
@@ -402,6 +544,13 @@ async function init() {
   renderAll();
   scheduleMapDataPreload();
   scheduleFullRecordsHydration();
+  els.mapDetail.addEventListener("click", (event) => {
+    const button = event.target.closest(".trend-card-main[data-record-id], .trend-representatives [data-record-id]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openTrendRepresentative(button.dataset.recordId);
+  }, true);
   window.addEventListener("icml-semantic-search-ready", (event) => {
     if (state.tab !== "map") return;
     if (normalize(state.query) !== event.detail?.query) return;
@@ -424,6 +573,9 @@ async function init() {
       if (nextTab === "map") {
         state.selectedId = "";
         loadSearchEmbeddingsInBackground();
+      }
+      if (nextTab === "references") {
+        state.selectedId = "";
       }
       clearMapSelection();
       els.asset.value = "all";
