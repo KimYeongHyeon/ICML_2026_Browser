@@ -71,13 +71,33 @@ jobs:
             --publish
           python3 scripts/build_icml_references.py --validate docs/site/data/references/manifest.json
       - name: Commit references
+        id: commit-references
         run: |
           git add docs/site/data/references
           if git diff --cached --quiet; then
             echo "No reference changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Update reference collection"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Deploy GitHub Pages
+        if: steps.commit-references.outputs.changed == 'true'
+        run: |
+          tmp_dir="$(mktemp -d)"
+          trap 'git worktree remove --force "$tmp_dir" 2>/dev/null || rm -rf "$tmp_dir"' EXIT
+          git fetch origin gh-pages
+          git worktree add -B gh-pages "$tmp_dir" origin/gh-pages
+          rsync -a --delete docs/site/ "$tmp_dir"/
+          git -C "$tmp_dir" add -A
+          if git -C "$tmp_dir" diff --cached --quiet; then
+            echo "No GitHub Pages changes."
+            exit 0
+          fi
+          git -C "$tmp_dir" config user.name "github-actions[bot]"
+          git -C "$tmp_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$tmp_dir" commit -m "Deploy reference collection"
+          git -C "$tmp_dir" push origin gh-pages
