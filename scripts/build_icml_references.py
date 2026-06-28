@@ -591,17 +591,13 @@ def build_manifest(
         author_counter[author] += 1
 
     ref_count = len(entries)
-    count_bucket(buckets["type"], str(record.get("type") or ""), ref_count)
-    count_bucket(buckets["category"], str(record.get("category") or ""), ref_count)
-    for area in record.get("areaTags") or []:
-      count_bucket(buckets["area"], str(area), ref_count)
-    for domain in record.get("domainTags") or []:
-      count_bucket(buckets["domain"], str(domain), ref_count)
-
     record_payloads[record_id] = {
       "id": record_id,
       "type": record.get("type"),
       "title": record.get("title"),
+      "category": record.get("category"),
+      "areaTags": record.get("areaTags") or [],
+      "domainTags": record.get("domainTags") or [],
       "referenceCount": ref_count,
       "referenceKeys": sorted(keys),
       "references": entries[:MAX_REFERENCE_SAMPLE],
@@ -642,6 +638,12 @@ def build_manifest(
     payload["overlaps"] = overlaps
     if not payload["referenceCount"] and not overlaps:
       continue
+    count_bucket(buckets["type"], str(payload.get("type") or ""), int(payload["referenceCount"]))
+    count_bucket(buckets["category"], str(payload.get("category") or ""), int(payload["referenceCount"]))
+    for area in payload.get("areaTags") or []:
+      count_bucket(buckets["area"], str(area), int(payload["referenceCount"]))
+    for domain in payload.get("domainTags") or []:
+      count_bucket(buckets["domain"], str(domain), int(payload["referenceCount"]))
     filename = record_filename(record_id)
     write_json(out_records / filename, payload)
     manifest_records[record_id] = {
@@ -1147,6 +1149,8 @@ def self_check() -> None:
     assert manifest["summary"]["recordCount"] == 1
     assert manifest["summary"]["manifestRecords"] == 1
     assert set(manifest["records"]) == {"with-refs"}
+    assert manifest["analysis"]["referenceCounts"]["byArea"] == [{"label": "LLMs", "records": 1, "references": 1}]
+    assert manifest["analysis"]["referenceCounts"]["byDomain"] == [{"label": "General", "records": 1, "references": 1}]
 
     chunk_dir = root / "chunks"
     for index, record_id in enumerate(("paper-a", "paper-b")):
