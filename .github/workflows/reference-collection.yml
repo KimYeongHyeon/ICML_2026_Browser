@@ -25,6 +25,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
       - name: Collect reference chunk
         env:
           OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
@@ -32,11 +36,12 @@ jobs:
           python3 scripts/build_icml_references.py \
             --source openalex \
             --fallbacks crossref \
+            --pdf-fallback \
             --record-types paper,workshop \
             --offset "${{ matrix.offset }}" \
             --limit 250 \
             --sleep 0.25 \
-            --timeout 20 \
+            --timeout 30 \
             --cache-path "/tmp/icml_refs_cache_${{ matrix.offset }}.json" \
             --out-root "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
       - uses: actions/upload-artifact@v4

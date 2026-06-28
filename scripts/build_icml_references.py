@@ -157,6 +157,40 @@ def extract_pdf_text(pdf_path: Path, extractor: str, timeout: int) -> str:
   return result.stdout
 
 
+def request_bytes(url: str, headers: dict[str, str], timeout: int, sleep: float) -> tuple[bytes, str]:
+  base_delay = sleep if sleep > 0 else 1.0
+  for attempt in range(HTTP_RETRY_ATTEMPTS):
+    try:
+      request = urllib.request.Request(url, headers=headers)
+      with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read(), str(response.headers.get("content-type") or "")
+    except urllib.error.HTTPError as exc:
+      if exc.code not in TRANSIENT_HTTP_STATUSES or attempt == HTTP_RETRY_ATTEMPTS - 1:
+        raise
+      sleep_if_needed(retry_after_seconds(exc, base_delay * (2 ** attempt)))
+  raise RuntimeError("unreachable HTTP retry state")
+
+
+def openreview_id_from_record(record: dict[str, Any]) -> str:
+  record_id = str(record.get("id") or "")
+  if record_id.startswith("openreview:"):
+    return record_id.split(";", 1)[0].split(":", 1)[1]
+  page_url = str(record.get("pageUrl") or record.get("openreviewUrl") or "")
+  parsed = urllib.parse.urlparse(page_url)
+  query_id = urllib.parse.parse_qs(parsed.query).get("id") or []
+  return str(query_id[0] if query_id else "")
+
+
+def record_pdf_url(record: dict[str, Any]) -> str:
+  pdf_url = compact_text(record.get("pdfUrl"))
+  if pdf_url:
+    return urllib.parse.urljoin("https://openreview.net", pdf_url)
+  openreview_id = openreview_id_from_record(record)
+  if openreview_id:
+    return f"https://openreview.net/pdf?id={urllib.parse.quote(openreview_id)}"
+  return ""
+
+
 def strip_pdf_line(line: str) -> str:
   return compact_text(line.replace("\f", " "))
 
@@ -285,6 +319,28 @@ def clean_reference_title(title: str, raw: str) -> bool:
   if not (YEAR_RE.search(raw) or URL_RE.search(raw) or len(raw) >= 60):
     return False
   return True
+
+
+def reference_entries_from_text(text: str) -> list[dict[str, Any]]:
+  return [entry for entry in (reference_entry(ref) for ref in split_references(reference_section(text))) if entry.get("key")]
+
+
+def reference_entries_from_pdf_path(pdf_path: Path, extractor: str, timeout: int) -> list[dict[str, Any]]:
+  return reference_entries_from_text(extract_pdf_text(pdf_path, extractor, timeout))
+
+
+def reference_entries_from_remote_pdf(record: dict[str, Any], extractor: str, timeout: int, sleep: float) -> list[dict[str, Any]]:
+  pdf_url = record_pdf_url(record)
+  if not pdf_url:
+    return []
+  headers = {"User-Agent": "ICML2026ReferenceCollector/1.0", "Referer": "https://openreview.net/"}
+  body, content_type = request_bytes(pdf_url, headers, timeout, sleep)
+  if not body.startswith(b"%PDF") and "pdf" not in content_type.lower():
+    raise RuntimeError(f"remote_pdf_not_pdf:{content_type or 'unknown'}")
+  with tempfile.NamedTemporaryFile(suffix=".pdf") as handle:
+    handle.write(body)
+    handle.flush()
+    return reference_entries_from_pdf_path(Path(handle.name), extractor, timeout)
 
 
 def openalex_id(value: str) -> str:
@@ -747,6 +803,8 @@ def build_manifest(
       "cachedRecords": int(source.get("cachedRecords") or 0),
       "crossrefMatchedRecords": int(source.get("crossrefMatchedRecords") or 0),
       "fallbackRecords": int(source.get("fallbackRecords") or 0),
+      "pdfFallbackRecords": int(source.get("pdfFallbackRecords") or 0),
+      "remotePdfRecords": int(source.get("remotePdfRecords") or 0),
       "crossrefReferenceRecords": int(source.get("crossrefReferenceRecords") or 0),
       "recordsWithReferences": sum(1 for payload in record_payloads.values() if payload["referenceCount"]),
       "referenceStrings": total_refs,
@@ -962,6 +1020,8 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
       "cachedRecords": sum(summary_int(summary, "cachedRecords") for summary in summaries),
       "crossrefMatchedRecords": sum(summary_int(summary, "crossrefMatchedRecords") for summary in summaries),
       "fallbackRecords": sum(summary_int(summary, "fallbackRecords") for summary in summaries),
+      "pdfFallbackRecords": sum(summary_int(summary, "pdfFallbackRecords") for summary in summaries),
+      "remotePdfRecords": sum(summary_int(summary, "remotePdfRecords") for summary in summaries),
       "crossrefReferenceRecords": sum(summary_int(summary, "crossrefReferenceRecords") for summary in summaries),
       "recordsWithReferences": sum(1 for payload in record_payloads.values() if int(payload.get("referenceCount") or 0)),
       "referenceStrings": reference_strings,
@@ -1003,11 +1063,10 @@ def build_pdf(index_path: Path, out_root: Path, extractor: str, timeout: int, of
       errors.append({"id": record_id, "path": str(record.get("localPdfPath")), "error": "missing_pdf"})
       continue
     try:
-      refs = split_references(reference_section(extract_pdf_text(pdf_path, str(extractor_path), timeout)))
+      refs_by_record[record_id] = reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout)
     except (RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
       errors.append({"id": record_id, "path": rel(pdf_path), "error": compact_text(exc)})
-      refs = []
-    refs_by_record[record_id] = [entry for entry in (reference_entry(ref) for ref in refs) if entry.get("key")]
+      refs_by_record[record_id] = []
 
   source = {
     "kind": "pdf",
@@ -1035,8 +1094,13 @@ def build_openalex(
   limit: Optional[int],
   fallbacks: str,
   record_types: set[str] | None,
+  pdf_fallback: bool,
+  extractor: str,
 ) -> dict[str, Any]:
   index = read_json(index_path)
+  extractor_path = shutil.which(extractor) if "/" not in extractor else extractor
+  if pdf_fallback and not extractor_path:
+    raise SystemExit("pdftotext not found; install poppler or pass --pdftotext")
   records = limited_records(index, offset, limit, record_types)
   cache = load_openalex_cache(cache_path)
   errors: list[dict[str, str]] = []
@@ -1045,6 +1109,8 @@ def build_openalex(
   matched_records = 0
   crossref_matched_records = 0
   fallback_records = 0
+  pdf_fallback_records = 0
+  remote_pdf_records = 0
   crossref_reference_records = 0
   title_entries: dict[str, dict[str, Any]] = {}
 
@@ -1092,6 +1158,21 @@ def build_openalex(
               crossref_reference_records += len(entries)
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
           errors.append({"id": record_id, "title": title[:140], "source": "crossref", "error": compact_text(exc)})
+      if pdf_fallback and not entries:
+        try:
+          pdf_path = ROOT / str(record.get("localPdfPath") or "")
+          if record.get("localPdfPath") and pdf_path.exists():
+            entries = reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout)
+          else:
+            entries = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
+            if entries:
+              remote_pdf_records += 1
+          if entries:
+            fallback = True
+            fallback_records += 1
+            pdf_fallback_records += 1
+        except (urllib.error.URLError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
+          errors.append({"id": record_id, "title": title[:140], "source": "pdf_fallback", "error": compact_text(exc)})
       title_entries[title_key] = {
         "entries": entries,
         "matched": matched,
@@ -1101,9 +1182,24 @@ def build_openalex(
       refs_by_record[record_id] = entries
       write_json(cache_path, cache)
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-      errors.append({"id": record_id, "title": title[:140], "error": compact_text(exc)})
-      title_entries[title_key] = {"entries": [], "matched": False}
-      refs_by_record[record_id] = []
+      entries = []
+      if pdf_fallback:
+        try:
+          pdf_path = ROOT / str(record.get("localPdfPath") or "")
+          if record.get("localPdfPath") and pdf_path.exists():
+            entries = reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout)
+          else:
+            entries = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
+            if entries:
+              remote_pdf_records += 1
+          if entries:
+            fallback_records += 1
+            pdf_fallback_records += 1
+        except (urllib.error.URLError, RuntimeError, subprocess.SubprocessError, TimeoutError) as pdf_exc:
+          errors.append({"id": record_id, "title": title[:140], "source": "pdf_fallback_after_lookup_error", "error": compact_text(pdf_exc)})
+      errors.append({"id": record_id, "title": title[:140], "source": "openalex", "error": compact_text(exc)})
+      title_entries[title_key] = {"entries": entries, "matched": False, "fallback": bool(entries)}
+      refs_by_record[record_id] = entries
       write_json(cache_path, cache)
 
   source = {
@@ -1121,6 +1217,8 @@ def build_openalex(
     "cachedRecords": cached_records,
     "crossrefMatchedRecords": crossref_matched_records,
     "fallbackRecords": fallback_records,
+    "pdfFallbackRecords": pdf_fallback_records,
+    "remotePdfRecords": remote_pdf_records,
     "crossrefReferenceRecords": crossref_reference_records,
   }
   return build_manifest(index_path, out_root, index, records, refs_by_record, source, errors)
@@ -1139,9 +1237,10 @@ def build(
   limit: Optional[int],
   fallbacks: str,
   record_types: set[str] | None,
+  pdf_fallback: bool,
 ) -> dict[str, Any]:
   if source == "openalex":
-    return build_openalex(index_path, out_root, cache_path, mailto, timeout, sleep, offset, limit, fallbacks, record_types)
+    return build_openalex(index_path, out_root, cache_path, mailto, timeout, sleep, offset, limit, fallbacks, record_types, pdf_fallback, extractor)
   if source == "pdf":
     return build_pdf(index_path, out_root, extractor, timeout, offset, limit, record_types)
   raise SystemExit(f"Unsupported source: {source}")
@@ -1177,6 +1276,8 @@ def self_check() -> None:
   assert [record["id"] for record in limited_records({"records": [{"id": "a"}, {"id": "b"}, {"id": "c"}]}, 1, 1)] == ["b"]
   assert [record["id"] for record in limited_records({"records": [{"id": "a", "type": "paper"}, {"id": "b", "type": "poster"}]}, 0, None, {"paper"})] == ["a"]
   assert parse_record_types("paper,workshop") == {"paper", "workshop"}
+  assert openreview_id_from_record({"id": "openreview:abc123;icml:1"}) == "abc123"
+  assert record_pdf_url({"id": "openreview:abc123;icml:1"}) == "https://openreview.net/pdf?id=abc123"
   old_api_key = os.environ.get("OPENALEX_API_KEY")
   try:
     os.environ.pop("OPENALEX_API_KEY", None)
@@ -1379,6 +1480,7 @@ def main() -> None:
   parser.add_argument("--offset", type=int, default=0)
   parser.add_argument("--limit", type=int, default=None)
   parser.add_argument("--record-types", default="", help="Comma-separated record types to include before offset/limit slicing.")
+  parser.add_argument("--pdf-fallback", action="store_true", help="For online lookup, extract references from local/OpenReview PDFs when bibliography APIs do not expose references.")
   parser.add_argument("--fallbacks", choices=["crossref", "none"], default="crossref")
   parser.add_argument("--cache-path", type=Path, default=DEFAULT_CACHE_PATH)
   parser.add_argument("--mailto", default="")
@@ -1434,6 +1536,7 @@ def main() -> None:
     args.limit,
     args.fallbacks,
     parse_record_types(args.record_types),
+    args.pdf_fallback,
   )
   validate(manifest, out_root)
   print(f"Wrote {display_path(out_root / 'manifest.json')}")
