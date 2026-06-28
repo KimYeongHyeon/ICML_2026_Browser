@@ -1,6 +1,8 @@
 import { els } from "./dom.js";
 import { typeLabel } from "./records.js";
 import { state } from "./state.js";
+import { recordStudy, unusualDirectionForRecord } from "./study-features.js";
+import { renderStudyPanel, renderUnusualDirections } from "./study-ui.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 import { colorForValue } from "./map-tooltip.js";
 import {
@@ -82,7 +84,17 @@ function renderTrendCards() {
             </div>
             ${(trend.representativeSentences || []).slice(0, 2).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
             <div class="trend-counts">${countLabelsHtml(trend.areaCounts)}${countLabelsHtml(trend.domainCounts)}</div>
+            <div class="trend-study-section">
+              <span><em>Core question</em>${escapeHtml(trend.coreQuestion || "What should I read first in this embedding cluster?")}</span>
+              <span><em>Method</em>${escapeHtml(trend.representativeMethodology || "Embedding-neighborhood analysis")}</span>
+              <span><em>Branches</em>${(trend.subBranches || trend.keywords || []).slice(0, 4).map((label) => `<b>${escapeHtml(label)}</b>`).join("")}</span>
+            </div>
             <div class="trend-representatives">
+              <strong>First reads</strong>
+              ${(trend.firstReadRecordIds || []).slice(0, 3).map((recordId) => {
+                const record = detailDeps.findDisplayRecord?.(recordId);
+                return record ? `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>` : "";
+              }).join("")}
               ${(trend.representativeRecordIds || []).slice(0, 5).map((recordId) => {
                 const record = detailDeps.findDisplayRecord?.(recordId);
                 return record ? `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>` : "";
@@ -91,6 +103,7 @@ function renderTrendCards() {
           </article>
         `).join("")}
       </div>
+      ${renderUnusualDirections(state.studyFeatures, detailDeps.findDisplayRecord)}
     </section>
   `;
 }
@@ -107,10 +120,15 @@ function openMapRecord(recordId) {
 export function renderMapDetail(record) {
   if (!record) {
     els.mapDetail.innerHTML = renderTrendCards();
-    els.mapDetail.querySelectorAll("[data-record-id]").forEach((button) => {
-      button.addEventListener("click", () => openMapRecord(button.dataset.recordId));
+    els.mapDetail.querySelectorAll("[data-record-id], [data-study-id]").forEach((button) => {
+      button.addEventListener("click", () => openMapRecord(button.dataset.recordId || button.dataset.studyId));
     });
     return;
+  }
+  if (!state.studyFeaturesLoaded && detailDeps.ensureStudyFeatures) {
+    void detailDeps.ensureStudyFeatures().then(() => {
+      if (state.selectedId === record.id && state.tab === "map") renderMapDetail(record);
+    });
   }
   const mapById = mapRecordById();
   const neighbors = nearestDisplayNeighbors(record, mapById, 8);
@@ -123,6 +141,7 @@ export function renderMapDetail(record) {
   const domainLabel = (record.domainTags || ["General"]).slice(0, 2).join(", ") || "General";
   const clusterLabel = embeddingClusterColorLabel(record);
   const clusterSize = embeddingClusterSize(record);
+  const unusual = unusualDirectionForRecord(record.id);
   const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
@@ -133,6 +152,7 @@ export function renderMapDetail(record) {
         ${(record.areaTags || []).slice(0, 3).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
         ${(record.domainTags || []).slice(0, 2).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
         ${record.embeddingClusterId ? `<span class="badge">Cluster: ${escapeHtml(clusterLabel)}</span>` : ""}
+        ${unusual ? `<span class="badge">Unusual direction</span>` : ""}
         <span class="badge">${escapeHtml(record.embeddingTextQuality || "unavailable")}</span>
       </div>
       <div class="selection-stat-grid">
@@ -157,6 +177,7 @@ export function renderMapDetail(record) {
           return `<button type="button" class="neighbor-item semantic-neighbor" data-id="${escapeHtml(item.record.id)}"><span class="neighbor-rank">${item.rank}</span><span class="neighbor-main"><strong>${escapeHtml(plainMathTitle(item.record.title))}</strong><span>${displayScore(item.score).toFixed(2)} similarity${tags.length ? ` · shared ${tags.map(escapeHtml).join(", ")}` : ""}</span><small class="why-line">${escapeHtml(reason)}</small><i class="neighbor-score-bar\"><b style=\"width:${Math.round(strength * 100)}%\"></b></i></span></button>`;
         }).join("") || "<small>No mapped neighbors found for this record.</small>"}
       </div>
+      ${renderStudyPanel(record, recordStudy(record.id), detailDeps.findDisplayRecord)}
     </div>
   `;
   els.mapDetail.querySelector(".map-open-record")?.addEventListener("click", () => {
@@ -173,6 +194,16 @@ export function renderMapDetail(record) {
   els.mapDetail.querySelectorAll(".neighbor-item").forEach((button) => {
     button.addEventListener("click", () => {
       openMapRecord(button.dataset.id);
+    });
+  });
+  els.mapDetail.querySelectorAll("[data-study-id]").forEach((button) => {
+    button.addEventListener("click", () => openMapRecord(button.dataset.studyId));
+  });
+  els.mapDetail.querySelectorAll(".compare-candidate").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.studyCompareSourceId = record.id;
+      state.studyCompareTargetId = button.dataset.compareId || "";
+      renderMapDetail(record);
     });
   });
 }

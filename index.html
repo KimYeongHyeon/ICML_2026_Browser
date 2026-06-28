@@ -36,6 +36,7 @@
           <button class="tab is-active" data-tab="paper" type="button">Papers</button>
           <button class="tab" data-tab="workshop" type="button">Workshops</button>
           <button class="tab" data-tab="map" type="button">Map</button>
+          <button class="tab" data-tab="references" type="button">References</button>
         </nav>
       </div>
       <div class="header-stats" id="headerStats" aria-live="polite"></div>
@@ -89,13 +90,6 @@
               <aside class="map-dock" aria-label="Graph settings">
                 <div class="map-dock-title">Display</div>
                 <div class="map-section-body">
-                  <label class="map-setting map-setting-engine">
-                    <span>Engine</span>
-                    <select id="mapEngineSelect">
-                      <option value="force">ForceGraph</option>
-                      <option value="cytoscape">Cytoscape.js</option>
-                    </select>
-                  </label>
                   <label class="map-setting">
                     <span>Colour by</span>
                     <select id="mapColorSelect">
@@ -161,6 +155,7 @@
             <aside class="map-detail" id="mapDetail" aria-label="Selected map record"></aside>
           </div>
         </div>
+        <div class="references-view" id="referencesView" hidden aria-label="Reference overlap analysis"></div>
       </section>
 
       <aside class="viewer-panel" aria-label="Selected material viewer">

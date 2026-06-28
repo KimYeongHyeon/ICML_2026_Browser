@@ -354,7 +354,7 @@ function isTextEntryTarget(target) {
 export function installMapPointerInteractions() {
   document.addEventListener("keydown", (event) => {
     if (event.code !== "Space" || isTextEntryTarget(event.target)) return;
-    if (state.tab !== "map" || state.mapEngine !== "force") return;
+    if (state.tab !== "map") return;
     event.preventDefault();
     state.mapInteraction.spaceDown = true;
     els.mapCanvas.classList.add("is-space-ready");
@@ -362,7 +362,7 @@ export function installMapPointerInteractions() {
 
   document.addEventListener("keyup", (event) => {
     if (event.code !== "Space") return;
-    if (state.tab === "map" && state.mapEngine === "force" && !isTextEntryTarget(event.target)) {
+    if (state.tab === "map" && !isTextEntryTarget(event.target)) {
       event.preventDefault();
     }
     state.mapInteraction.spaceDown = false;
@@ -370,13 +370,13 @@ export function installMapPointerInteractions() {
   });
 
   els.mapCanvas.addEventListener("pointerdown", (event) => {
-    if (state.tab === "map" && state.mapEngine === "force" && event.button === 1 && state.mapGraph) {
+    if (state.tab === "map" && event.button === 1 && state.mapGraph) {
       event.preventDefault();
       fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 280, padding: state.mapMode === "focused" ? 84 : 160 });
       state.mapGraph.resumeAnimation?.();
       return;
     }
-    if (state.tab !== "map" || state.mapEngine !== "force" || event.button !== 0 || !state.mapGraph) return;
+    if (state.tab !== "map" || event.button !== 0 || !state.mapGraph) return;
     const point = mapCanvasPoint(event);
     const interaction = state.mapInteraction;
     interaction.pointerId = event.pointerId;
@@ -420,7 +420,7 @@ export function installMapPointerInteractions() {
 
   let hoverFrame = 0;
   els.mapCanvas.addEventListener("pointermove", (event) => {
-    if (state.tab !== "map" || state.mapEngine !== "force" || !state.mapGraph) return;
+    if (state.tab !== "map" || !state.mapGraph) return;
     const interaction = state.mapInteraction;
     if (interaction.mode === "box" || interaction.mode === "pan" || interaction.spaceDown) {
       hideGraphTooltip(els.mapCanvas, 0);
@@ -500,20 +500,16 @@ export function installMapPointerInteractions() {
   });
 
   els.mapCanvas.addEventListener("wheel", (event) => {
-    if (state.tab !== "map" || state.mapEngine !== "force" || !state.mapGraph) return;
+    if (state.tab !== "map" || !state.mapGraph) return;
     event.preventDefault();
     markMapUserInteraction();
     zoomMap(event.deltaY > 0 ? 0.86 : 1.16);
   }, { passive: false });
 
   els.mapCanvas.addEventListener("auxclick", (event) => {
-    if (state.tab !== "map" || event.button !== 1) return;
+    if (state.tab !== "map" || event.button !== 1 || !state.mapGraph) return;
     event.preventDefault();
-    if (state.mapEngine === "force" && state.mapGraph) {
-      fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 280, padding: state.mapMode === "focused" ? 84 : 160 });
-      state.mapGraph.resumeAnimation?.();
-    } else if (state.mapEngine === "cytoscape" && state.cyGraph) {
-      state.cyGraph.fit(undefined, 48);
-    }
+    fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 280, padding: state.mapMode === "focused" ? 84 : 160 });
+    state.mapGraph.resumeAnimation?.();
   });
 }
