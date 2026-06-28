@@ -124,6 +124,10 @@ def display_path(path: Path) -> str:
     return str(path)
 
 
+def is_checked_in_reference_root(path: Path) -> bool:
+  return path.resolve() == OUT_ROOT.resolve()
+
+
 def record_filename(record_id: str) -> str:
   digest = hashlib.sha256(record_id.encode("utf-8")).hexdigest()[:16]
   return f"{digest}.json"
@@ -1098,6 +1102,8 @@ def self_check() -> None:
   assert retry_after_seconds(retry_error, 1.0) == 2.0
   assert titles_match(r"$\alpha$-PFN: Fast Entropy Search via In-Context Learning", "alpha-PFN: Fast Entropy Search via In-Context Learning")
   assert not titles_match("Fast Entropy Search via In-Context Learning", "A Tutorial on the Cross-Entropy Method")
+  assert is_checked_in_reference_root(OUT_ROOT)
+  assert not is_checked_in_reference_root(Path(tempfile.gettempdir()) / "icml_refs_smoke")
   entry = openalex_reference_entry({
     "id": "https://openalex.org/W123",
     "display_name": "A Small Test Work",
@@ -1246,7 +1252,7 @@ def main() -> None:
   if args.merge_chunks:
     if args.out_root is None:
       raise SystemExit("--merge-chunks requires explicit --out-root")
-    if args.out_root.resolve() == OUT_ROOT.resolve() and not args.publish:
+    if is_checked_in_reference_root(args.out_root) and not args.publish:
       raise SystemExit("--publish is required to write docs/site/data/references")
     manifest = merge_chunks(args.merge_chunks, args.out_root)
     validate(manifest, args.out_root)
@@ -1255,10 +1261,10 @@ def main() -> None:
     return
 
   out_root = args.out_root or OUT_ROOT
-  if (args.offset != 0 or args.limit is not None) and out_root.resolve() == OUT_ROOT.resolve():
+  if (args.offset != 0 or args.limit is not None) and is_checked_in_reference_root(out_root):
     out_root = DEFAULT_SMOKE_OUT_ROOT
     print(f"Bounded run writes {display_path(out_root)} to preserve {rel(OUT_ROOT)}")
-  elif args.source == "openalex" and out_root.resolve() == OUT_ROOT.resolve() and not args.publish:
+  elif args.source == "openalex" and is_checked_in_reference_root(out_root) and not args.publish:
     out_root = DEFAULT_SMOKE_OUT_ROOT
     print(f"Online run writes {display_path(out_root)}; pass --publish to replace {rel(OUT_ROOT)}")
 
