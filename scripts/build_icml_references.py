@@ -600,8 +600,10 @@ def has_reference_bucket_metadata(entry: dict[str, Any], payload: dict[str, Any]
   return any(key in entry or key in payload for key in ("category", "areaTags", "domainTags"))
 
 
-def limited_records(index: dict[str, Any], offset: int, limit: Optional[int]) -> list[dict[str, Any]]:
+def limited_records(index: dict[str, Any], offset: int, limit: Optional[int], record_types: set[str] | None = None) -> list[dict[str, Any]]:
   records = [record for record in index.get("records", []) if isinstance(record, dict)]
+  if record_types:
+    records = [record for record in records if str(record.get("type") or "") in record_types]
   start = max(0, offset)
   if limit is None:
     return records[start:]
@@ -780,6 +782,11 @@ def manifest_record_path(chunk_root: Path, entry: dict[str, Any]) -> Path:
 
 def summary_int(summary: dict[str, Any], key: str) -> int:
   return int(summary.get(key) or 0)
+
+
+def parse_record_types(value: str) -> set[str] | None:
+  record_types = {item.strip() for item in value.split(",") if item.strip()}
+  return record_types or None
 
 
 def chunk_manifest_paths(chunk_dir: Path) -> list[Path]:
@@ -980,13 +987,13 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
   return manifest
 
 
-def build_pdf(index_path: Path, out_root: Path, extractor: str, timeout: int, offset: int, limit: Optional[int]) -> dict[str, Any]:
+def build_pdf(index_path: Path, out_root: Path, extractor: str, timeout: int, offset: int, limit: Optional[int], record_types: set[str] | None) -> dict[str, Any]:
   index = read_json(index_path)
   extractor_path = shutil.which(extractor) if "/" not in extractor else extractor
   if not extractor_path:
     raise SystemExit("pdftotext not found; install poppler or pass --pdftotext")
 
-  records = [record for record in limited_records(index, offset, limit) if record.get("localPdfPath")]
+  records = [record for record in limited_records(index, offset, limit, record_types) if record.get("localPdfPath")]
   errors: list[dict[str, str]] = []
   refs_by_record: dict[str, list[dict[str, Any]]] = {}
   for record in records:
@@ -1027,9 +1034,10 @@ def build_openalex(
   offset: int,
   limit: Optional[int],
   fallbacks: str,
+  record_types: set[str] | None,
 ) -> dict[str, Any]:
   index = read_json(index_path)
-  records = limited_records(index, offset, limit)
+  records = limited_records(index, offset, limit, record_types)
   cache = load_openalex_cache(cache_path)
   errors: list[dict[str, str]] = []
   refs_by_record: dict[str, list[dict[str, Any]]] = {}
@@ -1130,11 +1138,12 @@ def build(
   offset: int,
   limit: Optional[int],
   fallbacks: str,
+  record_types: set[str] | None,
 ) -> dict[str, Any]:
   if source == "openalex":
-    return build_openalex(index_path, out_root, cache_path, mailto, timeout, sleep, offset, limit, fallbacks)
+    return build_openalex(index_path, out_root, cache_path, mailto, timeout, sleep, offset, limit, fallbacks, record_types)
   if source == "pdf":
-    return build_pdf(index_path, out_root, extractor, timeout, offset, limit)
+    return build_pdf(index_path, out_root, extractor, timeout, offset, limit, record_types)
   raise SystemExit(f"Unsupported source: {source}")
 
 
@@ -1166,6 +1175,8 @@ def validate(manifest: dict[str, Any], root: Path) -> None:
 
 def self_check() -> None:
   assert [record["id"] for record in limited_records({"records": [{"id": "a"}, {"id": "b"}, {"id": "c"}]}, 1, 1)] == ["b"]
+  assert [record["id"] for record in limited_records({"records": [{"id": "a", "type": "paper"}, {"id": "b", "type": "poster"}]}, 0, None, {"paper"})] == ["a"]
+  assert parse_record_types("paper,workshop") == {"paper", "workshop"}
   old_api_key = os.environ.get("OPENALEX_API_KEY")
   try:
     os.environ.pop("OPENALEX_API_KEY", None)
@@ -1367,6 +1378,7 @@ def main() -> None:
   parser.add_argument("--source", choices=["openalex", "pdf"], default="openalex")
   parser.add_argument("--offset", type=int, default=0)
   parser.add_argument("--limit", type=int, default=None)
+  parser.add_argument("--record-types", default="", help="Comma-separated record types to include before offset/limit slicing.")
   parser.add_argument("--fallbacks", choices=["crossref", "none"], default="crossref")
   parser.add_argument("--cache-path", type=Path, default=DEFAULT_CACHE_PATH)
   parser.add_argument("--mailto", default="")
@@ -1421,6 +1433,7 @@ def main() -> None:
     args.offset,
     args.limit,
     args.fallbacks,
+    parse_record_types(args.record_types),
   )
   validate(manifest, out_root)
   print(f"Wrote {display_path(out_root / 'manifest.json')}")
