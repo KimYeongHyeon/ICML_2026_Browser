@@ -304,6 +304,59 @@ function referenceBadge(value) {
   return value ? `<b>${escapeHtml(String(value))}</b>` : "";
 }
 
+function renderReferenceGraph(payload = {}, record = null) {
+  const overlaps = (payload.overlaps || []).slice(0, 10);
+  if (!overlaps.length) {
+    return `<div class="reference-overlap-graph is-empty">No shared-reference graph yet.</div>`;
+  }
+  const width = 760;
+  const height = 260;
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = 94;
+  const maxShared = Math.max(1, ...overlaps.map((item) => Number(item.sharedCount || 0)));
+  const centerRadius = Math.min(34, 15 + Math.sqrt(Number(payload.referenceCount || 0)));
+  const nodes = overlaps.map((item, index) => {
+    const angle = (-Math.PI / 2) + (index / overlaps.length) * Math.PI * 2;
+    const shared = Number(item.sharedCount || 0);
+    return {
+      ...item,
+      x: cx + Math.cos(angle) * radius,
+      y: cy + Math.sin(angle) * radius,
+      r: 8 + (shared / maxShared) * 12,
+      title: plainMathTitle(findDisplayRecord(item.recordId)?.title || item.title || item.recordId),
+    };
+  });
+  return `
+    <div class="reference-overlap-graph" aria-label="Citation overlap graph">
+      <svg viewBox="0 0 ${width} ${height}" role="img">
+        <title>${escapeHtml(plainMathTitle(record?.title || payload.title || "Selected record"))} citation overlap graph</title>
+        ${nodes.map((node) => `
+          <line
+            x1="${cx}"
+            y1="${cy}"
+            x2="${node.x.toFixed(1)}"
+            y2="${node.y.toFixed(1)}"
+            style="--w:${(1.2 + (Number(node.sharedCount || 0) / maxShared) * 4).toFixed(2)}"
+          />
+        `).join("")}
+        <circle class="reference-node is-selected" cx="${cx}" cy="${cy}" r="${centerRadius}">
+          <title>${escapeHtml(plainMathTitle(record?.title || payload.title || "Selected record"))} · ${Number(payload.referenceCount || 0).toLocaleString()} refs</title>
+        </circle>
+        ${nodes.map((node, index) => `
+          <a href="#" data-id="${escapeHtml(node.recordId)}" aria-label="${escapeHtml(node.title)}">
+            <circle class="reference-node" cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="${node.r.toFixed(1)}">
+              <title>${escapeHtml(node.title)} · ${Number(node.sharedCount || 0).toLocaleString()} shared refs</title>
+            </circle>
+            <text x="${node.x.toFixed(1)}" y="${(node.y + 4).toFixed(1)}">${index + 1}</text>
+          </a>
+        `).join("")}
+      </svg>
+      <small>Node size follows shared reference count. Edge width follows shared references with the selected paper.</small>
+    </div>
+  `;
+}
+
 function renderReferencesLoading() {
   els.referencesView.innerHTML = `<div class="empty-state"><strong>Loading references</strong><span>Reading the citation overlap index.</span></div>`;
 }
@@ -396,6 +449,7 @@ async function renderReferenceSelection(recordId) {
       <strong>${escapeHtml(plainMathTitle(record?.title || payload?.title || recordId))}</strong>
       <span>${Number(payload?.referenceCount || 0).toLocaleString()} extracted refs</span>
     </div>
+    ${renderReferenceGraph(payload || {}, record)}
     <div class="reference-sample-list reference-selected-samples">
       ${references.map((item) => `<span>${escapeHtml(item.displayText)}${referenceBadge(item.year || item.source || "")}</span>`).join("") || "<small>No clean citation sample in this shard yet.</small>"}
     </div>
@@ -420,6 +474,12 @@ async function renderReferenceSelection(recordId) {
       state.tab = selectedRecord?.type === "workshop" ? "workshop" : "paper";
       state.selectedId = button.dataset.id;
       renderAll();
+    });
+  });
+  target.querySelectorAll(".reference-overlap-graph a").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      void renderReferenceSelection(link.dataset.id);
     });
   });
 }

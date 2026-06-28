@@ -58,7 +58,7 @@ In the map legend:
 
 ### References
 
-The References view is a separate top-level tab for citation-overlap analysis. It summarizes bibliography strings extracted from local PDFs and highlights records that share references.
+The References view is a separate top-level tab for citation-overlap analysis. It summarizes clean bibliography titles, shows records that share prior work, and renders a small citation-overlap graph for the selected record.
 
 It is deliberately separate from the Map view: Map answers “what is semantically nearby?”, while References answers “what cites similar prior work?”
 
@@ -107,13 +107,15 @@ The embedding artifacts are generated offline and shipped as static JSON. They a
 
 The References view analyzes citation overlap from locally available PDFs and optional public scholarly-graph lookups. It is not part of the first-page startup path and it does not require a backend.
 
-A build step extracts bibliography sections with `pdftotext`, normalizes reference strings, and computes overlap between papers that cite the same works. This is intentionally separate from the main index:
+A build step extracts bibliography sections with `pdftotext`, filters noisy citation fragments, normalizes reference titles, and computes overlap between papers that cite the same works. This is intentionally separate from the main index:
 
 - startup data does not include references,
 - reference metadata is stored in a small manifest plus lazy-loaded per-record shards,
-- the References tab can show common citation strings and records with shared references without slowing the first page load.
+- the References tab can show common citation titles, overlap lists, and a visual overlap graph without slowing the first page load.
 
 Online enrichment currently uses conservative title matching against OpenAlex, with Crossref fallback when a matched OpenAlex work exposes no references. API keys stay in environment variables or GitHub secrets; checked-in artifacts store only public reference metadata and a boolean indicating whether a key was present.
+
+The checked-in artifact may still be partial when public scholarly APIs do not expose references for a record. The scheduled `Collect references` workflow is the full-coverage path: it chunks the whole index, queries OpenAlex/Crossref with `OPENALEX_API_KEY`, merges the shards, validates the result, and commits improved public reference data.
 
 The safe collection, merge, validation, and publish flow is documented in [docs/reference-collection-workflow.md](docs/reference-collection-workflow.md).
 

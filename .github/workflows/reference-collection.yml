@@ -1,0 +1,77 @@
+name: Collect references
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 19 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reference-collection
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        offset: [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750, 4000, 4250, 4500, 4750, 5000, 5250, 5500, 5750, 6000, 6250, 6500, 6750, 7000, 7250, 7500, 7750, 8000, 8250, 8500, 8750, 9000, 9250, 9500, 9750, 10000, 10250, 10500, 10750, 11000, 11250, 11500, 11750, 12000, 12250, 12500, 12750, 13000, 13250]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Collect reference chunk
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          python3 scripts/build_icml_references.py \
+            --source openalex \
+            --fallbacks crossref \
+            --offset "${{ matrix.offset }}" \
+            --limit 250 \
+            --sleep 0.25 \
+            --timeout 20 \
+            --cache-path "/tmp/icml_refs_cache_${{ matrix.offset }}.json" \
+            --out-root "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refs-${{ matrix.offset }}
+          path: /tmp/icml_ref_chunks/chunk-${{ matrix.offset }}
+          retention-days: 2
+
+  merge:
+    needs: collect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/icml_ref_chunks
+          pattern: refs-*
+          merge-multiple: false
+      - name: Merge reference chunks
+        run: |
+          python3 scripts/build_icml_references.py \
+            --merge-chunks /tmp/icml_ref_chunks \
+            --out-root docs/site/data/references \
+            --publish
+          python3 scripts/build_icml_references.py --validate docs/site/data/references/manifest.json
+      - name: Commit references
+        run: |
+          git add docs/site/data/references
+          if git diff --cached --quiet; then
+            echo "No reference changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update reference collection"
+          git push

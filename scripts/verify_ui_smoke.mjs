@@ -476,6 +476,8 @@ const referencesTab = await page.evaluate(() => ({
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
+  graphNodeCount: document.querySelectorAll(".reference-overlap-graph .reference-node").length,
+  graphEdgeCount: document.querySelectorAll(".reference-overlap-graph line").length,
   viewOverflowY: getComputedStyle(document.querySelector("#referencesView")).overflowY,
   recordListOverflowY: getComputedStyle(document.querySelector(".reference-record-list")).overflowY,
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
@@ -606,6 +608,9 @@ if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test
 }
 if (!referencesTab.selectedSampleCount || !/extracted refs/i.test(referencesTab.selectedText)) {
   throw new Error(`References selected record should show extracted reference samples: ${JSON.stringify(referencesTab)}`);
+}
+if (referencesTab.graphNodeCount < 2 || referencesTab.graphEdgeCount < 1) {
+  throw new Error(`References selected record should show a citation-overlap graph: ${JSON.stringify(referencesTab)}`);
 }
 if (!rapidPdfSwitch.viewerTitle.includes("MoSE") || rapidPdfSwitch.hasError || !/\d+ \/ \d+/.test(rapidPdfSwitch.status) || !rapidPdfSwitch.canvasWidth || !rapidPdfSwitch.canvasHeight) {
   throw new Error(`stale failed PDF loads must not clear the newly selected PDF viewer task: ${JSON.stringify(rapidPdfSwitch)}`);

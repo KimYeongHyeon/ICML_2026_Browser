@@ -52,6 +52,16 @@ NUMBERED_REF_RE = re.compile(r"^\s*(?:\[\d{1,3}\]|\d{1,3}[.)])\s+")
 AUTHOR_START_RE = re.compile(r"^[A-Z][A-Za-z'`-]+,\s+(?:[A-Z]\.|[A-Z][a-z])")
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b")
 URL_RE = re.compile(r"https?://\S+|doi:\S+", re.I)
+REFERENCE_FRAGMENT_RE = re.compile(
+  r"^(?:"
+  r"\d+[-–]\d+(?:,\s*\d+)?"
+  r"|pp\."
+  r"|url\b"
+  r"|and\b"
+  r"|in\s+(?:proceedings|advances|transactions|journal)\b"
+  r")",
+  re.I,
+)
 LATEX_WORDS = {
   r"\alpha": " alpha ",
   r"\beta": " beta ",
@@ -240,6 +250,8 @@ def parse_title(ref: str) -> str:
 
 def reference_entry(ref: str) -> dict[str, Any]:
   title = parse_title(ref)
+  if not clean_reference_title(title, ref):
+    return {}
   key_source = title or ref
   return {
     "key": normalize_key(key_source),
@@ -247,6 +259,32 @@ def reference_entry(ref: str) -> dict[str, Any]:
     "title": title,
     "authors": parse_authors(ref),
   }
+
+
+def clean_reference_title(title: str, raw: str) -> bool:
+  title = compact_text(title)
+  raw = compact_text(raw)
+  if not title or len(title) < 18:
+    return False
+  if re.match(r"^(?:URL|https?:)", raw, re.I):
+    return False
+  if REFERENCE_FRAGMENT_RE.match(title):
+    return False
+  if re.match(r"^in\s+(?:the\s+)?(?:proceedings|conference|journal|transactions)\b", title, re.I):
+    return False
+  if len(title.split()) < 3:
+    return False
+  if title.count(",") >= 4:
+    return False
+  if re.search(r"[a-z]{3,}[A-Z][a-z]+", title):
+    return False
+  if re.search(r"\b(?:URL|doi:|arXiv:)\b", title, re.I):
+    return False
+  if re.match(r"^[A-Z][A-Za-z'`-]+,\s+(?:[A-Z]\.|[A-Z][a-z])", title):
+    return False
+  if not (YEAR_RE.search(raw) or URL_RE.search(raw) or len(raw) >= 60):
+    return False
+  return True
 
 
 def openalex_id(value: str) -> str:
@@ -962,7 +1000,7 @@ def build_pdf(index_path: Path, out_root: Path, extractor: str, timeout: int, of
     except (RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
       errors.append({"id": record_id, "path": rel(pdf_path), "error": compact_text(exc)})
       refs = []
-    refs_by_record[record_id] = [entry for entry in (reference_entry(ref) for ref in refs) if entry["key"]]
+    refs_by_record[record_id] = [entry for entry in (reference_entry(ref) for ref in refs) if entry.get("key")]
 
   source = {
     "kind": "pdf",
