@@ -42,8 +42,8 @@ OPENALEX_SEARCH_PAGE_SIZE = 5
 OPENALEX_DETAIL_PAGE_SIZE = 25
 CROSSREF_API = "https://api.crossref.org"
 CROSSREF_SEARCH_ROWS = 3
-HTTP_RETRY_ATTEMPTS = 3
-HTTP_RETRY_MAX_SLEEP = 5.0
+HTTP_RETRY_ATTEMPTS = 5
+HTTP_RETRY_MAX_SLEEP = 20.0
 TRANSIENT_HTTP_STATUSES = {429, 500, 502, 503, 504}
 
 REFERENCE_HEADING_RE = re.compile(r"^\s*(?:\d+\s+)?(references|bibliography|works cited)\b", re.I)
@@ -1159,7 +1159,9 @@ def build_openalex(
         crossref_reference_records += len(cached["entries"])
       print_progress(processed)
       continue
+    pdf_attempted = False
     if pdf_fallback and record_pdf_url(record):
+      pdf_attempted = True
       try:
         entries, was_remote_pdf = collect_pdf_fallback_entries(record)
         if entries:
@@ -1203,7 +1205,7 @@ def build_openalex(
               crossref_reference_records += len(entries)
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
           errors.append({"id": record_id, "title": title[:140], "source": "crossref", "error": compact_text(exc)})
-      if pdf_fallback and not entries:
+      if pdf_fallback and not entries and not pdf_attempted:
         try:
           entries, was_remote_pdf = collect_pdf_fallback_entries(record)
           if was_remote_pdf:
@@ -1224,7 +1226,7 @@ def build_openalex(
       write_json(cache_path, cache)
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
       entries = []
-      if pdf_fallback:
+      if pdf_fallback and not pdf_attempted:
         try:
           entries, was_remote_pdf = collect_pdf_fallback_entries(record)
           if was_remote_pdf:
