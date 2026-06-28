@@ -538,6 +538,30 @@ def sorted_bucket(bucket: dict[str, dict[str, int]]) -> list[dict[str, Any]]:
   ]
 
 
+def merge_count_bucket(bucket: dict[str, dict[str, int]], entries: list[dict[str, Any]]) -> None:
+  for entry in entries:
+    label = str(entry.get("label") or "")
+    if not label:
+      continue
+    item = bucket.setdefault(label, {"records": 0, "references": 0})
+    item["records"] += int(entry.get("records") or 0)
+    item["references"] += int(entry.get("references") or 0)
+
+
+def merge_reference_count_buckets(
+  buckets: dict[str, dict[str, dict[str, int]]],
+  reference_counts: dict[str, Any],
+) -> None:
+  merge_count_bucket(buckets["type"], reference_counts.get("byType") or [])
+  merge_count_bucket(buckets["area"], reference_counts.get("byArea") or [])
+  merge_count_bucket(buckets["domain"], reference_counts.get("byDomain") or [])
+  merge_count_bucket(buckets["category"], reference_counts.get("byCategory") or [])
+
+
+def has_reference_bucket_metadata(entry: dict[str, Any], payload: dict[str, Any]) -> bool:
+  return any(key in entry or key in payload for key in ("category", "areaTags", "domainTags"))
+
+
 def limited_records(index: dict[str, Any], offset: int, limit: Optional[int]) -> list[dict[str, Any]]:
   records = [record for record in index.get("records", []) if isinstance(record, dict)]
   start = max(0, offset)
@@ -766,6 +790,10 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
     validate(manifest, chunk_root)
     chunk_manifests.append(manifest)
     errors.extend(manifest.get("errors") or [])
+    legacy_bucket_fallback = False
+    legacy_accepted_records = 0
+    metadata_accepted_records = 0
+    legacy_duplicate_records = 0
     for record_id, entry in sorted((manifest.get("records") or {}).items()):
       record_id = str(record_id)
       payload = read_json(manifest_record_path(chunk_root, entry))
@@ -776,6 +804,7 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
         raise SystemExit(f"Conflicting duplicate chunk payload for {record_id}")
 
       if existing_payload is not None:
+        legacy_duplicate_records += 1
         continue
       record_payloads[record_id] = payload
       record_entries[record_id] = dict(entry)
@@ -788,17 +817,33 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
       for key in keys:
         ref_counter[key] += 1
       count_bucket(type_bucket, str(payload.get("type") or ""), reference_count)
-      count_bucket(merged_buckets["type"], str(entry.get("type") or payload.get("type") or ""), reference_count)
-      count_bucket(merged_buckets["category"], str(entry.get("category") or payload.get("category") or ""), reference_count)
-      for area in entry.get("areaTags") or payload.get("areaTags") or []:
-        count_bucket(merged_buckets["area"], str(area), reference_count)
-      for domain in entry.get("domainTags") or payload.get("domainTags") or []:
-        count_bucket(merged_buckets["domain"], str(domain), reference_count)
+      if has_reference_bucket_metadata(entry, payload):
+        metadata_accepted_records += 1
+        count_bucket(merged_buckets["type"], str(entry.get("type") or payload.get("type") or ""), reference_count)
+        count_bucket(merged_buckets["category"], str(entry.get("category") or payload.get("category") or ""), reference_count)
+        for area in entry.get("areaTags") or payload.get("areaTags") or []:
+          count_bucket(merged_buckets["area"], str(area), reference_count)
+        for domain in entry.get("domainTags") or payload.get("domainTags") or []:
+          count_bucket(merged_buckets["domain"], str(domain), reference_count)
+      else:
+        legacy_bucket_fallback = True
+        legacy_accepted_records += 1
       for ref in references:
         key = str(ref["key"])
         ref_samples.setdefault(key, ref)
         for author in ref.get("authors") or []:
           author_counter[str(author)] += 1
+    if legacy_bucket_fallback:
+      if metadata_accepted_records:
+        raise SystemExit(
+          f"Cannot accurately merge mixed legacy/current chunk buckets in {display_path(chunk_root)}; rebuild chunks with the current script."
+        )
+      if legacy_duplicate_records:
+        raise SystemExit(
+          f"Cannot accurately merge legacy chunk buckets with duplicate records in {display_path(chunk_root)}; rebuild chunks with the current script."
+        )
+      if legacy_accepted_records:
+        merge_reference_count_buckets(merged_buckets, (manifest.get("analysis") or {}).get("referenceCounts") or {})
 
   overlaps_by_record: dict[str, list[dict[str, Any]]] = defaultdict(list)
   for left_id, right_id in combinations(sorted(record_keys), 2):
@@ -1222,6 +1267,59 @@ def self_check() -> None:
     assert paper_a["referenceKeys"] == reference_keys
     assert paper_a["overlaps"][0]["recordId"] == "paper-b"
     assert paper_a["overlaps"][0]["sharedCount"] == 2
+
+    legacy_chunk_dir = root / "legacy-chunks"
+    legacy_root = legacy_chunk_dir / "chunk-0"
+    legacy_id = "legacy-paper"
+    legacy_filename = record_filename(legacy_id)
+    legacy_refs = [{"key": "legacy-ref", "raw": "Legacy Reference", "title": "Legacy Reference", "authors": []}]
+    write_json(legacy_root / "records" / legacy_filename, {
+      "id": legacy_id,
+      "type": "paper",
+      "title": "Legacy Paper",
+      "referenceCount": 1,
+      "referenceKeys": ["legacy-ref"],
+      "references": legacy_refs,
+      "overlaps": [],
+    })
+    write_json(legacy_root / "manifest.json", {
+      "limits": {
+        "referencesPerRecord": MAX_REFERENCES_PER_RECORD,
+        "referenceSample": MAX_REFERENCE_SAMPLE,
+        "referenceTextChars": MAX_REFERENCE_TEXT,
+        "overlapsPerRecord": MAX_OVERLAPS_PER_RECORD,
+        "sharedRefsPerOverlap": MAX_SHARED_REFS_PER_OVERLAP,
+      },
+      "summary": {
+        "recordCount": 1,
+        "manifestRecords": 1,
+        "matchedRecords": 1,
+        "unmatchedRecords": 0,
+        "cachedRecords": 0,
+      },
+      "records": {
+        legacy_id: {
+          "url": f"site/data/references/records/{legacy_filename}",
+          "type": "paper",
+          "referenceCount": 1,
+          "overlapCount": 0,
+        },
+      },
+      "analysis": {
+        "referenceCounts": {
+          "byType": [{"label": "paper", "records": 1, "references": 1}],
+          "byArea": [{"label": "Legacy Area", "records": 1, "references": 1}],
+          "byDomain": [{"label": "Legacy Domain", "records": 1, "references": 1}],
+          "byCategory": [{"label": "Legacy Category", "records": 1, "references": 1}],
+        },
+      },
+      "errors": [],
+    })
+    legacy_merged = merge_chunks(legacy_chunk_dir, root / "legacy-merged")
+    validate(legacy_merged, root / "legacy-merged")
+    assert legacy_merged["analysis"]["referenceCounts"]["byArea"] == [{"label": "Legacy Area", "records": 1, "references": 1}]
+    assert legacy_merged["analysis"]["referenceCounts"]["byDomain"] == [{"label": "Legacy Domain", "records": 1, "references": 1}]
+    assert legacy_merged["analysis"]["referenceCounts"]["byCategory"] == [{"label": "Legacy Category", "records": 1, "references": 1}]
 
 
 def main() -> None:
