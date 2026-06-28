@@ -1594,6 +1594,18 @@ a:focus-visible {
   font-weight: 850;
 }
 
+.semantic-insight-keywords button {
+  padding: 4px 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: #475467;
+  font-size: 10.5px;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+}
+
 .map-search-help,
 .map-embedding-info {
   position: relative;
@@ -2117,6 +2129,41 @@ a:focus-visible {
   gap: 6px;
 }
 
+.trend-study-section {
+  display: grid;
+  gap: 6px;
+}
+
+.trend-study-section span {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.trend-study-section em,
+.trend-representatives > strong,
+.semantic-compare-result em,
+.study-trail-item em {
+  color: var(--muted-2);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.trend-study-section b {
+  display: inline-flex;
+  margin: 0 4px 4px 0;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
 .trend-keywords span,
 .trend-counts span {
   display: inline-flex;
@@ -2139,6 +2186,41 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 750;
   line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.study-trail,
+.semantic-compare,
+.unusual-directions {
+  margin-top: 10px;
+}
+
+.study-trail-list,
+.semantic-compare-result,
+.semantic-bridge-list {
+  display: grid;
+  gap: 8px;
+}
+
+.semantic-compare-result span {
+  display: grid;
+  gap: 3px;
+}
+
+.semantic-compare-result b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.semantic-bridge-list button {
+  padding: 7px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 750;
   text-align: left;
   cursor: pointer;
 }

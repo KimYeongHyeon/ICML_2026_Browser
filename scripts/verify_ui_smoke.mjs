@@ -12,6 +12,7 @@ const consoleErrors = [];
 const failedRequests = [];
 const badResponses = [];
 const referenceRequests = [];
+const studyRequests = [];
 
 function isBenignConsoleError(text) {
   const value = String(text || "").trim();
@@ -40,6 +41,9 @@ page.on("requestfailed", (request) => {
 page.on("request", (request) => {
   if (isSameOrigin(request.url()) && /\/site\/data\/references\//.test(request.url())) {
     referenceRequests.push(request.url());
+  }
+  if (isSameOrigin(request.url()) && /\/site\/data\/icml2026_study_features\.json/.test(request.url())) {
+    studyRequests.push(request.url());
   }
 });
 page.on("response", (response) => {
@@ -103,11 +107,20 @@ const initial = await page.evaluate(() => ({
   headerStats: document.querySelector("#headerStats")?.innerText || "",
   paperHidden: document.querySelector('.tab[data-tab="paper"]')?.hidden || false,
   paperActive: document.querySelector('.tab[data-tab="paper"]')?.classList.contains("is-active") || false,
+  topTabs: [...document.querySelectorAll(".tabs .tab")].map((item) => item.textContent?.trim() || ""),
   posterTabExists: Boolean(document.querySelector('.tab[data-tab="poster"]')),
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
 }));
 const initialReferenceRequestCount = referenceRequests.length;
+const initialStudyRequestCount = studyRequests.length;
+
+const studyRequestsBeforeMapEntry = studyRequests.length;
+await page.locator('.tab[data-tab="map"]').click();
+await page.waitForSelector(".trend-card", { timeout: 30000 });
+const mapEntryStudyRequestCount = studyRequests.length - studyRequestsBeforeMapEntry;
+await page.locator('.tab[data-tab="paper"]').click();
+await page.waitForSelector(".result-item", { timeout: 30000 });
 
 const embeddingLookupCompleteness = await page.evaluate(async () => {
   const [index, map, manifest] = await Promise.all([
@@ -211,6 +224,32 @@ const miniAfterDepth = await page.evaluate(() => ({
   info: window.__icmlMapDebug?.miniGraphInfo?.() || {},
 }));
 
+await page.waitForSelector(".study-trail .study-trail-item", { timeout: 30000 });
+const studyTrail = await page.evaluate(() => ({
+  heading: [...document.querySelectorAll(".study-trail > strong")].map((item) => item.textContent || "").find((text) => /Study Trail/.test(text)) || "",
+  count: document.querySelectorAll(".study-trail .study-trail-item").length,
+  stages: [...document.querySelectorAll(".study-trail-item em")].map((item) => item.textContent || ""),
+  firstTitle: document.querySelector(".study-trail-item strong")?.textContent || "",
+  compareButtons: document.querySelectorAll(".semantic-compare .compare-candidate").length,
+}));
+await page.locator(".semantic-compare .compare-candidate").first().click();
+await page.waitForSelector(".semantic-compare-result", { timeout: 10000 });
+const semanticCompare = await page.evaluate(() => ({
+  text: document.querySelector(".semantic-compare")?.innerText || "",
+  bridgeCount: document.querySelectorAll(".semantic-bridge").length,
+  modalCount: document.querySelectorAll("dialog,[role='dialog'],.modal,.drawer").length,
+}));
+await page.locator(".semantic-bridge").first().click();
+await page.waitForTimeout(300);
+const bridgeClick = await page.evaluate(() => ({
+  viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+}));
+await page.locator(".study-trail .study-trail-item").first().click();
+await page.waitForTimeout(300);
+const studyTrailClick = await page.evaluate(() => ({
+  viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+}));
+
 await page.locator("#searchInput").fill("zzzz-no-records");
 await page.waitForTimeout(100);
 await page.locator('.tab[data-tab="workshop"]').click();
@@ -287,6 +326,9 @@ const trendsInitial = await page.evaluate(() => ({
   firstKeywords: document.querySelector(".trend-keywords")?.textContent || "",
   firstRepresentatives: document.querySelectorAll(".trend-representatives button").length,
   firstSummary: document.querySelector(".trend-card p")?.textContent || "",
+  studyLabels: [...document.querySelectorAll(".trend-study-section em")].map((item) => item.textContent || ""),
+  firstReadText: document.querySelector(".trend-representatives")?.textContent || "",
+  unusualText: document.querySelector(".unusual-directions")?.textContent || "",
 }));
 await page.locator(".trend-card-main").first().click();
 await page.waitForTimeout(500);
@@ -325,6 +367,7 @@ const forceProbePoints = await page.evaluate(() => window.__icmlMapDebug?.forceP
 const mapTooltip = await scanGraphTooltipAtPoints("#mapCanvas", forceProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
 
 await page.locator("#mapSearchInput").fill("retrieval");
+await page.waitForSelector(".semantic-insight", { timeout: 30000 });
 await page.waitForTimeout(900);
 const mapSearch = await page.evaluate(() => ({
   seedCount: window.__icmlMapDebug?.mapSearchInfo?.().seedCount || 0,
@@ -334,6 +377,8 @@ const mapSearch = await page.evaluate(() => ({
   pending: Boolean(window.__icmlMapDebug?.mapSearchInfo?.().pending),
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+  insightText: document.querySelector(".semantic-insight")?.innerText || "",
+  topicLensButtons: document.querySelectorAll(".topic-lens-records button").length,
 }));
 
 const map = await page.evaluate(() => ({
@@ -429,6 +474,7 @@ const referencesTab = await page.evaluate(() => ({
   topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
+  selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
 
@@ -436,6 +482,8 @@ const report = {
   baseUrl,
   initial,
   initialReferenceRequestCount,
+  initialStudyRequestCount,
+  mapEntryStudyRequestCount,
   embeddingLookupCompleteness,
   paper,
   paperSpotlight,
@@ -444,6 +492,10 @@ const report = {
   referenceRequestsBeforeTab,
   referencesTab,
   rapidPdfSwitch,
+  studyTrail,
+  semanticCompare,
+  bridgeClick,
+  studyTrailClick,
   miniTooltip,
   miniControlsBefore,
   miniAfterZoom,
@@ -461,12 +513,16 @@ const report = {
   failedRequests,
   badResponses,
   referenceRequests,
+  studyRequests,
 };
 
 console.log(JSON.stringify(report, null, 2));
 
 if (initial.posterTabExists) {
   throw new Error("Poster should not be a top-level tab; it is a paper presentation badge");
+}
+if (initial.topTabs.join(" / ") !== "Papers / Workshops / Map / References") {
+  throw new Error(`top-level tabs changed: ${JSON.stringify(initial.topTabs)}`);
 }
 if (initial.paperHidden || !initial.paperActive) {
   throw new Error("Paper tab should be the visible default");
@@ -479,6 +535,12 @@ if (!initial.hasPosterSessionBadge) {
 }
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
+}
+if (initialStudyRequestCount !== 0) {
+  throw new Error(`study features must not load during initial startup: ${JSON.stringify(studyRequests.slice(0, initialStudyRequestCount))}`);
+}
+if (mapEntryStudyRequestCount !== 0) {
+  throw new Error(`study features must not load just by entering Map without query/selection: ${JSON.stringify(studyRequests)}`);
 }
 if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\narea groups/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
   throw new Error(`header should match compact design stats: ${initial.headerStats}`);
@@ -534,6 +596,9 @@ if (
 ) {
   throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
 }
+if (!referencesTab.selectedSampleCount || !/extracted refs/i.test(referencesTab.selectedText)) {
+  throw new Error(`References selected record should show extracted reference samples: ${JSON.stringify(referencesTab)}`);
+}
 if (!rapidPdfSwitch.viewerTitle.includes("MoSE") || rapidPdfSwitch.hasError || !/\d+ \/ \d+/.test(rapidPdfSwitch.status) || !rapidPdfSwitch.canvasWidth || !rapidPdfSwitch.canvasHeight) {
   throw new Error(`stale failed PDF loads must not clear the newly selected PDF viewer task: ${JSON.stringify(rapidPdfSwitch)}`);
 }
@@ -568,6 +633,22 @@ if (!Number.isFinite(miniControlsBefore.info.zoom) || !Number.isFinite(miniAfter
 if (miniAfterDepth.info.depth !== "deep" || miniAfterDepth.info.nodes <= miniControlsBefore.info.nodes || !miniAfterDepth.button.includes("Deeper")) {
   throw new Error(`mini semantic graph depth toggle did not expose a denser view: ${JSON.stringify({ miniControlsBefore, miniAfterDepth })}`);
 }
+if (
+  studyTrail.heading !== "Study Trail"
+  || studyTrail.count < 5
+  || studyTrail.count > 10
+  || !["Intro", "Core", "Applied", "Broader"].every((stage) => studyTrail.stages.includes(stage))
+  || !studyTrail.firstTitle
+  || studyTrail.compareButtons < 1
+) {
+  throw new Error(`Study Trail should render 5-10 staged clickable items plus compare controls: ${JSON.stringify(studyTrail)}`);
+}
+if (!/common topic/i.test(semanticCompare.text) || !/differences/i.test(semanticCompare.text) || !/bridging papers/i.test(semanticCompare.text) || !semanticCompare.bridgeCount || semanticCompare.modalCount) {
+  throw new Error(`Semantic Compare should render inline common/different/bridge sections without modal UI: ${JSON.stringify(semanticCompare)}`);
+}
+if (!bridgeClick.viewerTitle || !studyTrailClick.viewerTitle || bridgeClick.viewerTitle === studyTrailClick.viewerTitle) {
+  throw new Error(`Study Trail and bridge paper clicks should navigate existing viewer: ${JSON.stringify({ bridgeClick, studyTrailClick })}`);
+}
 if (afterSwitch.searchValue !== "") {
   throw new Error("search input did not reset after switching tabs");
 }
@@ -583,8 +664,12 @@ if (
   || !trendsInitial.firstKeywords.trim()
   || trendsInitial.firstRepresentatives < 3
   || !trendsInitial.firstSummary.includes("This trend groups papers around")
+  || !["Core question", "Method", "Branches"].every((label) => trendsInitial.studyLabels.includes(label))
+  || !/First reads/.test(trendsInitial.firstReadText)
+  || !/Unusual directions/.test(trendsInitial.unusualText)
+  || /novel|breakthrough|sota|state-of-the-art/i.test(trendsInitial.unusualText)
 ) {
-  throw new Error(`semantic trend cards should expose keywords, summary, and representative papers: ${JSON.stringify(trendsInitial)}`);
+  throw new Error(`semantic trend cards should expose study sections, first reads, and careful unusual-direction wording: ${JSON.stringify(trendsInitial)}`);
 }
 if (!trendCardClick.viewerTitle || !["paper", "workshop"].includes(trendCardClick.activeTab)) {
   throw new Error(`clicking a trend card should open a representative record in the existing viewer: ${JSON.stringify(trendCardClick)}`);
@@ -654,6 +739,8 @@ if (
   || !["query-vector", "specter2-loading", "specter2-query"].includes(mapSearch.kind)
   || mapSearch.topScore <= 0
   || !/query-vector matches|SPECTER2|lexical fallback/.test(mapSearch.activeSummary)
+  || !/Topic lens|Area|Domain|Nearby trend|Search mode/.test(mapSearch.insightText)
+  || !mapSearch.topicLensButtons
 ) {
   throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
 }

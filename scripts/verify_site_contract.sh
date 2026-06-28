@@ -16,6 +16,8 @@ path = Path(sys.argv[1])
 data = json.loads(path.read_text(encoding="utf-8"))
 records = data.get("records", [])
 trend_path = path.with_name("icml2026_trends.json")
+study_path = path.with_name("icml2026_study_features.json")
+startup_path = path.with_name("icml2026_startup.json")
 
 errors = []
 allowed_status = {"accepted_public", "metadata_only", "metadata_only_pdf_not_public", "blocked", "unavailable", "downloaded", "failed", "skipped"}
@@ -96,6 +98,48 @@ else:
         missing_ids = [record_id for record_id in representative_ids if str(record_id) not in record_ids]
         if missing_ids:
             errors.append(f"trend card references missing records: {trend.get('id')} {missing_ids[:5]}")
+        first_reads = trend.get("firstReadRecordIds") or []
+        for key in ("coreQuestion", "representativeMethodology", "subBranches"):
+            if not trend.get(key):
+                errors.append(f"trend card missing study field {key}: {trend.get('id')}")
+        if len(first_reads) < min(3, len(representative_ids)):
+            errors.append(f"trend card has too few first reads: {trend.get('id')}")
+        missing_first_reads = [record_id for record_id in first_reads if str(record_id) not in record_ids]
+        if missing_first_reads:
+            errors.append(f"trend card first reads missing records: {trend.get('id')} {missing_first_reads[:5]}")
+
+if not study_path.exists():
+    errors.append(f"missing study features artifact: {study_path}")
+else:
+    study = json.loads(study_path.read_text(encoding="utf-8"))
+    if set(study) != {"generatedAt", "source", "records", "topics", "outliers"}:
+        errors.append("study features artifact has unexpected top-level keys")
+    if not study.get("records") or not study.get("topics"):
+        errors.append("study features artifact has no records/topics")
+    allowed_stages = {"intro", "core", "applied", "broader"}
+    for record_id, entry in (study.get("records") or {}).items():
+        if record_id not in record_ids:
+            errors.append(f"study features include missing record: {record_id}")
+            continue
+        trail = entry.get("studyTrail") or []
+        if len(trail) < 5 or len(trail) > 10:
+            errors.append(f"study trail length outside bound: {record_id} {len(trail)}")
+        for item in trail:
+            if item.get("stage") not in allowed_stages:
+                errors.append(f"study trail has invalid stage: {record_id} {item.get('stage')}")
+            if str(item.get("recordId") or "") not in record_ids:
+                errors.append(f"study trail references missing record: {record_id} {item.get('recordId')}")
+        for item in entry.get("compareCandidates") or []:
+            if str(item.get("recordId") or "") not in record_ids:
+                errors.append(f"study compare references missing record: {record_id} {item.get('recordId')}")
+    serialized_study = json.dumps(study, ensure_ascii=False).lower()
+    for banned in ("\"abstract\"", "\"nearestneighbors\"", "\"references\"", "novel", "breakthrough", "sota"):
+        if banned in serialized_study:
+            errors.append(f"study features artifact contains banned payload/word: {banned}")
+    if startup_path.exists():
+        startup_text = startup_path.read_text(encoding="utf-8")
+        if "icml2026_study_features" in startup_text or "studyTrail" in startup_text:
+            errors.append("startup payload includes lazy study features")
 
 if errors:
     print("ICML site contract verification failed:", file=sys.stderr)
@@ -113,4 +157,6 @@ print(f"- workshops: {counts.get('workshop', 0):,}")
 print(f"- multi-field records: {sum(1 for r in records if len(r.get('categoryTags') or []) > 1):,}")
 if trend_path.exists():
     print(f"- trends: {len(json.loads(trend_path.read_text(encoding='utf-8')).get('trends', [])):,}")
+if study_path.exists():
+    print(f"- study records: {len(json.loads(study_path.read_text(encoding='utf-8')).get('records', {})):,}")
 PY

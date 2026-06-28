@@ -79,6 +79,33 @@ def top_counts(records: list[dict[str, Any]], key: str, limit: int = 4) -> list[
     return [{"label": label, "count": count} for label, count in counts.most_common(limit)]
 
 
+def methodology_label(keywords: list[str], records: list[dict[str, Any]]) -> str:
+    text = " ".join(keywords + [str(record.get("title") or "") for record in records[:8]]).lower()
+    options = [
+        ("diffusion", "Diffusion and generative modeling"),
+        ("retrieval", "Retrieval and representation analysis"),
+        ("optimization", "Optimization and search"),
+        ("benchmark", "Benchmarking and evaluation"),
+        ("policy", "Policy learning and control"),
+        ("causal", "Causal estimation"),
+        ("graph", "Graph and geometric methods"),
+        ("transformer", "Transformer-based modeling"),
+    ]
+    for needle, label in options:
+        if needle in text:
+            return label
+    return f"{clean_keyword(keywords[0])} methods" if keywords else "Embedding-neighborhood analysis"
+
+
+def branch_labels(keywords: list[str], members: list[dict[str, Any]]) -> list[str]:
+    labels = []
+    labels.extend(clean_keyword(keyword) for keyword in keywords[:3])
+    labels.extend(item["label"] for item in top_counts(members, "areaTags", 2))
+    labels.extend(item["label"] for item in top_counts(members, "domainTags", 2))
+    seen = set()
+    return [label for label in labels if label and not (label.lower() in seen or seen.add(label.lower()))][:5]
+
+
 def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 12) -> dict[str, Any]:
     index_by_id = {
         str(record.get("id")): record
@@ -170,6 +197,7 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
                 break
 
         trend_keywords = keywords[:5] or [str(cluster.get("label") or members[0].get("clusterLabel") or "mapped records")]
+        first_reads = [str(record["id"]) for record in representative[:3]]
         trends.append({
             "id": cluster_id,
             "clusterId": cluster_id,
@@ -179,6 +207,10 @@ def build_trends(index: dict[str, Any], map_data: dict[str, Any], limit: int = 1
             "size": len(members),
             "keywords": trend_keywords,
             "summary": f"This trend groups papers around {', '.join(trend_keywords[:3])}, with representative work on {short_title(representative[0])}.",
+            "coreQuestion": f"How can {trend_keywords[0]} approaches be used for {trend_keywords[1] if len(trend_keywords) > 1 else cluster_label.lower()}?",
+            "representativeMethodology": methodology_label(trend_keywords, representative),
+            "subBranches": branch_labels(trend_keywords, members),
+            "firstReadRecordIds": first_reads,
             "representativeSentences": sentences,
             "representativeRecordIds": [str(record["id"]) for record in representative],
             "areaCounts": top_counts(members, "areaTags"),

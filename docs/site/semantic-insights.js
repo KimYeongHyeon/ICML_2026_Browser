@@ -44,6 +44,18 @@ function searchModeLabel() {
   return "query-vector";
 }
 
+function topicLens(records) {
+  const clusterCounts = topCounts(records, (record) => [record.embeddingClusterId].filter(Boolean), 1);
+  const clusterId = clusterCounts[0]?.[0] || "";
+  const topic = clusterId ? state.studyFeatures?.topics?.[clusterId] : null;
+  const trend = (state.trendData?.trends || []).find((item) => item.id === topic?.nearbyTrendId);
+  const representatives = (topic?.representativeRecordIds || [])
+    .map((id) => records.find((record) => record.id === id))
+    .filter(Boolean)
+    .slice(0, 3);
+  return { topic, trend, representatives };
+}
+
 export function renderSemanticInsightPanel(records, query) {
   const host = document.querySelector("#mapCanvas")?.parentElement;
   if (!host) return;
@@ -61,17 +73,23 @@ export function renderSemanticInsightPanel(records, query) {
   const areas = topCounts(records, (record) => record.areaTags || record.categoryTags || []);
   const domains = topCounts(records, (record) => record.domainTags || []);
   const keywords = topKeywords(records);
+  const lens = topicLens(records);
   panel.innerHTML = `
     <div class="semantic-insight-head">
-      <strong>${records.length.toLocaleString()} highlighted</strong>
+      <strong>Topic lens · ${records.length.toLocaleString()} highlighted</strong>
       <span>${escapeHtml(searchModeLabel())}</span>
     </div>
     <div class="semantic-insight-grid">
-      <span><em>Area</em>${areas.map(([name, count]) => `<b>${escapeHtml(name)} <i>${count}</i></b>`).join("") || "<b>Mixed</b>"}</span>
-      <span><em>Domain</em>${domains.map(([name, count]) => `<b>${escapeHtml(name)} <i>${count}</i></b>`).join("") || "<b>General</b>"}</span>
+      <span><em>Area</em><b>${escapeHtml(lens.topic?.dominantArea || areas[0]?.[0] || "Mixed")}</b></span>
+      <span><em>Domain</em><b>${escapeHtml(lens.topic?.dominantDomain || domains[0]?.[0] || "General")}</b></span>
+      <span><em>Nearby trend</em><b>${escapeHtml(lens.trend?.name || lens.topic?.nearbyTrendId || "loading")}</b></span>
+      <span><em>Search mode</em><b>${escapeHtml(searchModeLabel())}</b></span>
     </div>
     <div class="semantic-insight-keywords">
       ${keywords.map((word) => `<b>${escapeHtml(word)}</b>`).join("") || "<b>title-only</b>"}
+    </div>
+    <div class="semantic-insight-keywords topic-lens-records">
+      ${(lens.representatives.length ? lens.representatives : records.slice(0, 3)).map((record) => `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>`).join("")}
     </div>
   `;
 }

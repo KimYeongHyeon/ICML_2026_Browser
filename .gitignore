@@ -2,6 +2,7 @@
 *.part
 __pycache__/
 *.pyc
+.cache/
 .superpowers/
 .gstack/
 .omo/
