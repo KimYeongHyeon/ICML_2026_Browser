@@ -314,11 +314,6 @@ const mapSearch = await page.evaluate(() => ({
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
 }));
 
-await page.locator("#mapEngineSelect").selectOption("cytoscape", { force: true });
-await page.waitForTimeout(1400);
-const cytoscapeProbePoints = await page.evaluate(() => window.__icmlMapDebug?.cytoscapeProbePoints?.(120) || []);
-const cytoscapeTooltip = await scanGraphTooltipAtPoints("#mapCanvas", cytoscapeProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
-
 const map = await page.evaluate(() => ({
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
   hasCanvas: Boolean(document.querySelector("#mapCanvas canvas")),
@@ -422,7 +417,6 @@ const report = {
   clusterLabelSearch,
   mapSearch,
   mapTooltip,
-  cytoscapeTooltip,
   consoleErrors,
   failedRequests,
   badResponses,
@@ -600,9 +594,6 @@ if (
 }
 if (!Number.isFinite(map.forceZoomBeforeWheel) || !Number.isFinite(map.forceZoomAfterWheel) || map.forceZoomAfterWheel <= map.forceZoomBeforeWheel) {
   throw new Error(`ForceGraph wheel zoom did not increase zoom: ${JSON.stringify(map)}`);
-}
-if (!cytoscapeTooltip.includes("Area:") || !cytoscapeTooltip.includes("Domain:")) {
-  throw new Error(`Cytoscape tooltip did not expose title and area/domain decoder: ${cytoscapeTooltip}`);
 }
 if (consoleErrors.length) {
   throw new Error(`console/page errors: ${consoleErrors.join(" | ")}`);

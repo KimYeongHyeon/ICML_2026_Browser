@@ -1154,10 +1154,6 @@ a:focus-visible {
   color: var(--text);
 }
 
-.map-setting-engine {
-  display: none;
-}
-
 .map-control {
   display: inline-flex;
   align-items: center;

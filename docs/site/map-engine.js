@@ -1,17 +1,12 @@
-import { CYTOSCAPE_URL } from "./config.js";
 import { els } from "./dom.js";
-import { typeLabel } from "./records.js";
 import { state } from "./state.js";
-import { plainMathTitle } from "./utils.js";
 import {
-  areaColorValue,
   colorForValue,
   domainColorValue,
   domainRingColor,
 } from "./map-tooltip.js";
 
 let engineDeps = {};
-let cytoscapePromise = null;
 
 export function configureMapEngine(deps) {
   engineDeps = deps;
@@ -215,11 +210,7 @@ export function destroyGraphEngine(except = "") {
     state.mapGraph = null;
     state.mapGraphData = null;
   }
-  if (except !== "cytoscape" && state.cyGraph) {
-    state.cyGraph.destroy?.();
-    state.cyGraph = null;
-  }
-  if (except !== "force" && except !== "cytoscape") {
+  if (except !== "force") {
     els.mapCanvas.innerHTML = "";
   }
 }
@@ -304,59 +295,27 @@ export function applyMapMotionSettings(graph = state.mapGraph) {
 }
 
 export function reflowMap(options = {}) {
-  if (state.mapEngine === "cytoscape" && state.cyGraph) {
-    if (options.fit) state.cyGraph.fit(undefined, 48);
-    else state.cyGraph.layout({ name: "preset", fit: true, padding: 48 }).run();
-    return;
-  }
-  if (state.mapEngine === "force") {
-    const graph = state.mapGraph;
-    if (!graph) return;
-    applyMapMotionSettings(graph);
-    graph.resumeAnimation?.();
-    graph.d3ReheatSimulation?.();
-    if (options.fit) {
-      const scheduledAt = performance.now();
-      window.setTimeout(() => {
-        if (state.tab === "map" && state.mapGraph === graph && state.mapLastUserInteraction <= scheduledAt) {
-          fitForceGraph(graph, state.mapGraphData, { duration: 420, padding: 96 });
-        }
-      }, options.delay || 120);
-    }
+  const graph = state.mapGraph;
+  if (!graph) return;
+  applyMapMotionSettings(graph);
+  graph.resumeAnimation?.();
+  graph.d3ReheatSimulation?.();
+  if (options.fit) {
+    const scheduledAt = performance.now();
+    window.setTimeout(() => {
+      if (state.tab === "map" && state.mapGraph === graph && state.mapLastUserInteraction <= scheduledAt) {
+        fitForceGraph(graph, state.mapGraphData, { duration: 420, padding: 96 });
+      }
+    }, options.delay || 120);
   }
 }
 
 export function zoomMap(multiplier) {
-  if (state.mapEngine === "cytoscape" && state.cyGraph) {
-    const current = state.cyGraph.zoom();
-    state.cyGraph.zoom({
-      level: Math.max(0.05, Math.min(8, current * multiplier)),
-      renderedPosition: { x: els.mapCanvas.clientWidth / 2, y: els.mapCanvas.clientHeight / 2 },
-    });
-    return;
-  }
-  if (state.mapEngine === "force") {
-    const graph = state.mapGraph;
-    if (!graph) return;
-    const currentZoom = typeof graph.zoom === "function" ? graph.zoom() : 1;
-    graph.zoom(Math.max(0.08, Math.min(18, currentZoom * multiplier)), 220);
-    graph.resumeAnimation?.();
-  }
-}
-
-export async function ensureCytoscapeLibrary() {
-  if (typeof window.cytoscape === "function") return;
-  cytoscapePromise ||= new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = CYTOSCAPE_URL;
-    script.async = true;
-    script.addEventListener("load", () => {
-      resolve();
-    }, { once: true });
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${CYTOSCAPE_URL}`)), { once: true });
-    document.head.append(script);
-  });
-  await cytoscapePromise;
+  const graph = state.mapGraph;
+  if (!graph) return;
+  const currentZoom = typeof graph.zoom === "function" ? graph.zoom() : 1;
+  graph.zoom(Math.max(0.08, Math.min(18, currentZoom * multiplier)), 220);
+  graph.resumeAnimation?.();
 }
 
 function normalizedGraphPositionFn(nodes) {
@@ -371,82 +330,6 @@ function normalizedGraphPositionFn(nodes) {
     x: Math.max(-CLAMP, Math.min(CLAMP, ((node.x - x1) / spanX - 0.5) * SPAN)),
     y: Math.max(-CLAMP, Math.min(CLAMP, ((node.y - y1) / spanY - 0.5) * SPAN)),
   });
-}
-
-export function renderCytoscapeGraph(graphData) {
-  if (typeof window.cytoscape !== "function") return false;
-  state.mapGraph?.pauseAnimation?.();
-  state.mapGraph = null;
-  state.cyGraph?.destroy?.();
-  state.cyGraph = null;
-  els.mapCanvas.innerHTML = "";
-  const cyPos = normalizedGraphPositionFn(graphData.nodes);
-  const elements = [
-    ...graphData.nodes.map((node) => ({
-      data: {
-        id: node.id,
-        label: state.mapMode === "focused" && node.selected ? plainMathTitle(node.title).slice(0, 26) : "",
-        fullTitle: node.title,
-        area: areaColorValue(node.record),
-        domain: domainColorValue(node.record),
-        typeLabel: typeLabel(node.record?.type),
-        color: colorForValue(node.group),
-        shape: state.mapColor === "area-domain" ? domainShapeValue(node.record) : "ellipse",
-        ringColor: state.mapColor === "area-domain" ? domainRingColor(node.record) : "rgba(255,255,255,0.52)",
-        size: node.selected ? 18 : node.searchMatch ? 14 : node.depth === 1 ? 12 : node.depth === 2 ? 8 : 5,
-        record: node.record,
-      },
-      position: cyPos(node),
-      classes: [node.selected ? "selected" : node.depth === 1 ? "near" : node.depth === 2 ? "second" : "", node.searchMatch ? "search-match" : "", node.semanticContext ? "semantic-context" : ""].filter(Boolean).join(" "),
-    })),
-    ...graphData.links.map((link, index) => ({
-      data: {
-        id: `e-${index}`,
-        source: typeof link.source === "object" ? link.source.id : link.source,
-        target: typeof link.target === "object" ? link.target.id : link.target,
-        selected: link.selected,
-      },
-      classes: link.selected ? "selected" : "",
-    })),
-  ];
-  state.cyGraph = window.cytoscape({
-    container: els.mapCanvas,
-    elements,
-    minZoom: 0.04,
-    maxZoom: 6,
-    wheelSensitivity: 0.18,
-    layout: { name: "preset", fit: true, padding: 56 },
-    style: [
-      { selector: "node", style: { shape: "data(shape)", "background-color": "data(color)", width: "data(size)", height: "data(size)", "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 2 : 1, label: "data(label)", color: "#25282b", "font-size": 10, "text-outline-color": "#ffffff", "text-outline-width": 3 } },
-      { selector: "node.semantic-context", style: { opacity: 0.62 } },
-      { selector: "node.search-match", style: { "border-color": "#fde68a", "border-width": 3, "underlay-color": "#facc15", "underlay-opacity": 0.22, "underlay-padding": 6, opacity: 1 } },
-      { selector: "node.selected", style: { width: 22, height: 22, "border-color": "data(ringColor)", "border-width": state.mapColor === "area-domain" ? 4 : 3, "underlay-color": "#6aa593", "underlay-opacity": 0.22, "underlay-padding": 8 } },
-      { selector: "edge", style: { width: 0.28, "line-color": "#96a5b4", opacity: 0.42, "curve-style": "haystack", "haystack-radius": 0 } },
-      { selector: "edge.selected", style: { width: 0.9, "line-color": "#6aa593", opacity: 0.7 } },
-    ],
-  });
-  state.cyGraph.on("mouseover", "node", (event) => {
-    const data = event.target.data();
-    engineDeps.showGraphTooltip?.(els.mapCanvas, {
-      title: data.fullTitle,
-      record: data.record,
-    }, event.renderedPosition);
-    els.mapCanvas.style.cursor = "pointer";
-  });
-  state.cyGraph.on("mouseout", "node", () => {
-    engineDeps.hideGraphTooltip?.(els.mapCanvas, 700);
-    els.mapCanvas.style.cursor = "";
-  });
-  state.cyGraph.on("tap", "node", (event) => {
-    const id = event.target.id();
-    const record = engineDeps.findDisplayRecord?.(id);
-    if (!record) return;
-    state.selectedId = id;
-    engineDeps.renderMap?.();
-    engineDeps.renderMapDetail?.(record);
-    engineDeps.renderViewer?.(record);
-  });
-  return true;
 }
 
 export function renderForceGraph(graphData) {

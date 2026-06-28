@@ -31,7 +31,7 @@ The project has one public graph surface.
 
 | Surface | File | Purpose | Engine |
 | --- | --- | --- | --- |
-| Main Map tab | `docs/index.html`, `docs/site/app.js` | Integrated exploration inside the materials browser | ForceGraph by default, Cytoscape.js optional |
+| Main Map tab | `docs/index.html`, `docs/site/app.js` | Integrated exploration inside the materials browser | ForceGraph |
 
 Standalone Sigma/Cosmograph experiment pages were removed after the main Map tab became the canonical exploration surface.
 
@@ -581,17 +581,6 @@ Requirements:
 - middle-click fit
 - box selection
 - selected-neighborhood mini graph in viewer
-
-### 12.2 Cytoscape.js
-
-Used as alternate main Map engine.
-
-Requirements:
-
-- same tooltip semantics as ForceGraph
-- selected node styling
-- area/domain colors preserved
-- no download or navigation side effects
 
 ### 12.3 Sigma.js + Graphology
 

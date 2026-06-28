@@ -42,10 +42,8 @@ import {
   applyMapMotionSettings,
   configureMapEngine,
   destroyGraphEngine,
-  ensureCytoscapeLibrary,
   fitForceGraph,
   reflowMap,
-  renderCytoscapeGraph,
   renderForceGraph,
   zoomMap,
 } from "./map-engine.js";
@@ -76,12 +74,7 @@ let searchEmbeddingsStarted = false;
 configureMapCore({ findDisplayRecord });
 configureMapEngine({
   ensureMapSelectionBox,
-  findDisplayRecord,
   hideGraphTooltip,
-  renderMap,
-  renderMapDetail,
-  renderViewer,
-  showGraphTooltip,
 });
 configureBrowse({
   applyFilterChange,
@@ -161,20 +154,13 @@ async function renderMap() {
   const graphData = buildGraphData(visibleRecords, mapById);
   let rendered = false;
   try {
-    if (state.mapEngine === "cytoscape") {
-      els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Loading Cytoscape.js</strong><span>Preparing the alternate graph engine.</span></div>`;
-      await ensureCytoscapeLibrary();
-      if (renderToken !== state.mapRenderToken || state.tab !== "map") return;
-      rendered = renderCytoscapeGraph(graphData);
-    } else {
-      rendered = renderForceGraph(graphData);
-    }
+    rendered = renderForceGraph(graphData);
   } catch {
     rendered = false;
   }
   if (!rendered) {
     destroyGraphEngine();
-    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>The selected graph engine could not be loaded.</span></div>`;
+    els.mapCanvas.innerHTML = `<div class="empty-state"><strong>Graph library unavailable</strong><span>ForceGraph could not be loaded.</span></div>`;
     renderMapDetail(null);
     return;
   }
@@ -489,16 +475,6 @@ async function init() {
     clearMapSelection();
     renderMap();
   });
-  els.mapEngine.addEventListener("change", (event) => {
-    state.mapEngine = event.target.value;
-    state.mapInteraction.spaceDown = false;
-    state.mapInteraction.pointerId = null;
-    state.mapInteraction.mode = "";
-    els.mapCanvas.classList.remove("is-space-ready", "is-panning");
-    clearMapSelection();
-    destroyGraphEngine();
-    renderMap();
-  });
   els.mapMode.addEventListener("change", (event) => {
     state.mapMode = event.target.value;
     clearMapSelection();
@@ -525,10 +501,6 @@ async function init() {
         .width(els.mapCanvas.clientWidth || 840)
         .height(els.mapCanvas.clientHeight || 640);
       fitForceGraph(state.mapGraph, state.mapGraphData, { duration: 180 });
-    }
-    if (state.tab === "map" && state.cyGraph) {
-      state.cyGraph.resize();
-      state.cyGraph.fit(undefined, 48);
     }
   });
   document.addEventListener("visibilitychange", () => {

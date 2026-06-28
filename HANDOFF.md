@@ -17,7 +17,7 @@ topic, read the abstract, then follow semantically related papers. Plus: make th
 | `65a21c3` feat(ui) | Fold posters into papers as presentation badges (no Posters tab). Search includes abstract (full-text) + "X match" field badge. Result abstract preview, viewer abstract block, session reading list (save + saved filter). |
 | `89f3374` chore | gitignore tool caches + the large raw `abstracts.jsonl`. |
 | `f0574c8` style(ui) | Search result hierarchy, hover micro-interactions, card density. |
-| `7913a43` fix(ui) | UIUX-audit fixes: Cytoscape empty-canvas (coordinate normalization), engine parity, node visibility, badge declutter, muted contrast, stat-pill false affordance. |
+| `7913a43` fix(ui) | UIUX-audit fixes: map coordinate normalization, node visibility, badge declutter, muted contrast, stat-pill false affordance. |
 | `ba92529` feat(map) | Force-directed cohesive map layout + workshop PDF 404 fix. |
 
 ## Key findings (the non-obvious stuff)
@@ -44,9 +44,9 @@ topic, read the abstract, then follow semantically related papers. Plus: make th
 
 - Regression smoke (`scripts/verify_ui_smoke.mjs`) passes (0 console errors).
 - Full all-button headed verify passes (tabs, search, selects, viewer, save,
-  saved filter, map controls, group filter, engine switch, focused scope).
-- UIUX sub-agent audit (2 reviewers) → P0=0, P1=0 on search/viewer + map engine
-  parity. Map node visibility and Cytoscape empty-canvas confirmed fixed.
+  saved filter, map controls, group filter, focused scope).
+- UIUX sub-agent audit (2 reviewers) → P0=0, P1=0 on search/viewer + map.
+  Map node visibility confirmed fixed.
 - Workshop viewer shows abstract + "Open PDF", 0 local-asset 404s.
 
 ## Open issues (deferred / need a decision)

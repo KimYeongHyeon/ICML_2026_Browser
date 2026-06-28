@@ -9,5 +9,4 @@ export const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? 
 export const MATHJAX_RETRY_LIMIT = 40;
 export const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm";
 export const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
-export const CYTOSCAPE_URL = "https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js";
 export const TRANSFORMERS_JS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";

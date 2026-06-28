@@ -9,8 +9,6 @@ Scope: over-engineering and complexity only.
 
 ## Remaining Candidates
 
-delete: Cut the hidden alternate Cytoscape engine path and engine selector if the ForceGraph map remains the only graph UX people use. [docs/index.html, docs/site/map-engine.js]
-
 native: Cut the custom PDF.js preview shell only if browser-native PDF embedding becomes acceptable again. Current custom viewer exists because downloads/framing were user-visible problems. [docs/site/pdf-viewer.js]
 
 shrink: Split the large stylesheet only when CSS changes become hard to review. No build step needed. [docs/site/styles.css]
