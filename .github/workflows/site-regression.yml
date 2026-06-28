@@ -48,7 +48,7 @@ jobs:
 
       - name: Run UI smoke test
         run: |
-          python3 -m http.server 57995 --directory docs > /tmp/icml-site.log 2>&1 &
+          python3 -m http.server 57995 > /tmp/icml-site.log 2>&1 &
           server_pid=$!
           trap 'kill $server_pid' EXIT
           for attempt in {1..30}; do
@@ -57,4 +57,4 @@ jobs:
             fi
             sleep 1
           done
-          node scripts/verify_ui_smoke.mjs http://127.0.0.1:57995/
+          node scripts/verify_ui_smoke.mjs http://127.0.0.1:57995/docs/
