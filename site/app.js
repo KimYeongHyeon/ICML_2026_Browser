@@ -210,8 +210,8 @@ function renderDataHealthNote() {
   const messages = {
     fresh: ["Semantic index fresh.", loadedText],
     legacy: ["Semantic metadata pending.", `${loadedText} Existing semantic vectors are available; the rebuild workflow will attach freshness metadata.`],
-    stale: ["Semantic rebuild recommended.", `${loadedText} Dense vectors may be older than the current records, so search also uses lexical fallback.`],
-    missing: ["Semantic fallback active.", `${loadedText} Dense vectors are not available yet, so map/search use lexical fallback until the rebuild workflow runs.`],
+    stale: ["Semantic rebuild recommended.", `${loadedText} Dense vectors may be older than the current records, so search also uses lexical matching.`],
+    missing: ["Semantic search limited.", `${loadedText} Dense vectors are not available yet, so map/search use lexical matching until the rebuild workflow runs.`],
   };
   const [title, body] = messages[status] || messages.missing;
   els.dataNote.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(body)}</span>`;

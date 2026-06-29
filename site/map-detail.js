@@ -69,7 +69,12 @@ function renderTrendCards() {
         <span>${trends.length.toLocaleString()} embedding clusters</span>
       </div>
       <div class="trend-list">
-        ${trends.map((trend, index) => `
+        ${trends.map((trend, index) => {
+          const firstReads = [...new Set([...(trend.firstReadRecordIds || []), ...(trend.representativeRecordIds || [])])]
+            .map((recordId) => detailDeps.findDisplayRecord?.(recordId))
+            .filter(Boolean)
+            .slice(0, 3);
+          return `
           <article class="trend-card" data-trend-id="${escapeHtml(trend.id)}">
             <button class="trend-card-main" type="button" data-record-id="${escapeHtml((trend.representativeRecordIds || [])[0] || "")}">
               <span class="neighbor-rank">${index + 1}</span>
@@ -91,17 +96,11 @@ function renderTrendCards() {
             </div>
             <div class="trend-representatives">
               <strong>First reads</strong>
-              ${(trend.firstReadRecordIds || []).slice(0, 3).map((recordId) => {
-                const record = detailDeps.findDisplayRecord?.(recordId);
-                return record ? `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>` : "";
-              }).join("")}
-              ${(trend.representativeRecordIds || []).slice(0, 5).map((recordId) => {
-                const record = detailDeps.findDisplayRecord?.(recordId);
-                return record ? `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>` : "";
-              }).join("")}
+              ${firstReads.map((record) => `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>`).join("")}
             </div>
           </article>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
       ${renderUnusualDirections(state.studyFeatures, detailDeps.findDisplayRecord)}
     </section>
