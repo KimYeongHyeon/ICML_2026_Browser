@@ -2639,6 +2639,7 @@ a:focus-visible {
 }
 
 .selection-sample-controls button,
+.selection-sample-controls .study-help,
 .selection-sample-controls .study-disclosure-toggle {
   display: inline-grid;
   place-items: center;
@@ -2656,9 +2657,15 @@ a:focus-visible {
 
 .selection-sample-controls button:hover:not(:disabled),
 .selection-sample-controls button:focus-visible:not(:disabled),
+.selection-sample-controls .study-help:hover,
+.selection-sample-controls .study-help:focus-visible,
 .selection-sample-controls .study-disclosure-toggle:hover {
   border-color: color-mix(in srgb, var(--accent) 56%, var(--line));
   outline: none;
+}
+
+.selection-sample-controls .study-help {
+  cursor: help;
 }
 
 .selection-sample-controls button:disabled {
