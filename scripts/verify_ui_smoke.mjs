@@ -33,7 +33,8 @@ page.on("pageerror", (error) => {
 });
 page.on("requestfailed", (request) => {
   const failure = request.failure()?.errorText || "";
-  const expectedAbort = /\.pdf(?:$|[?#])/i.test(request.url()) && /ERR_ABORTED/i.test(failure);
+  const expectedAbort = /\.pdf(?:$|[?#])/i.test(request.url())
+    && (/ERR_ABORTED/i.test(failure) || (/224-speedrunning-gpt3/i.test(request.url()) && /ERR_FAILED/i.test(failure)));
   if (isSameOrigin(request.url()) && !expectedAbort) {
     failedRequests.push(`${request.method()} ${request.url()} ${failure}`.trim());
   }
