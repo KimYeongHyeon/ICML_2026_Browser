@@ -1008,8 +1008,8 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
   manifest = {
     "generatedAt": datetime.now(timezone.utc).isoformat(),
     "source": {
-      "kind": "openalex-chunked",
-      "description": "Merged OpenAlex reference chunks",
+      "kind": "reference-chunked",
+      "description": "Merged reference collection chunks",
       "chunkCount": len(chunk_manifests),
       "chunkDir": display_path(chunk_dir),
     },
@@ -1084,6 +1084,72 @@ def build_pdf(index_path: Path, out_root: Path, extractor: str, timeout: int, of
     "matchedRecords": sum(1 for refs in refs_by_record.values() if refs),
     "unmatchedRecords": sum(1 for refs in refs_by_record.values() if not refs),
     "cachedRecords": 0,
+  }
+  return build_manifest(index_path, out_root, index, records, refs_by_record, source, errors)
+
+
+def build_openreview_pdf(
+  index_path: Path,
+  out_root: Path,
+  extractor: str,
+  timeout: int,
+  sleep: float,
+  offset: int,
+  limit: Optional[int],
+  record_types: set[str] | None,
+) -> dict[str, Any]:
+  index = read_json(index_path)
+  extractor_path = shutil.which(extractor) if "/" not in extractor else extractor
+  if not extractor_path:
+    raise SystemExit("pdftotext not found; install poppler or pass --pdftotext")
+
+  records = limited_records(index, offset, limit, record_types)
+  errors: list[dict[str, str]] = []
+  refs_by_record: dict[str, list[dict[str, Any]]] = {}
+  remote_pdf_records = 0
+  total_records = len(records)
+
+  print(f"Collecting references from OpenReview PDFs: offset={offset} limit={limit or 'all'} records={total_records}", flush=True)
+  for processed, record in enumerate(records, start=1):
+    record_id = str(record.get("id") or "")
+    title = str(record.get("title") or "")
+    try:
+      if record.get("localPdfPath"):
+        pdf_path = ROOT / str(record.get("localPdfPath"))
+        if pdf_path.exists():
+          refs_by_record[record_id] = reference_entries_from_pdf_path(pdf_path, str(extractor_path), timeout)
+        else:
+          errors.append({"id": record_id, "title": title[:140], "source": "local_pdf", "error": "missing_pdf"})
+          refs_by_record[record_id] = []
+      elif record_pdf_url(record):
+        refs_by_record[record_id] = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
+        remote_pdf_records += 1
+      else:
+        refs_by_record[record_id] = []
+    except (urllib.error.URLError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
+      errors.append({"id": record_id, "title": title[:140], "source": "openreview_pdf", "error": compact_text(exc)})
+      refs_by_record[record_id] = []
+    if processed == 1 or processed % 25 == 0 or processed == total_records:
+      print(
+        f"Reference PDF progress {processed}/{total_records}: "
+        f"recordsWithRefs={sum(1 for refs in refs_by_record.values() if refs)} "
+        f"remotePdf={remote_pdf_records} errors={len(errors)}",
+        flush=True,
+      )
+
+  source = {
+    "kind": "openreview-pdf",
+    "description": "Direct local/OpenReview PDF bibliography extraction via pdftotext",
+    "offset": offset,
+    "limit": limit,
+    "fallbacks": "none",
+    "pdftotext": str(extractor_path),
+    "pdfRecords": len(records),
+    "matchedRecords": sum(1 for refs in refs_by_record.values() if refs),
+    "unmatchedRecords": sum(1 for refs in refs_by_record.values() if not refs),
+    "cachedRecords": 0,
+    "pdfFallbackRecords": sum(1 for refs in refs_by_record.values() if refs),
+    "remotePdfRecords": remote_pdf_records,
   }
   return build_manifest(index_path, out_root, index, records, refs_by_record, source, errors)
 
@@ -1288,6 +1354,8 @@ def build(
     return build_openalex(index_path, out_root, cache_path, mailto, timeout, sleep, offset, limit, fallbacks, record_types, pdf_fallback, extractor)
   if source == "pdf":
     return build_pdf(index_path, out_root, extractor, timeout, offset, limit, record_types)
+  if source == "openreview-pdf":
+    return build_openreview_pdf(index_path, out_root, extractor, timeout, sleep, offset, limit, record_types)
   raise SystemExit(f"Unsupported source: {source}")
 
 
@@ -1446,7 +1514,7 @@ def self_check() -> None:
       })
     merged = merge_chunks(chunk_dir, root / "merged")
     validate(merged, root / "merged")
-    assert merged["source"]["kind"] == "openalex-chunked"
+    assert merged["source"]["kind"] == "reference-chunked"
     assert merged["source"]["chunkCount"] == 3
     assert merged["summary"]["recordCount"] == 2
     assert merged["summary"]["manifestRecords"] == 2
@@ -1521,7 +1589,7 @@ def main() -> None:
   parser = argparse.ArgumentParser(description="Build lazy-loaded ICML reference overlap data.")
   parser.add_argument("--index", type=Path, default=INDEX_PATH)
   parser.add_argument("--out-root", type=Path, default=None)
-  parser.add_argument("--source", choices=["openalex", "pdf"], default="openalex")
+  parser.add_argument("--source", choices=["openalex", "pdf", "openreview-pdf"], default="openalex")
   parser.add_argument("--offset", type=int, default=0)
   parser.add_argument("--limit", type=int, default=None)
   parser.add_argument("--record-types", default="", help="Comma-separated record types to include before offset/limit slicing.")
@@ -1564,7 +1632,7 @@ def main() -> None:
   if (args.offset != 0 or args.limit is not None) and is_checked_in_reference_root(out_root):
     out_root = DEFAULT_SMOKE_OUT_ROOT
     print(f"Bounded run writes {display_path(out_root)} to preserve {rel(OUT_ROOT)}")
-  elif args.source == "openalex" and is_checked_in_reference_root(out_root) and not args.publish:
+  elif args.source in {"openalex", "openreview-pdf"} and is_checked_in_reference_root(out_root) and not args.publish:
     out_root = DEFAULT_SMOKE_OUT_ROOT
     print(f"Online run writes {display_path(out_root)}; pass --publish to replace {rel(OUT_ROOT)}")
 
