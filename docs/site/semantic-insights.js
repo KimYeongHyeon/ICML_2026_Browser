@@ -39,7 +39,7 @@ function topKeywords(records, limit = 6) {
 
 function searchModeLabel() {
   if (state.mapSearchKind === "specter2-query") return "SPECTER2 query";
-  if (state.mapSearchKind === "specter2-loading") return "lexical fallback";
+  if (state.mapSearchKind === "specter2-loading") return "lexical match";
   if (state.mapSearchKind === "keyword-neighbor") return "keyword neighbors";
   return "query-vector";
 }
@@ -48,7 +48,7 @@ function topicLens(records) {
   const clusterCounts = topCounts(records, (record) => [record.embeddingClusterId].filter(Boolean), 1);
   const clusterId = clusterCounts[0]?.[0] || "";
   const topic = clusterId ? state.studyFeatures?.topics?.[clusterId] : null;
-  const trend = (state.trendData?.trends || []).find((item) => item.id === topic?.nearbyTrendId);
+  const trend = (state.trendData?.trends || []).find((item) => item.id === topic?.nearbyTrendId || item.id === clusterId || item.clusterId === clusterId);
   const representatives = (topic?.representativeRecordIds || [])
     .map((id) => records.find((record) => record.id === id))
     .filter(Boolean)
@@ -82,7 +82,7 @@ export function renderSemanticInsightPanel(records, query) {
     <div class="semantic-insight-grid">
       <span><em>Area</em><b>${escapeHtml(lens.topic?.dominantArea || areas[0]?.[0] || "Mixed")}</b></span>
       <span><em>Domain</em><b>${escapeHtml(lens.topic?.dominantDomain || domains[0]?.[0] || "General")}</b></span>
-      <span><em>Nearby trend</em><b>${escapeHtml(lens.trend?.name || lens.topic?.nearbyTrendId || "loading")}</b></span>
+      <span><em>Nearby trend</em><b>${escapeHtml(lens.trend?.name || lens.topic?.nearbyTrendId || "Mixed highlighted region")}</b></span>
       <span><em>Search mode</em><b>${escapeHtml(searchModeLabel())}</b></span>
     </div>
     <div class="semantic-insight-keywords">

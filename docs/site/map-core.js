@@ -125,8 +125,8 @@ export function mapSearchSummary(records, query) {
     return `${seedCount.toLocaleString()} SPECTER2 matches${score}`;
   }
   if (state.mapSearchKind === "specter2-loading") {
-    const score = state.mapSearchTopScore ? ` · fallback top ${state.mapSearchTopScore.toFixed(2)}` : "";
-    return `loading SPECTER2 · ${seedCount.toLocaleString()} lexical fallback${score}`;
+    const score = state.mapSearchTopScore ? ` · lexical top ${state.mapSearchTopScore.toFixed(2)}` : "";
+    return `SPECTER2 warming · ${seedCount.toLocaleString()} lexical matches${score}`;
   }
   if (state.mapSearchKind === "query-vector") {
     const score = state.mapSearchTopScore ? ` · top ${state.mapSearchTopScore.toFixed(2)}` : "";
