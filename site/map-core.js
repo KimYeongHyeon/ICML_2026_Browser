@@ -7,7 +7,7 @@ import {
   recordHaystack,
 } from "./records.js";
 import { state } from "./state.js";
-import { normalize, plainMathTitle } from "./utils.js";
+import { containsNormalizedPhrase, normalize, plainMathTitle } from "./utils.js";
 import { semanticQuerySearch } from "./semantic-search.js";
 import {
   projectedGraphPosition,
@@ -93,7 +93,7 @@ export function mapSemanticSearchIds(query, records, limit = 10) {
     state.mapSearchMessage = search.message || "";
     return ids;
   }
-  const seeds = records.filter((record) => recordHaystack(record).includes(query));
+  const seeds = records.filter((record) => containsNormalizedPhrase(recordHaystack(record), query));
   const seedIds = new Set(seeds.map((record) => record.id));
   const semanticIds = new Set();
   const ids = new Set(seedIds);

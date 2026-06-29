@@ -1,8 +1,5 @@
 import { MATHJAX_RETRY_LIMIT } from "./config.js";
-
-export function normalize(value) {
-  return String(value || "").trim().toLowerCase();
-}
+export { containsNormalizedPhrase, normalize } from "./search-utils.js";
 
 export function escapeHtml(value) {
   return String(value || "")

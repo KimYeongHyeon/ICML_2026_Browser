@@ -11,7 +11,7 @@ import {
   typeLabel,
 } from "./records.js";
 import { state } from "./state.js";
-import { escapeHtml, normalize, plainMathTitle, queueMathTypeset } from "./utils.js";
+import { containsNormalizedPhrase, escapeHtml, normalize, plainMathTitle, queueMathTypeset } from "./utils.js";
 import { renderViewer, uniqueChipValues } from "./viewer.js";
 import {
   mapColorValue,
@@ -124,7 +124,7 @@ export function getFilteredRecords(options = {}) {
   if (state.searchWorkerQuery === query && state.searchWorkerIds) {
     return filtered.filter((record) => state.searchWorkerIds.has(record.id));
   }
-  return filtered.filter((record) => recordHaystack(record).includes(query));
+  return filtered.filter((record) => containsNormalizedPhrase(recordHaystack(record), query));
 }
 
 export function updateHeader() {
