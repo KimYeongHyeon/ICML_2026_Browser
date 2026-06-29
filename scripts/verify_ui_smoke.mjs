@@ -224,14 +224,17 @@ const miniAfterDepth = await page.evaluate(() => ({
   info: window.__icmlMapDebug?.miniGraphInfo?.() || {},
 }));
 
-await page.waitForSelector(".study-trail .study-trail-item", { timeout: 30000 });
+await page.waitForSelector(".study-trail", { timeout: 30000 });
 const studyTrail = await page.evaluate(() => ({
-  heading: [...document.querySelectorAll(".study-trail > strong")].map((item) => item.textContent || "").find((text) => /Study Trail/.test(text)) || "",
+  heading: [...document.querySelectorAll(".study-trail .study-disclosure-head strong")].map((item) => item.textContent || "").find((text) => /Study Trail/.test(text)) || "",
+  defaultOpen: document.querySelector(".study-trail")?.open ?? true,
   count: document.querySelectorAll(".study-trail .study-trail-item").length,
   stages: [...document.querySelectorAll(".study-trail-item em")].map((item) => item.textContent || ""),
   firstTitle: document.querySelector(".study-trail-item strong")?.textContent || "",
   compareButtons: document.querySelectorAll(".semantic-compare .compare-candidate").length,
 }));
+await page.locator(".study-trail .study-disclosure-head").first().click();
+await page.locator(".semantic-compare .study-disclosure-head").first().click();
 await page.locator(".semantic-compare .compare-candidate").first().click();
 await page.waitForSelector(".semantic-compare-result", { timeout: 10000 });
 const semanticCompare = await page.evaluate(() => ({
@@ -244,6 +247,7 @@ await page.waitForTimeout(300);
 const bridgeClick = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
 }));
+await page.locator(".study-trail .study-disclosure-head").first().click();
 await page.locator(".study-trail .study-trail-item").first().click();
 await page.waitForTimeout(300);
 const studyTrailClick = await page.evaluate(() => ({
@@ -648,6 +652,7 @@ if (miniAfterDepth.info.depth !== "deep" || miniAfterDepth.info.nodes <= miniCon
 }
 if (
   studyTrail.heading !== "Study Trail"
+  || studyTrail.defaultOpen
   || studyTrail.count < 5
   || studyTrail.count > 10
   || !["Intro", "Core", "Applied", "Broader"].every((stage) => studyTrail.stages.includes(stage))
@@ -751,7 +756,7 @@ if (
   !mapSearch.seedCount
   || !["query-vector", "specter2-loading", "specter2-query"].includes(mapSearch.kind)
   || mapSearch.topScore <= 0
-  || !/query-vector matches|SPECTER2|lexical fallback/.test(mapSearch.activeSummary)
+  || !/query-vector matches|SPECTER2|lexical matches/.test(mapSearch.activeSummary)
   || !/Topic lens|Area|Domain|Nearby trend|Search mode/.test(mapSearch.insightText)
   || !mapSearch.topicLensButtons
 ) {

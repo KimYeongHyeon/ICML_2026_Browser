@@ -2270,6 +2270,40 @@ a:focus-visible {
   margin-top: 10px;
 }
 
+.study-disclosure {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.study-disclosure-head {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  text-align: left;
+}
+
+.study-disclosure-head::-webkit-details-marker {
+  display: none;
+}
+
+.study-disclosure-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.study-disclosure-toggle::before {
+  content: "+";
+}
+
+.study-disclosure[open] .study-disclosure-toggle::before {
+  content: "-";
+}
+
 .study-trail-list,
 .semantic-compare-result,
 .semantic-bridge-list {
@@ -2604,7 +2638,9 @@ a:focus-visible {
   min-width: max-content;
 }
 
-.selection-sample-controls button {
+.selection-sample-controls button,
+.selection-sample-controls .study-help,
+.selection-sample-controls .study-disclosure-toggle {
   display: inline-grid;
   place-items: center;
   width: 26px;
@@ -2620,9 +2656,16 @@ a:focus-visible {
 }
 
 .selection-sample-controls button:hover:not(:disabled),
-.selection-sample-controls button:focus-visible:not(:disabled) {
+.selection-sample-controls button:focus-visible:not(:disabled),
+.selection-sample-controls .study-help:hover,
+.selection-sample-controls .study-help:focus-visible,
+.selection-sample-controls .study-disclosure-toggle:hover {
   border-color: color-mix(in srgb, var(--accent) 56%, var(--line));
   outline: none;
+}
+
+.selection-sample-controls .study-help {
+  cursor: help;
 }
 
 .selection-sample-controls button:disabled {
@@ -2714,6 +2757,16 @@ a:focus-visible {
 
 .selection-stat-block small {
   color: var(--muted);
+}
+
+.selection-stat-block.study-disclosure {
+  display: block;
+}
+
+.selection-stat-block.study-disclosure[open] {
+  display: grid;
+  gap: 8px;
+  overflow: visible;
 }
 
 .map-detail-card .neighbor-item {

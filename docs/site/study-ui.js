@@ -8,6 +8,23 @@ const STAGE_LABELS = {
   applied: "Applied",
   broader: "Broader",
 };
+const STUDY_TRAIL_HELP = "Staged recommended papers: intro, core, applied, and broader reading steps with a short reason for each.";
+const SEMANTIC_COMPARE_HELP = "Compare this paper with suggested neighbors to see common topics, differences, and bridge papers.";
+
+function renderStudyDisclosure(className, title, help, body, initiallyOpen = false) {
+  return `
+    <details class="${className} selection-stat-block study-disclosure"${initiallyOpen ? " open" : ""}>
+      <summary class="selection-block-head study-disclosure-head">
+        <strong>${escapeHtml(title)}</strong>
+        <span class="selection-sample-controls">
+          <span class="study-help" title="${escapeHtml(help)}" aria-label="${escapeHtml(help)}" tabindex="0">?</span>
+          <span class="study-disclosure-toggle" aria-hidden="true"></span>
+        </span>
+      </summary>
+      <div class="study-disclosure-body">${body}</div>
+    </details>
+  `;
+}
 
 function tagList(record) {
   return [...new Set([...(record?.areaTags || []), ...(record?.domainTags || [])])];
@@ -46,9 +63,7 @@ function bridgeRecords(left, right, findRecord) {
 export function renderStudyTrail(record, study, findRecord) {
   const trail = (study?.studyTrail || []).map((item) => ({ ...item, record: findRecord(item.recordId) })).filter((item) => item.record);
   if (!trail.length) return "";
-  return `
-    <section class="study-trail selection-stat-block">
-      <strong>Study Trail</strong>
+  return renderStudyDisclosure("study-trail", "Study Trail", STUDY_TRAIL_HELP, `
       <div class="study-trail-list">
         ${trail.map((item, index) => `
           <button type="button" class="neighbor-item study-trail-item" data-study-id="${escapeHtml(item.record.id)}">
@@ -61,8 +76,7 @@ export function renderStudyTrail(record, study, findRecord) {
           </button>
         `).join("")}
       </div>
-    </section>
-  `;
+  `);
 }
 
 export function renderSemanticCompare(record, study, findRecord) {
@@ -70,9 +84,7 @@ export function renderSemanticCompare(record, study, findRecord) {
   if (!candidates.length) return "";
   const targetId = state.studyCompareSourceId === record.id ? state.studyCompareTargetId : "";
   const target = findRecord(targetId);
-  return `
-    <section class="semantic-compare selection-stat-block">
-      <strong>Semantic Compare</strong>
+  return renderStudyDisclosure("semantic-compare", "Semantic Compare", SEMANTIC_COMPARE_HELP, `
       <div class="trend-representatives semantic-compare-controls">
         ${candidates.slice(0, 3).map((item) => `
           <button type="button" class="compare-candidate" data-compare-id="${escapeHtml(item.record.id)}">
@@ -81,8 +93,7 @@ export function renderSemanticCompare(record, study, findRecord) {
         `).join("")}
       </div>
       ${target ? renderCompareResult(record, target, findRecord) : "<small>Pick a candidate for common topic, differences, and bridging papers.</small>"}
-    </section>
-  `;
+  `, Boolean(target));
 }
 
 function renderCompareResult(record, target, findRecord) {
