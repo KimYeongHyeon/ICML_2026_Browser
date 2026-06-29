@@ -8,6 +8,7 @@ export const state = {
   asset: "all",
   selectedId: "",
   viewerMapRequested: false,
+  viewerReferenceRequested: false,
   visibleCount: PAGE_SIZE,
   data: null,
   dataManifest: null,

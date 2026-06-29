@@ -292,6 +292,7 @@ export function renderResults() {
     button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
       state.viewerMapRequested = true;
+      state.viewerReferenceRequested = true;
       const selected = findDisplayRecord(state.selectedId);
       renderResults();
       renderViewer(selected);
