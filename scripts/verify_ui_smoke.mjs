@@ -175,6 +175,7 @@ await page.waitForFunction(() => {
   return /\d+ \/ \d+/.test(status) || hasSourceFallback;
 }, null, { timeout: 30000 });
 await page.waitForSelector(".viewer-reference-panel", { timeout: 15000 });
+await page.waitForFunction(() => (document.querySelector(".viewer-abstract-body")?.textContent || "").length > 100, null, { timeout: 30000 });
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
@@ -633,6 +634,9 @@ if (/texttt|\\texttt|\{Multi\}/.test(`${paperLatex.resultTitle} ${paperLatex.vie
 }
 if (paperLatex.viewerAbstractText && /\\(?:texttt|mathrm|mathbb|mathcal)|\{[^{}]+\}|𝑜\s*𝑏\s*𝑗/.test(paperLatex.viewerAbstractText)) {
   throw new Error(`abstract text-like math should render as clean prose: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.viewerAbstractText || paperLatex.viewerAbstractText.length < 100) {
+  throw new Error(`paper abstract should hydrate after the first user selection: ${JSON.stringify(paperLatex)}`);
 }
 if (!miniTooltip.includes("Area:") || !miniTooltip.includes("Domain:")) {
   throw new Error(`mini semantic graph tooltip did not expose title and area/domain decoder: ${miniTooltip}`);

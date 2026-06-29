@@ -218,12 +218,13 @@ function renderViewerReferencePanel(payload = {}) {
   const overlaps = (payload.overlaps || []).slice(0, 5);
   if (!references.length && !overlaps.length) return "";
   const topShared = Math.max(0, ...overlaps.map((item) => Number(item.sharedCount || 0)));
+  const hasOverlaps = overlaps.length > 0;
   return `
     <section class="viewer-reference-panel">
       <div class="viewer-section-head">
         <div>
           <p class="eyebrow">Citation overlap</p>
-          <h3>Strongest reference links</h3>
+          <h3>${hasOverlaps ? "Strongest reference links" : "Extracted references"}</h3>
         </div>
         <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs</span>
       </div>
@@ -232,7 +233,7 @@ function renderViewerReferencePanel(payload = {}) {
         <span><b>${Number(overlaps.length || 0).toLocaleString()}</b><small>shown links</small></span>
         <span><b>${Number(topShared || 0).toLocaleString()}</b><small>top shared refs</small></span>
       </div>
-      ${overlaps.length ? `
+      ${hasOverlaps ? `
         <div class="viewer-reference-links">
           ${overlaps.map((item, index) => {
             const linked = viewerDeps.findDisplayRecord(item.recordId);

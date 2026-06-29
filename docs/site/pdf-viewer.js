@@ -181,6 +181,7 @@ export async function mountPdfViewer(assetPath) {
       const renderTask = page.render({ canvasContext: context, viewport });
       state.pdfViewer.renderTask = renderTask;
       await renderTask.promise;
+      if (pageNum === 1) stage.scrollTop = 0;
       setPdfToolbarState(shell, pageNum, pdfDoc.numPages, false);
     } catch (error) {
       if (error?.name !== "RenderingCancelledException") {
