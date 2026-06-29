@@ -174,12 +174,15 @@ await page.waitForFunction(() => {
   const hasSourceFallback = /Official paper presentation page/i.test(document.querySelector("#viewerFrame")?.innerText || "");
   return /\d+ \/ \d+/.test(status) || hasSourceFallback;
 }, null, { timeout: 30000 });
+await page.waitForSelector(".viewer-reference-panel", { timeout: 15000 });
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
+  viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
+  viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
   hasPdfShell: Boolean(document.querySelector(".pdfjs-shell")),
   pdfStatus: document.querySelector("[data-pdf-status]")?.textContent || "",
   pdfCanvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
@@ -294,7 +297,7 @@ const localPdf = await page.evaluate(() => ({
   canvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
   canvasHeight: document.querySelector("[data-pdf-canvas]")?.height || 0,
 }));
-const referenceRequestsBeforeTab = referenceRequests.length;
+const referenceRequestsBeforeReferencesTab = referenceRequests.length;
 
 await page.route(/224-speedrunning-gpt3.*\.pdf/i, async (route) => {
   await page.waitForTimeout(350);
@@ -501,7 +504,7 @@ const report = {
   paperSpotlight,
   paperLatex,
   localPdf,
-  referenceRequestsBeforeTab,
+  referenceRequestsBeforeReferencesTab,
   referencesTab,
   rapidPdfSwitch,
   studyTrail,
@@ -593,8 +596,11 @@ if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PD
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
 }
-if (referenceRequestsBeforeTab !== 0) {
-  throw new Error(`reference data should not load before opening the References tab: ${JSON.stringify(referenceRequests)}`);
+if (!/Citation overlap/i.test(paperLatex.viewerReferenceText) || !/extracted refs/i.test(paperLatex.viewerReferenceText)) {
+  throw new Error(`viewer should surface extracted citation/reference context for selected records: ${JSON.stringify(paperLatex)}`);
+}
+if (referenceRequestsBeforeReferencesTab <= 0) {
+  throw new Error(`viewer reference context should lazy-load only after opening a record: ${JSON.stringify(referenceRequests)}`);
 }
 if (
   !referencesTab.active

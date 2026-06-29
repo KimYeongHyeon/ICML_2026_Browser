@@ -473,6 +473,7 @@ async function renderReferenceSelection(recordId) {
       const selectedRecord = findDisplayRecord(button.dataset.id);
       state.tab = selectedRecord?.type === "workshop" ? "workshop" : "paper";
       state.selectedId = button.dataset.id;
+      state.viewerMapRequested = true;
       renderAll();
     });
   });
@@ -546,6 +547,7 @@ function openTrendRepresentative(recordId) {
   if (!record) return;
   state.tab = record.type === "workshop" ? "workshop" : "paper";
   state.selectedId = record.id;
+  state.viewerMapRequested = true;
   state.query = "";
   els.search.value = "";
   if (els.mapSearch) els.mapSearch.value = "";

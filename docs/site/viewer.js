@@ -12,6 +12,7 @@ import {
 } from "./records.js";
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle, queueMathTypeset } from "./utils.js";
+import { loadReferenceRecord } from "./references.js";
 import {
   destroyPdfViewer,
   isPdfAsset,
@@ -176,6 +177,7 @@ function openStudyRecord(recordId) {
   const selected = viewerDeps.findDisplayRecord(recordId);
   if (!selected) return;
   state.selectedId = recordId;
+  state.viewerMapRequested = true;
   state.studyCompareSourceId = "";
   state.studyCompareTargetId = "";
   viewerDeps.renderResults();
@@ -193,6 +195,85 @@ function mountStudyPanelActions(record) {
       state.studyCompareTargetId = button.dataset.compareId || "";
       renderViewer(record);
     });
+  });
+}
+
+function referenceDisplayTitle(item = {}) {
+  return plainMathTitle(item.title || item.raw || item.key || "Untitled reference");
+}
+
+function openReferenceRecord(recordId) {
+  const selected = viewerDeps.findDisplayRecord(recordId);
+  if (!selected) return;
+  state.tab = selected.type === "workshop" ? "workshop" : "paper";
+  state.selectedId = recordId;
+  state.viewerMapRequested = true;
+  viewerDeps.renderResults();
+  viewerDeps.renderMap();
+  renderViewer(selected);
+}
+
+function renderViewerReferencePanel(payload = {}) {
+  const references = (payload.references || []).slice(0, 4);
+  const overlaps = (payload.overlaps || []).slice(0, 5);
+  if (!references.length && !overlaps.length) return "";
+  const topShared = Math.max(0, ...overlaps.map((item) => Number(item.sharedCount || 0)));
+  return `
+    <section class="viewer-reference-panel">
+      <div class="viewer-section-head">
+        <div>
+          <p class="eyebrow">Citation overlap</p>
+          <h3>Strongest reference links</h3>
+        </div>
+        <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs</span>
+      </div>
+      <div class="selection-stat-grid viewer-reference-stats">
+        <span><b>${Number(payload.referenceCount || 0).toLocaleString()}</b><small>refs</small></span>
+        <span><b>${Number(overlaps.length || 0).toLocaleString()}</b><small>shown links</small></span>
+        <span><b>${Number(topShared || 0).toLocaleString()}</b><small>top shared refs</small></span>
+      </div>
+      ${overlaps.length ? `
+        <div class="viewer-reference-links">
+          ${overlaps.map((item, index) => {
+            const linked = viewerDeps.findDisplayRecord(item.recordId);
+            const sharedTitles = (item.references || []).slice(0, 2).map(referenceDisplayTitle).filter(Boolean).join(" · ");
+            return `
+              <button class="viewer-reference-link" type="button" data-reference-id="${escapeHtml(item.recordId)}">
+                <span class="neighbor-rank">${index + 1}</span>
+                <span>
+                  <strong>${escapeHtml(plainMathTitle(linked?.title || item.title || item.recordId))}</strong>
+                  <small>${Number(item.sharedCount || 0).toLocaleString()} shared refs · ${Number(item.score || 0).toFixed(2)} overlap${sharedTitles ? ` · ${escapeHtml(sharedTitles)}` : ""}</small>
+                </span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      ` : "<p class=\"viewer-reference-empty\">References were extracted, but no strong shared-reference links were found yet.</p>"}
+      <div class="viewer-reference-samples">
+        ${references.map((item) => `<span>${escapeHtml(referenceDisplayTitle(item))}</span>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function mountReferencePanelActions() {
+  els.viewerFrame.querySelectorAll("[data-reference-id]").forEach((button) => {
+    button.addEventListener("click", () => openReferenceRecord(button.dataset.referenceId));
+  });
+}
+
+function mountReferencePanel(record) {
+  const marker = els.viewerFrame.querySelector("[data-viewer-reference-panel]");
+  if (!marker) return;
+  void loadReferenceRecord(record.id).then((payload) => {
+    if (state.selectedId !== record.id || !marker.isConnected) return;
+    const html = renderViewerReferencePanel(payload || {});
+    if (!html) {
+      marker.remove();
+      return;
+    }
+    marker.innerHTML = html;
+    mountReferencePanelActions();
   });
 }
 
@@ -274,6 +355,10 @@ export function renderViewer(record) {
   }
   const abstractBlock = renderAbstractBlock(record);
   if (abstractBlock) els.viewerFrame.insertAdjacentHTML("beforeend", abstractBlock);
+  if (state.viewerMapRequested) {
+    els.viewerFrame.insertAdjacentHTML("beforeend", `<div data-viewer-reference-panel></div>`);
+    mountReferencePanel(record);
+  }
   els.viewerFrame.querySelector(".poster-zoom-toggle")?.addEventListener("click", (event) => {
     const button = event.currentTarget;
     const preview = button.closest(".poster-preview");
@@ -301,6 +386,7 @@ export function renderViewer(record) {
       button.addEventListener("click", () => {
         const selected = viewerDeps.findDisplayRecord(button.dataset.id);
         state.selectedId = button.dataset.id;
+        state.viewerMapRequested = true;
         viewerDeps.renderResults();
         viewerDeps.renderMap();
         renderViewer(selected);
