@@ -229,6 +229,7 @@ const studyTrail = await page.evaluate(() => ({
   heading: [...document.querySelectorAll(".study-trail .study-disclosure-head strong")].map((item) => item.textContent || "").find((text) => /Study Trail/.test(text)) || "",
   defaultOpen: document.querySelector(".study-trail")?.open ?? true,
   helpCount: document.querySelectorAll(".study-help").length,
+  helpTitle: document.querySelector(".study-trail .study-help")?.getAttribute("title") || "",
   count: document.querySelectorAll(".study-trail .study-trail-item").length,
   stages: [...document.querySelectorAll(".study-trail-item em")].map((item) => item.textContent || ""),
   firstTitle: document.querySelector(".study-trail-item strong")?.textContent || "",
@@ -654,7 +655,8 @@ if (miniAfterDepth.info.depth !== "deep" || miniAfterDepth.info.nodes <= miniCon
 if (
   studyTrail.heading !== "Study Trail"
   || studyTrail.defaultOpen
-  || studyTrail.helpCount !== 0
+  || studyTrail.helpCount < 2
+  || !/Staged recommended papers/.test(studyTrail.helpTitle)
   || studyTrail.count < 5
   || studyTrail.count > 10
   || !["Intro", "Core", "Applied", "Broader"].every((stage) => studyTrail.stages.includes(stage))
