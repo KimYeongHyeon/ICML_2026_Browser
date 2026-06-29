@@ -21,7 +21,7 @@ while ! mkdir "$lock" 2>/dev/null; do
     rm -rf "$lock"
     continue
   fi
-  echo "SKIP ${offset} locked $(date -u +%FT%TZ)" >> "$log"
+  echo "SKIP ${offset} locked $(date -u +%FT%TZ)" >> /tmp/icml_refs_local/logs/lock-skips.log
   exit 0
 done
 echo "$$" > "$lock/pid"
