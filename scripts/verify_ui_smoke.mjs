@@ -378,6 +378,19 @@ await page.waitForTimeout(200);
 const forceProbePoints = await page.evaluate(() => window.__icmlMapDebug?.forceProbePoints?.(120) || []);
 const mapTooltip = await scanGraphTooltipAtPoints("#mapCanvas", forceProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
 
+await page.locator("#mapSearchInput").fill("O(3)");
+await page.waitForTimeout(900);
+const mapBoundarySearch = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.innerText || "";
+  const parsedCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+  return {
+    query: document.querySelector("#mapSearchInput")?.value || "",
+    resultCount,
+    parsedCount,
+    activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+  };
+});
+
 await page.locator("#mapSearchInput").fill("retrieval");
 await page.waitForSelector(".semantic-insight", { timeout: 30000 });
 await page.waitForTimeout(900);
@@ -474,11 +487,24 @@ const clusterLabelSearch = await page.evaluate(() => {
   };
 });
 
+await page.locator("#searchInput").fill("GL(r)");
+await page.waitForTimeout(900);
+const paperBoundarySearch = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.innerText || "";
+  const parsedCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+  return {
+    query: document.querySelector("#searchInput")?.value || "",
+    resultCount,
+    parsedCount,
+    firstTitle: document.querySelector(".result-item .result-title")?.innerText || "",
+  };
+});
+
 await page.locator('.tab[data-tab="workshop"]').click();
 await page.waitForTimeout(200);
 await page.locator("#searchInput").fill("GL(r)");
 await page.waitForTimeout(900);
-const boundarySearch = await page.evaluate(() => {
+const workshopBoundarySearch = await page.evaluate(() => {
   const resultCount = document.querySelector("#resultCount")?.innerText || "";
   const parsedCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
   return {
@@ -536,10 +562,12 @@ const report = {
   trendsInitial,
   trendCardClick,
   trendRepresentativeClick,
+  mapBoundarySearch,
   map,
   embeddingMap,
   clusterLabelSearch,
-  boundarySearch,
+  paperBoundarySearch,
+  workshopBoundarySearch,
   mapSearch,
   mapTooltip,
   consoleErrors,
@@ -794,8 +822,15 @@ if (
 if (clusterLabelSearch.query !== "cluster 01" || clusterLabelSearch.parsedCount <= 0) {
   throw new Error(`embedding cluster labels should remain searchable without per-record generated labels: ${JSON.stringify(clusterLabelSearch)}`);
 }
-if (!boundarySearch.parsedCount || !/GL\(r\) Gauge Symmetry/i.test(boundarySearch.firstTitle) || /FedRGL/i.test(boundarySearch.firstTitle)) {
-  throw new Error(`punctuation-normalized search should not match from inside another token: ${JSON.stringify(boundarySearch)}`);
+if (/FedRGL/i.test(paperBoundarySearch.firstTitle)) {
+  throw new Error(`paper search should not match punctuation-normalized query from inside another token: ${JSON.stringify(paperBoundarySearch)}`);
+}
+if (
+  !workshopBoundarySearch.parsedCount
+  || !/GL\(r\) Gauge Symmetry/i.test(workshopBoundarySearch.firstTitle)
+  || /FedRGL/i.test(workshopBoundarySearch.firstTitle)
+) {
+  throw new Error(`workshop search should find the exact punctuation-normalized title: ${JSON.stringify(workshopBoundarySearch)}`);
 }
 if (
   !mapSearch.seedCount
@@ -807,6 +842,9 @@ if (
   || !mapSearch.topicLensButtons
 ) {
   throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
+}
+if (mapBoundarySearch.query !== "O(3)" || !mapBoundarySearch.parsedCount || mapBoundarySearch.parsedCount > 20) {
+  throw new Error(`map punctuation-normalized fallback should stay boundary-aware: ${JSON.stringify(mapBoundarySearch)}`);
 }
 if (!Number.isFinite(map.forceZoomBeforeWheel) || !Number.isFinite(map.forceZoomAfterWheel) || map.forceZoomAfterWheel <= map.forceZoomBeforeWheel) {
   throw new Error(`ForceGraph wheel zoom did not increase zoom: ${JSON.stringify(map)}`);
