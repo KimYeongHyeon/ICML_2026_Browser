@@ -1,16 +1,24 @@
 import { REFERENCES_MANIFEST_URL } from "./config.js";
 import { state } from "./state.js";
 
+let manifestPromise = null;
+
 async function loadManifest() {
   if (state.referencesManifestLoaded) return state.referencesManifest;
-  state.referencesManifestLoaded = true;
-  try {
-    const response = await fetch(REFERENCES_MANIFEST_URL);
-    state.referencesManifest = response.ok ? await response.json() : null;
-  } catch {
-    state.referencesManifest = null;
+  if (!manifestPromise) {
+    manifestPromise = (async () => {
+      try {
+        const response = await fetch(REFERENCES_MANIFEST_URL);
+        state.referencesManifest = response.ok ? await response.json() : null;
+      } catch {
+        state.referencesManifest = null;
+      }
+      state.referencesManifestLoaded = true;
+      manifestPromise = null;
+      return state.referencesManifest;
+    })();
   }
-  return state.referencesManifest;
+  return manifestPromise;
 }
 
 export async function loadReferencesManifest() {
