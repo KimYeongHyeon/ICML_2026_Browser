@@ -589,6 +589,12 @@ if (paperLatex.hasPdfShell && (!/\d+ \/ \d+/.test(paperLatex.pdfStatus) || !pape
 if (!paperLatex.hasPdfShell && (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta))) {
   throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked when no local PDF is available: ${JSON.stringify(paperLatex)}`);
 }
+if (!paperLatex.hasPdfShell && (!/OpenReview link/i.test(paperLatex.viewerFrameText) || /external OpenReview PDF/i.test(paperLatex.viewerFrameText))) {
+  throw new Error(`paper viewer should describe blocked synthetic PDF material as an OpenReview link: ${JSON.stringify(paperLatex)}`);
+}
+if (/Main claim|Evidence cue/i.test(paperLatex.viewerFrameText) || !/Opening context/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`reader brief should label abstract sentences neutrally: ${JSON.stringify(paperLatex)}`);
+}
 if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
   throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
 }

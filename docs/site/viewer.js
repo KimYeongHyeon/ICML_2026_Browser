@@ -195,8 +195,8 @@ function renderReaderBrief(record) {
         </div>
       </div>
       <ul>
-        <li><b>Main claim</b><span>${escapeHtml(sentences[0])}</span></li>
-        ${sentences[1] ? `<li><b>Evidence cue</b><span>${escapeHtml(sentences[1])}</span></li>` : ""}
+        <li><b>Opening context</b><span>${escapeHtml(sentences[0])}</span></li>
+        ${sentences[1] ? `<li><b>Next abstract sentence</b><span>${escapeHtml(sentences[1])}</span></li>` : ""}
         ${tags.length || cluster ? `<li><b>Study context</b><span>${escapeHtml([tags.join(", "), cluster && `cluster keywords: ${cluster}`].filter(Boolean).join(" · "))}</span></li>` : ""}
       </ul>
     </section>
@@ -215,8 +215,10 @@ function renderInformationQuality(record) {
   const map = record.mapAvailable ? "mapped in semantic space" : "not mapped";
   const material = record.localPdfPath || record.bestAssetKind === "pdf"
     ? "local PDF preview"
-    : openReviewPdfUrl(record)
+    : record.pdfUrl
     ? "external OpenReview PDF"
+    : openReviewPdfUrl(record)
+    ? "OpenReview link"
     : displayAvailabilityLabel(record);
   return `
     <section class="viewer-trust-panel">
