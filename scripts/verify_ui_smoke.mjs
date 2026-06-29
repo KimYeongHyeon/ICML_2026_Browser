@@ -474,6 +474,21 @@ const clusterLabelSearch = await page.evaluate(() => {
   };
 });
 
+await page.locator('.tab[data-tab="workshop"]').click();
+await page.waitForTimeout(200);
+await page.locator("#searchInput").fill("GL(r)");
+await page.waitForTimeout(900);
+const boundarySearch = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.innerText || "";
+  const parsedCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+  return {
+    query: document.querySelector("#searchInput")?.value || "",
+    resultCount,
+    parsedCount,
+    firstTitle: document.querySelector(".result-item .result-title")?.innerText || "",
+  };
+});
+
 await page.locator('.tab[data-tab="references"]').click();
 await page.waitForSelector(".reference-dashboard", { timeout: 30000 });
 await page.waitForSelector(".reference-selected .reference-overlap-list", { timeout: 30000 });
@@ -524,6 +539,7 @@ const report = {
   map,
   embeddingMap,
   clusterLabelSearch,
+  boundarySearch,
   mapSearch,
   mapTooltip,
   consoleErrors,
@@ -777,6 +793,9 @@ if (
 }
 if (clusterLabelSearch.query !== "cluster 01" || clusterLabelSearch.parsedCount <= 0) {
   throw new Error(`embedding cluster labels should remain searchable without per-record generated labels: ${JSON.stringify(clusterLabelSearch)}`);
+}
+if (!boundarySearch.parsedCount || !/GL\(r\) Gauge Symmetry/i.test(boundarySearch.firstTitle) || /FedRGL/i.test(boundarySearch.firstTitle)) {
+  throw new Error(`punctuation-normalized search should not match from inside another token: ${JSON.stringify(boundarySearch)}`);
 }
 if (
   !mapSearch.seedCount

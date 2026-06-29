@@ -1,12 +1,5 @@
 import { MATHJAX_RETRY_LIMIT } from "./config.js";
-
-export function normalize(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { containsNormalizedPhrase, normalize } from "./search-utils.js";
 
 export function escapeHtml(value) {
   return String(value || "")
