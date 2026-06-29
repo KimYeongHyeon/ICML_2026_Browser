@@ -32,6 +32,7 @@ if [ -f "$out/manifest.json" ]; then
 fi
 
 echo "START ${offset} $(date -u +%FT%TZ)" > "$log"
+set +e
 python3 scripts/build_icml_references.py \
   --source openreview-pdf \
   --record-types paper,workshop \
@@ -41,5 +42,6 @@ python3 scripts/build_icml_references.py \
   --timeout "$timeout_seconds" \
   --out-root "$out" >> "$log" 2>&1
 code=$?
+set -e
 echo "END ${offset} code=${code} $(date -u +%FT%TZ)" >> "$log"
 exit "$code"

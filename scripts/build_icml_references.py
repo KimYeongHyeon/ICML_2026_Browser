@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import email.utils
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -168,6 +169,10 @@ def request_bytes(url: str, headers: dict[str, str], timeout: int, sleep: float)
       if exc.code not in TRANSIENT_HTTP_STATUSES or attempt == HTTP_RETRY_ATTEMPTS - 1:
         raise
       sleep_if_needed(retry_after_seconds(exc, base_delay * (2 ** attempt)))
+    except (http.client.IncompleteRead, TimeoutError, urllib.error.URLError):
+      if attempt == HTTP_RETRY_ATTEMPTS - 1:
+        raise
+      sleep_if_needed(base_delay * (2 ** attempt))
   raise RuntimeError("unreachable HTTP retry state")
 
 
