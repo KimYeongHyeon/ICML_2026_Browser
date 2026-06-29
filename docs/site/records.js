@@ -1,4 +1,4 @@
-import { escapeHtml, normalize, plainMathTitle } from "./utils.js";
+import { containsNormalizedPhrase, escapeHtml, normalize, plainMathTitle } from "./utils.js";
 
 export const MATCH_FIELD_ORDER = ["title", "authors", "abstract", "tags"];
 export const MATCH_FIELD_LABEL = { title: "title", authors: "author", abstract: "abstract", tags: "tag" };
@@ -162,7 +162,7 @@ export function matchedField(record, query) {
   if (!query) return "";
   const parts = recordSearchParts(record);
   for (const field of MATCH_FIELD_ORDER) {
-    if (parts[field].includes(query)) return field;
+    if (containsNormalizedPhrase(parts[field], query)) return field;
   }
   return "";
 }

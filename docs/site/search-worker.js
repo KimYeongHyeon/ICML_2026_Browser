@@ -1,8 +1,6 @@
-self.searchRecords = new Map();
+import { containsNormalizedPhrase, normalize } from "./search-utils.js";
 
-function normalize(value) {
-  return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
-}
+self.searchRecords = new Map();
 
 self.addEventListener("message", (event) => {
   const { type, requestId, query, records, candidateIds } = event.data || {};
@@ -26,8 +24,8 @@ self.addEventListener("message", (event) => {
     const record = self.searchRecords.get(id);
     if (!record) continue;
     const haystack = record.haystack;
-    if (!haystack.includes(normalizedQuery)) continue;
-    const titleMatch = record.title.includes(normalizedQuery);
+    if (!containsNormalizedPhrase(haystack, normalizedQuery)) continue;
+    const titleMatch = containsNormalizedPhrase(record.title, normalizedQuery);
     const score = (titleMatch ? 3 : 0) + Math.min(2, normalizedQuery.length / Math.max(1, haystack.length) * 120);
     scored.push({ id: record.id, score });
   }
