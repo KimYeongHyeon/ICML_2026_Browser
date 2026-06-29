@@ -500,6 +500,19 @@ const paperBoundarySearch = await page.evaluate(() => {
   };
 });
 
+await page.locator("#searchInput").fill("++");
+await page.waitForTimeout(900);
+const symbolSearch = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.innerText || "";
+  const parsedCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+  return {
+    query: document.querySelector("#searchInput")?.value || "",
+    resultCount,
+    parsedCount,
+    firstTitle: document.querySelector(".result-item .result-title")?.innerText || "",
+  };
+});
+
 await page.locator('.tab[data-tab="workshop"]').click();
 await page.waitForTimeout(200);
 await page.locator("#searchInput").fill("GL(r)");
@@ -567,6 +580,7 @@ const report = {
   embeddingMap,
   clusterLabelSearch,
   paperBoundarySearch,
+  symbolSearch,
   workshopBoundarySearch,
   mapSearch,
   mapTooltip,
@@ -824,6 +838,9 @@ if (clusterLabelSearch.query !== "cluster 01" || clusterLabelSearch.parsedCount 
 }
 if (/FedRGL/i.test(paperBoundarySearch.firstTitle)) {
   throw new Error(`paper search should not match punctuation-normalized query from inside another token: ${JSON.stringify(paperBoundarySearch)}`);
+}
+if (symbolSearch.query !== "++" || !symbolSearch.parsedCount || !/\+\+/.test(symbolSearch.firstTitle)) {
+  throw new Error(`symbol-bearing search terms should be preserved: ${JSON.stringify(symbolSearch)}`);
 }
 if (
   !workshopBoundarySearch.parsedCount
