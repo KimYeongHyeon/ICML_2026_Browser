@@ -169,7 +169,12 @@ def request_bytes(url: str, headers: dict[str, str], timeout: int, sleep: float)
       if exc.code not in TRANSIENT_HTTP_STATUSES or attempt == HTTP_RETRY_ATTEMPTS - 1:
         raise
       sleep_if_needed(retry_after_seconds(exc, base_delay * (2 ** attempt)))
-    except (http.client.IncompleteRead, TimeoutError, urllib.error.URLError):
+    except (
+      http.client.HTTPException,
+      ConnectionError,
+      TimeoutError,
+      urllib.error.URLError,
+    ):
       if attempt == HTTP_RETRY_ATTEMPTS - 1:
         raise
       sleep_if_needed(base_delay * (2 ** attempt))
@@ -430,6 +435,15 @@ def request_json(url: str, headers: dict[str, str], timeout: int, sleep: float) 
         raise
       delay = retry_after_seconds(exc, base_delay * (2 ** attempt))
       sleep_if_needed(delay)
+    except (
+      http.client.HTTPException,
+      ConnectionError,
+      TimeoutError,
+      urllib.error.URLError,
+    ):
+      if attempt == HTTP_RETRY_ATTEMPTS - 1:
+        raise
+      sleep_if_needed(base_delay * (2 ** attempt))
   raise RuntimeError("unreachable HTTP retry state")
 
 
@@ -1131,7 +1145,14 @@ def build_openreview_pdf(
         remote_pdf_records += 1
       else:
         refs_by_record[record_id] = []
-    except (urllib.error.URLError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
+    except (
+      urllib.error.URLError,
+      http.client.HTTPException,
+      ConnectionError,
+      RuntimeError,
+      subprocess.SubprocessError,
+      TimeoutError,
+    ) as exc:
       errors.append({"id": record_id, "title": title[:140], "source": "openreview_pdf", "error": compact_text(exc)})
       refs_by_record[record_id] = []
     if processed == 1 or processed % 5 == 0 or processed == total_records:
