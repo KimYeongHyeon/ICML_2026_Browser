@@ -2575,6 +2575,90 @@ a:focus-visible {
   background: var(--accent);
 }
 
+.viewer-reference-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.viewer-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.viewer-section-head h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.viewer-section-head > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.viewer-reference-links {
+  display: grid;
+  gap: 8px;
+}
+
+.viewer-reference-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--bg);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.viewer-reference-link:hover {
+  border-color: rgb(106 165 147 / 0.45);
+  background: #f5faf8;
+}
+
+.viewer-reference-link strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.viewer-reference-link small,
+.viewer-reference-empty {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.viewer-reference-samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viewer-reference-samples span {
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .selection-stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
@@ -2600,7 +2684,8 @@ a:focus-visible {
   font-weight: 800;
 }
 
-.selection-stat-grid strong {
+.selection-stat-grid strong,
+.selection-stat-grid b {
   color: var(--text);
   font-size: 18px;
   line-height: 1;
