@@ -44,6 +44,19 @@ function searchModeLabel() {
   return "query-vector";
 }
 
+function searchEvidenceText(records) {
+  if (state.mapSearchKind === "specter2-query") {
+    return "Why highlighted: nearest records to the embedded query, then filtered by the current map scope.";
+  }
+  if (state.mapSearchKind === "specter2-loading") {
+    return "Why highlighted: title, abstract, tag, and cluster text matches while the SPECTER2 query model warms up.";
+  }
+  if (state.mapSearchKind === "keyword-neighbor") {
+    return "Why highlighted: keyword matches plus their closest mapped neighbors.";
+  }
+  return `Why highlighted: ${records.length.toLocaleString()} records ranked by the active semantic map signal.`;
+}
+
 function topicLens(records) {
   const clusterCounts = topCounts(records, (record) => [record.embeddingClusterId].filter(Boolean), 1);
   const clusterId = clusterCounts[0]?.[0] || "";
@@ -88,6 +101,7 @@ export function renderSemanticInsightPanel(records, query) {
     <div class="semantic-insight-keywords">
       ${keywords.map((word) => `<b>${escapeHtml(word)}</b>`).join("") || "<b>title-only</b>"}
     </div>
+    <p class="semantic-insight-evidence">${escapeHtml(searchEvidenceText(records))}</p>
     <div class="semantic-insight-keywords topic-lens-records">
       ${(lens.representatives.length ? lens.representatives : records.slice(0, 3)).map((record) => `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>`).join("")}
     </div>
