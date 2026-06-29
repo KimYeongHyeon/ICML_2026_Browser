@@ -42,7 +42,7 @@ OPENALEX_SEARCH_PAGE_SIZE = 5
 OPENALEX_DETAIL_PAGE_SIZE = 25
 CROSSREF_API = "https://api.crossref.org"
 CROSSREF_SEARCH_ROWS = 3
-HTTP_RETRY_ATTEMPTS = 5
+HTTP_RETRY_ATTEMPTS = int(os.environ.get("ICML_REF_HTTP_RETRIES", "5"))
 HTTP_RETRY_MAX_SLEEP = 20.0
 TRANSIENT_HTTP_STATUSES = {429, 500, 502, 503, 504}
 
@@ -1129,7 +1129,7 @@ def build_openreview_pdf(
     except (urllib.error.URLError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
       errors.append({"id": record_id, "title": title[:140], "source": "openreview_pdf", "error": compact_text(exc)})
       refs_by_record[record_id] = []
-    if processed == 1 or processed % 25 == 0 or processed == total_records:
+    if processed == 1 or processed % 5 == 0 or processed == total_records:
       print(
         f"Reference PDF progress {processed}/{total_records}: "
         f"recordsWithRefs={sum(1 for refs in refs_by_record.values() if refs)} "
