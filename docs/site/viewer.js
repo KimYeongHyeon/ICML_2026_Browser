@@ -238,6 +238,7 @@ function openStudyRecord(recordId) {
   if (!selected) return;
   state.selectedId = recordId;
   state.viewerMapRequested = true;
+  state.viewerReferenceRequested = true;
   state.studyCompareSourceId = "";
   state.studyCompareTargetId = "";
   viewerDeps.renderResults();
@@ -268,6 +269,7 @@ function openReferenceRecord(recordId) {
   state.tab = selected.type === "workshop" ? "workshop" : "paper";
   state.selectedId = recordId;
   state.viewerMapRequested = true;
+  state.viewerReferenceRequested = true;
   viewerDeps.renderResults();
   viewerDeps.renderMap();
   renderViewer(selected);
@@ -420,7 +422,7 @@ export function renderViewer(record) {
   if (readerBrief) els.viewerFrame.insertAdjacentHTML("beforeend", readerBrief);
   const abstractBlock = renderAbstractBlock(record);
   if (abstractBlock) els.viewerFrame.insertAdjacentHTML("beforeend", abstractBlock);
-  if (state.viewerMapRequested) {
+  if (state.viewerReferenceRequested) {
     els.viewerFrame.insertAdjacentHTML("beforeend", `<div data-viewer-reference-panel></div>`);
     mountReferencePanel(record);
   }
@@ -452,6 +454,7 @@ export function renderViewer(record) {
         const selected = viewerDeps.findDisplayRecord(button.dataset.id);
         state.selectedId = button.dataset.id;
         state.viewerMapRequested = true;
+        state.viewerReferenceRequested = true;
         viewerDeps.renderResults();
         viewerDeps.renderMap();
         renderViewer(selected);
