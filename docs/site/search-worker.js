@@ -1,7 +1,11 @@
 self.searchRecords = new Map();
 
 function normalize(value) {
-  return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 self.addEventListener("message", (event) => {

@@ -1,7 +1,11 @@
 import { MATHJAX_RETRY_LIMIT } from "./config.js";
 
 export function normalize(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function escapeHtml(value) {

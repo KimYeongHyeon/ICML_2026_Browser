@@ -281,7 +281,7 @@ const afterSwitch = await page.evaluate(() => {
   };
 });
 
-await page.locator("#searchInput").fill("MoSE: Mixture of Slimmable Experts");
+await page.locator("#searchInput").fill("MoSE Mixture of Slimmable Experts");
 await page.waitForTimeout(300);
 await page.locator(".result-item").first().click();
 await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
@@ -310,7 +310,7 @@ await page.waitForTimeout(300);
 await page.locator(".result-item").first().click();
 await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
 await page.waitForTimeout(50);
-await page.locator("#searchInput").fill("MoSE: Mixture of Slimmable Experts");
+await page.locator("#searchInput").fill("MoSE Mixture of Slimmable Experts");
 await page.waitForTimeout(300);
 await page.locator(".result-item").first().click();
 await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
