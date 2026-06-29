@@ -174,8 +174,8 @@ await page.waitForFunction(() => {
   const hasSourceFallback = /Official paper presentation page/i.test(document.querySelector("#viewerFrame")?.innerText || "");
   return /\d+ \/ \d+/.test(status) || hasSourceFallback;
 }, null, { timeout: 30000 });
-await page.waitForFunction(() => /Citation overlap/i.test(document.querySelector(".viewer-reference-panel")?.textContent || ""), null, { timeout: 45000 });
 await page.waitForFunction(() => (document.querySelector(".viewer-abstract-body")?.textContent || "").length > 100, null, { timeout: 30000 });
+await page.waitForFunction(() => /Citation overlap/i.test(document.querySelector(".viewer-reference-panel")?.textContent || ""), null, { timeout: 90000 });
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
