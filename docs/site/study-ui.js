@@ -64,6 +64,7 @@ export function renderStudyTrail(record, study, findRecord) {
   const trail = (study?.studyTrail || []).map((item) => ({ ...item, record: findRecord(item.recordId) })).filter((item) => item.record);
   if (!trail.length) return "";
   return renderStudyDisclosure("study-trail", "Study Trail", STUDY_TRAIL_HELP, `
+      <p class="study-guidance">Reading order: start broad, read the core neighbor, then branch into applied and broader papers. Each step is chosen from embedding proximity plus area/domain diversity.</p>
       <div class="study-trail-list">
         ${trail.map((item, index) => `
           <button type="button" class="neighbor-item study-trail-item" data-study-id="${escapeHtml(item.record.id)}">

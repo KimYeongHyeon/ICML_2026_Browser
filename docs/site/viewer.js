@@ -173,6 +173,64 @@ function renderAbstractBlock(record) {
   return `<div class="viewer-abstract"><h3>Abstract</h3><div class="viewer-abstract-body">${renderSafeTextBlocks(abstract)}</div></div>`;
 }
 
+function abstractSentences(record, limit = 2) {
+  return cleanAbstractLatex(record.abstract)
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 60)
+    .slice(0, limit);
+}
+
+function renderReaderBrief(record) {
+  const sentences = abstractSentences(record);
+  if (!sentences.length) return "";
+  const tags = uniqueChipValues([...(record.areaTags || []), ...(record.domainTags || [])]).slice(0, 4);
+  const cluster = record.embeddingClusterKeywords?.slice(0, 3).join(", ") || record.clusterLabel || "";
+  return `
+    <section class="viewer-brief">
+      <div class="viewer-section-head compact">
+        <div>
+          <p class="eyebrow">Reader brief</p>
+          <h3>What to notice first</h3>
+        </div>
+      </div>
+      <ul>
+        <li><b>Main claim</b><span>${escapeHtml(sentences[0])}</span></li>
+        ${sentences[1] ? `<li><b>Evidence cue</b><span>${escapeHtml(sentences[1])}</span></li>` : ""}
+        ${tags.length || cluster ? `<li><b>Study context</b><span>${escapeHtml([tags.join(", "), cluster && `cluster keywords: ${cluster}`].filter(Boolean).join(" · "))}</span></li>` : ""}
+      </ul>
+    </section>
+  `;
+}
+
+function renderInformationQuality(record) {
+  const source = record.type === "paper"
+    ? "ICML paper page + OpenReview metadata"
+    : record.type === "workshop"
+    ? "OpenReview workshop metadata"
+    : "ICML presentation metadata";
+  const text = record.abstract
+    ? record.embeddingTextQuality === "title_abstract" ? "abstract-backed" : record.embeddingTextQuality || "abstract available"
+    : "title-only";
+  const map = record.mapAvailable ? "mapped in semantic space" : "not mapped";
+  const material = record.localPdfPath || record.bestAssetKind === "pdf"
+    ? "local PDF preview"
+    : openReviewPdfUrl(record)
+    ? "external OpenReview PDF"
+    : displayAvailabilityLabel(record);
+  return `
+    <section class="viewer-trust-panel">
+      <p class="eyebrow">Information quality</p>
+      <div class="viewer-trust-grid">
+        <span><em>Source</em><b>${escapeHtml(source)}</b></span>
+        <span><em>Text</em><b>${escapeHtml(text)}</b></span>
+        <span><em>Map</em><b>${escapeHtml(map)}</b></span>
+        <span><em>Material</em><b>${escapeHtml(material)}</b></span>
+      </div>
+    </section>
+  `;
+}
+
 function openStudyRecord(recordId) {
   const selected = viewerDeps.findDisplayRecord(recordId);
   if (!selected) return;
@@ -233,6 +291,7 @@ function renderViewerReferencePanel(payload = {}) {
         <span><b>${Number(overlaps.length || 0).toLocaleString()}</b><small>shown links</small></span>
         <span><b>${Number(topShared || 0).toLocaleString()}</b><small>top shared refs</small></span>
       </div>
+      <p class="viewer-reference-note">Citation evidence: references are extracted from collected PDFs or metadata. Links mean shared normalized references, not semantic similarity.</p>
       ${hasOverlaps ? `
         <div class="viewer-reference-links">
           ${overlaps.map((item, index) => {
@@ -354,6 +413,9 @@ export function renderViewer(record) {
     }
     els.viewerFrame.innerHTML = renderViewerStatusRow(record, title, message);
   }
+  els.viewerFrame.insertAdjacentHTML("beforeend", renderInformationQuality(record));
+  const readerBrief = renderReaderBrief(record);
+  if (readerBrief) els.viewerFrame.insertAdjacentHTML("beforeend", readerBrief);
   const abstractBlock = renderAbstractBlock(record);
   if (abstractBlock) els.viewerFrame.insertAdjacentHTML("beforeend", abstractBlock);
   if (state.viewerMapRequested) {
