@@ -848,6 +848,23 @@ a:focus-visible {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.reference-stat-grid span {
+  min-height: 64px;
+  padding: 12px;
+  overflow: visible;
+}
+
+.reference-stat-grid strong {
+  display: block;
+  font-size: 20px;
+}
+
+.reference-stat-grid small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
 .reference-analysis-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -898,9 +915,11 @@ a:focus-visible {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 10px;
+  align-content: start;
   max-height: min(36vh, 360px);
   overflow: auto;
-  padding-right: 4px;
+  padding: 2px 4px 6px 0;
+  scroll-padding-top: 10px;
 }
 
 .reference-record-item {

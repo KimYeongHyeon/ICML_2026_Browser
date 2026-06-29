@@ -25,9 +25,9 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   const isSemanticContext = node.semanticContext;
   const isEmphasized = isSelected || isHover || isAdjacent || isSearchMatch;
   const radiusScale = options.radiusScale || 1;
-  let radius = isSelected ? 7.8 : isHover ? 6.2 : isSearchMatch ? 5.2 : isAdjacent ? 4.4 : node.depth === 2 ? 3.4 : 3.05;
+  let radius = isSelected ? 8.2 : isHover ? 6.6 : isSearchMatch ? 5.8 : isAdjacent ? 4.8 : node.depth === 2 ? 3.8 : 3.45;
   radius *= radiusScale;
-  const minScreenRadius = options.minScreenRadius ?? (state.mapColor === "area-domain" ? 3.8 : 2.6);
+  const minScreenRadius = options.minScreenRadius ?? (state.mapColor === "area-domain" ? 4.6 : 3.2);
   radius = Math.max(radius, minScreenRadius / safeScale);
   const domainShape = options.domainShape || domainShapeValue(node.record);
   const useDomainShape = (options.showDomainShape ?? state.mapColor === "area-domain") && node.record;
@@ -43,7 +43,7 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   }
   drawNodeShape(ctx, node.x, node.y, radius, useDomainShape ? domainShape : "circle");
   ctx.fillStyle = color;
-  ctx.globalAlpha = isSearchMatch ? 0.96 : isEmphasized ? 0.9 : isSemanticContext ? 0.46 : mode === "focused" ? 0.62 : 0.54;
+  ctx.globalAlpha = isSearchMatch ? 0.98 : isEmphasized ? 0.94 : isSemanticContext ? 0.58 : mode === "focused" ? 0.72 : 0.66;
   ctx.fill();
   ctx.globalAlpha = 1;
   const showDomainRing = (options.showDomainRing ?? state.mapColor === "area-domain")
@@ -67,8 +67,8 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   }
   if (useDomainShape) {
     ctx.save();
-    ctx.globalAlpha = isSelected ? 0.9 : isHover ? 0.82 : isSearchMatch ? 0.76 : isSemanticContext ? 0.56 : mode === "focused" ? 0.54 : 0.46;
-    ctx.lineWidth = Math.max(0.65 / safeScale, isSelected || isHover ? 1.15 : 0.78);
+    ctx.globalAlpha = isSelected ? 0.95 : isHover ? 0.88 : isSearchMatch ? 0.84 : isSemanticContext ? 0.66 : mode === "focused" ? 0.62 : 0.56;
+    ctx.lineWidth = Math.max(0.8 / safeScale, isSelected || isHover ? 1.3 : 0.92);
     ctx.strokeStyle = domainRingColor(node.record);
     drawNodeShape(ctx, node.x, node.y, radius + (isSelected ? 2 : 1.1), domainShape);
     ctx.stroke();
@@ -160,6 +160,12 @@ function drawNodeShape(ctx, x, y, radius, shape = "circle") {
   ctx.closePath();
 }
 
+function linkTouchesSearch(link) {
+  const source = typeof link.source === "object" ? link.source : null;
+  const target = typeof link.target === "object" ? link.target : null;
+  return Boolean(source?.searchMatch || target?.searchMatch || source?.semanticContext || target?.semanticContext);
+}
+
 function ensureForceGraph() {
   if (state.mapGraph || typeof window.ForceGraph !== "function") return state.mapGraph;
   els.mapCanvas.innerHTML = "";
@@ -167,7 +173,7 @@ function ensureForceGraph() {
     .backgroundColor("rgba(0,0,0,0)")
     .nodeId("id")
     .nodeLabel("")
-    .nodeVal((node) => node.selected ? 4.8 : node.depth === 1 ? 3.1 : node.depth === 2 ? 2 : node.type === "workshop" ? 1.65 : 1.35)
+    .nodeVal((node) => node.selected ? 5.2 : node.depth === 1 ? 3.4 : node.depth === 2 ? 2.25 : node.type === "workshop" ? 1.9 : 1.6)
     .nodePointerAreaPaint((node, color, ctx, globalScale) => {
       const base = node.selected ? 13 : node.depth === 1 ? 10 : 8;
       const minScreenRadius = (node.selected ? 11 : 9) / Math.max(globalScale || 1, 0.0001);
@@ -181,8 +187,16 @@ function ensureForceGraph() {
     .enablePanInteraction(false)
     .enableNodeDrag(false)
     .linkCurvature(0.045)
-    .linkWidth((link) => link.selected ? 1.08 : Math.max(0.22, Number(link.value || 0) * (state.mapMode === "focused" ? 0.62 : 0.48)))
-    .linkColor((link) => link.selected ? "rgba(106,165,147,0.46)" : state.mapMode === "focused" ? "rgba(111,125,140,0.18)" : "rgba(111,125,140,0.2)")
+    .linkWidth((link) => {
+      if (link.selected) return 1.36;
+      if (linkTouchesSearch(link)) return 0.92;
+      return Math.max(0.58, Number(link.value || 0) * (state.mapMode === "focused" ? 0.86 : 0.76));
+    })
+    .linkColor((link) => {
+      if (link.selected) return "rgba(61,112,98,0.76)";
+      if (linkTouchesSearch(link)) return "rgba(61,82,103,0.58)";
+      return state.mapMode === "focused" ? "rgba(75,91,108,0.42)" : "rgba(75,91,108,0.48)";
+    })
     .linkDirectionalParticles((link) => link.selected && state.mapLive ? 1 : 0)
     .linkDirectionalParticleWidth(0.8)
     .linkDirectionalParticleSpeed(0.0032)

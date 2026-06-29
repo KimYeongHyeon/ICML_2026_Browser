@@ -85,6 +85,15 @@ configureMapEngine({
 });
 configureBrowse({
   applyFilterChange,
+  hydrateSelectedRecord(recordId) {
+    void hydrateFullRecordsInBackground().then(() => {
+      if (state.selectedId !== recordId || state.tab === "map" || state.tab === "references") return;
+      const selected = findDisplayRecord(recordId);
+      if (!selected) return;
+      renderResults();
+      renderViewer(selected);
+    });
+  },
   renderAfterWorkerSearch() {
     if (state.tab === "map") renderMap();
     else renderResults();
@@ -260,7 +269,7 @@ function scheduleMapDataPreload() {
 }
 
 function referenceStat(label, value) {
-  return `<span><strong>${Number(value || 0).toLocaleString()}</strong>${escapeHtml(label)}</span>`;
+  return `<span><strong>${Number(value || 0).toLocaleString()}</strong><small>${escapeHtml(label)}</small></span>`;
 }
 
 function referenceCountChips(items = []) {

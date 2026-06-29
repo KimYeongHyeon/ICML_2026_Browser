@@ -295,6 +295,7 @@ export function renderResults() {
       const selected = findDisplayRecord(state.selectedId);
       renderResults();
       renderViewer(selected);
+      browseDeps.hydrateSelectedRecord?.(state.selectedId);
     });
   });
 
