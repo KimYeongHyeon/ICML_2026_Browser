@@ -1699,6 +1699,14 @@ a:focus-visible {
   cursor: pointer;
 }
 
+.semantic-insight-evidence {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 .map-search-help,
 .map-embedding-info {
   position: relative;
@@ -2289,6 +2297,14 @@ a:focus-visible {
   margin-top: 10px;
 }
 
+.study-guidance {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .study-disclosure {
   flex-shrink: 0;
   min-height: 44px;
@@ -2604,6 +2620,75 @@ a:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.viewer-trust-panel,
+.viewer-brief {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.viewer-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.viewer-trust-grid span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.viewer-trust-grid em,
+.viewer-brief b {
+  color: var(--muted-2);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.viewer-trust-grid b {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-brief ul {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.viewer-brief li {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.viewer-brief span {
+  color: #475467;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
 .viewer-section-head {
   display: flex;
   justify-content: space-between;
@@ -2654,11 +2739,16 @@ a:focus-visible {
 }
 
 .viewer-reference-link small,
-.viewer-reference-empty {
+.viewer-reference-empty,
+.viewer-reference-note {
   color: var(--muted);
   font-size: 12px;
   font-weight: 750;
   line-height: 1.35;
+}
+
+.viewer-reference-note {
+  margin: 0;
 }
 
 .viewer-reference-samples {

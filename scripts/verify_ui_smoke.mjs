@@ -174,8 +174,8 @@ await page.waitForFunction(() => {
   const hasSourceFallback = /Official paper presentation page/i.test(document.querySelector("#viewerFrame")?.innerText || "");
   return /\d+ \/ \d+/.test(status) || hasSourceFallback;
 }, null, { timeout: 30000 });
-await page.waitForSelector(".viewer-reference-panel", { timeout: 15000 });
 await page.waitForFunction(() => (document.querySelector(".viewer-abstract-body")?.textContent || "").length > 100, null, { timeout: 30000 });
+await page.waitForFunction(() => /Citation overlap/i.test(document.querySelector(".viewer-reference-panel")?.textContent || ""), null, { timeout: 90000 });
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
@@ -235,6 +235,7 @@ const studyTrail = await page.evaluate(() => ({
   defaultOpen: document.querySelector(".study-trail")?.open ?? true,
   helpCount: document.querySelectorAll(".study-help").length,
   helpTitle: document.querySelector(".study-trail .study-help")?.getAttribute("title") || "",
+  guidance: document.querySelector(".study-guidance")?.textContent || "",
   count: document.querySelectorAll(".study-trail .study-trail-item").length,
   stages: [...document.querySelectorAll(".study-trail-item em")].map((item) => item.textContent || ""),
   firstTitle: document.querySelector(".study-trail-item strong")?.textContent || "",
@@ -588,6 +589,12 @@ if (paperLatex.hasPdfShell && (!/\d+ \/ \d+/.test(paperLatex.pdfStatus) || !pape
 if (!paperLatex.hasPdfShell && (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta))) {
   throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked when no local PDF is available: ${JSON.stringify(paperLatex)}`);
 }
+if (!paperLatex.hasPdfShell && (!/OpenReview link/i.test(paperLatex.viewerFrameText) || /external OpenReview PDF/i.test(paperLatex.viewerFrameText))) {
+  throw new Error(`paper viewer should describe blocked synthetic PDF material as an OpenReview link: ${JSON.stringify(paperLatex)}`);
+}
+if (/Main claim|Evidence cue/i.test(paperLatex.viewerFrameText) || !/Opening context/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`reader brief should label abstract sentences neutrally: ${JSON.stringify(paperLatex)}`);
+}
 if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
   throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
 }
@@ -599,6 +606,9 @@ if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.
 }
 if (!/Citation overlap/i.test(paperLatex.viewerReferenceText) || !/extracted refs/i.test(paperLatex.viewerReferenceText)) {
   throw new Error(`viewer should surface extracted citation/reference context for selected records: ${JSON.stringify(paperLatex)}`);
+}
+if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText) || !/Citation evidence/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`viewer should explain source quality, reading brief, and citation evidence: ${JSON.stringify(paperLatex)}`);
 }
 if (referenceRequestsBeforeReferencesTab <= 0) {
   throw new Error(`viewer reference context should lazy-load only after opening a record: ${JSON.stringify(referenceRequests)}`);
@@ -668,6 +678,7 @@ if (
   || studyTrail.defaultOpen
   || studyTrail.helpCount < 2
   || !/Staged recommended papers/.test(studyTrail.helpTitle)
+  || !/Reading order/i.test(studyTrail.guidance)
   || studyTrail.count < 5
   || studyTrail.count > 10
   || !["Intro", "Core", "Applied", "Broader"].every((stage) => studyTrail.stages.includes(stage))
@@ -773,6 +784,7 @@ if (
   || mapSearch.topScore <= 0
   || !/query-vector matches|SPECTER2|lexical matches/.test(mapSearch.activeSummary)
   || !/Topic lens|Area|Domain|Nearby trend|Search mode/.test(mapSearch.insightText)
+  || !/Why highlighted/i.test(mapSearch.insightText)
   || !mapSearch.topicLensButtons
 ) {
   throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
