@@ -755,6 +755,9 @@ if (
 if (!viewerReferenceExpectation.hasContext && !/Citation evidence|Not indexed for this record/i.test(paperLatex.viewerReferenceText)) {
   throw new Error(`viewer should explain when citation evidence is not indexed: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
 }
+if (!viewerReferenceExpectation.hasEntry && !paperLatex.hasPdfShell && !/No downloadable PDF was available for reference extraction/i.test(paperLatex.viewerReferenceText)) {
+  throw new Error(`OpenReview-only records should not be described as having a collected PDF reference shard: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
+}
 if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
 }
