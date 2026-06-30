@@ -342,7 +342,7 @@ function referenceSummaryCoveredCount(summary = {}) {
 function renderReferenceUnavailablePanel(record) {
   const summary = referenceManifestSummary() || {};
   const covered = referenceSummaryCoveredCount(summary).toLocaleString();
-  const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl || isPdfAsset(record.bestAsset));
+  const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);
   const reason = hasCollectedPdf
     ? "No reference shard has been matched to this record yet."
     : "No downloadable PDF was available for reference extraction.";
