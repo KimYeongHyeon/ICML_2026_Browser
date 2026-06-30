@@ -145,6 +145,7 @@ const initial = await page.evaluate(() => ({
   posterTabExists: Boolean(document.querySelector('.tab[data-tab="poster"]')),
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
+  firstEvidence: document.querySelector(".result-item .result-evidence")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -235,6 +236,8 @@ const paperLatex = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
+  sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
+  gapPanelText: document.querySelector(".viewer-gap-panel")?.innerText || "",
   viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
   viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
   confidenceText: document.querySelector(".viewer-confidence")?.innerText || "",
@@ -689,6 +692,9 @@ if (!/^6,343 results/.test(initial.resultCount)) {
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
+if (!/Accepted/i.test(initial.firstEvidence) || !/Mapped/i.test(initial.firstEvidence)) {
+  throw new Error(`result cards should expose concise record evidence badges: ${JSON.stringify(initial)}`);
+}
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
 }
@@ -761,6 +767,12 @@ if (!viewerReferenceExpectation.hasEntry && !paperLatex.hasPdfShell && !/No down
 if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
 }
+if (!/Source identifiers/i.test(paperLatex.sourcePanelText) || !/ICML|OpenReview|Record id/i.test(paperLatex.sourcePanelText)) {
+  throw new Error(`viewer should expose source identifiers for traceability: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.hasPdfShell && !/No downloaded local material|No public PDF link|No embedding map coordinates|No abstract text/i.test(paperLatex.gapPanelText)) {
+  throw new Error(`viewer should expose known data gaps when material is incomplete: ${JSON.stringify(paperLatex)}`);
+}
 if (viewerReferenceExpectation.hasContext && !/Citation evidence/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain citation evidence when reference context exists: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
 }
@@ -786,6 +798,9 @@ if (
 if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
   throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
 }
+if (!referencesTab.healthText.includes(`${referenceManifestExpectedCoverage.covered} / ${referenceManifestExpectedCoverage.totalCandidates}`) || !/not indexed yet/i.test(referencesTab.healthText)) {
+  throw new Error(`References coverage should show the indexed/candidate equation and missing count: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+}
 if (zeroCoverageFallbackCase.covered !== 0 || zeroCoverageFallbackCase.expectedPercent !== "0%") {
   throw new Error(`References coverage should preserve explicit zero before matched-record fallbacks: ${JSON.stringify(zeroCoverageFallbackCase)}`);
 }
@@ -800,6 +815,9 @@ if (!referencesTab.selectedSampleCount || !/extracted refs/i.test(referencesTab.
 }
 if (!/shared references/i.test(referencesTab.selectedText)) {
   throw new Error(`References selected record should show overlap evidence labels: ${JSON.stringify(referencesTab)}`);
+}
+if (!/(strong|moderate|weak) link/i.test(referencesTab.selectedText)) {
+  throw new Error(`References overlap rows should label link strength plainly: ${JSON.stringify(referencesTab)}`);
 }
 if (referencesTab.graphNodeCount < 2 || referencesTab.graphEdgeCount < 1) {
   throw new Error(`References selected record should show a citation-overlap graph: ${JSON.stringify(referencesTab)}`);

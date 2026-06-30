@@ -8,6 +8,7 @@ import {
   presentationBadges,
   recordHaystack,
   resultDetails,
+  statusLabel,
   typeLabel,
 } from "./records.js";
 import { state } from "./state.js";
@@ -209,6 +210,15 @@ function renderAssetPills(counts = {}) {
   });
 }
 
+function resultEvidenceBadges(record) {
+  return uniqueChipValues([
+    record.status === "accepted_public" ? "Accepted" : statusLabel(record.status),
+    record.abstract ? "Abstract" : "",
+    record.mapAvailable ? "Mapped" : "",
+    record.hasPdf || record.pdfUrl ? "PDF link" : "",
+  ]).slice(0, 4);
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -264,6 +274,7 @@ export function renderResults() {
         record.hasPoster ? "Poster" : "",
         record.hasSlide ? "Slides" : "",
       ]);
+      const evidenceBadges = resultEvidenceBadges(record);
       return `
         <button class="result-item${selected}${featured}" type="button" data-id="${escapeHtml(record.id)}" style="--record-color:${escapeHtml(browseRecordColor(record))}">
           <span class="result-kicker">
@@ -276,6 +287,9 @@ export function renderResults() {
           <span class="badges">
             ${record.group && record.group !== "Main Conference" ? `<span class="badge">${escapeHtml(record.group)}</span>` : ""}
             ${assetBadges.map((label) => `<span class="badge">${escapeHtml(label)}</span>`).join("")}
+          </span>
+          <span class="result-evidence" aria-label="Record evidence">
+            ${evidenceBadges.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
           </span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>

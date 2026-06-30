@@ -3,6 +3,8 @@ import { els } from "./dom.js";
 import {
   assetLabel,
   displayAvailabilityLabel,
+  icmlPresentationId,
+  openReviewForumId,
   openReviewPdfUrl,
   paperPresentationKind,
   paperPresentationMode,
@@ -245,6 +247,40 @@ function renderInformationQuality(record) {
   `;
 }
 
+function renderSourceIdentifiers(record) {
+  const items = [
+    ["ICML", icmlPresentationId(record)],
+    ["OpenReview", openReviewForumId(record)],
+    ["Map cluster", record.embeddingClusterLabel || record.clusterLabel],
+    ["Record id", record.id],
+  ].filter(([, value]) => value);
+  if (!items.length) return "";
+  return `
+    <section class="viewer-source-panel">
+      <p class="eyebrow">Source identifiers</p>
+      <div class="viewer-source-grid">
+        ${items.map(([label, value]) => `<span><em>${escapeHtml(label)}</em><b>${escapeHtml(String(value))}</b></span>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderKnownGaps(record) {
+  const gaps = [
+    !record.abstract ? "No abstract text collected; semantic placement may be title-only." : "",
+    !record.mapAvailable ? "No embedding map coordinates for this record." : "",
+    !(record.localPdfPath || record.pdfUrl || openReviewPdfUrl(record)) ? "No public PDF link known." : "",
+    !(record.hasPoster || record.hasSlide || record.hasPdf) ? "No downloaded local material in the archive." : "",
+  ].filter(Boolean);
+  if (!gaps.length) return "";
+  return `
+    <section class="viewer-gap-panel">
+      <p class="eyebrow">Known gaps</p>
+      <ul>${gaps.map((gap) => `<li>${escapeHtml(gap)}</li>`).join("")}</ul>
+    </section>
+  `;
+}
+
 function openStudyRecord(recordId) {
   const selected = viewerDeps.findDisplayRecord(recordId);
   if (!selected) return;
@@ -273,6 +309,14 @@ function mountStudyPanelActions(record) {
 
 function referenceDisplayTitle(item = {}) {
   return plainMathTitle(item.title || item.raw || item.key || "Untitled reference");
+}
+
+function overlapStrength(sharedCount, score) {
+  const shared = Number(sharedCount || 0);
+  const ratio = Number(score || 0);
+  if (shared >= 5 || ratio >= 0.12) return "strong";
+  if (shared >= 3 || ratio >= 0.06) return "moderate";
+  return "weak";
 }
 
 function openReferenceRecord(recordId) {
@@ -318,7 +362,7 @@ function renderViewerReferencePanel(payload = {}) {
                 <span class="neighbor-rank">${index + 1}</span>
                 <span>
                   <strong>${escapeHtml(plainMathTitle(linked?.title || item.title || item.recordId))}</strong>
-                  <small>${Number(item.sharedCount || 0).toLocaleString()} shared refs · ${Number(item.score || 0).toFixed(2)} overlap${sharedTitles ? ` · ${escapeHtml(sharedTitles)}` : ""}</small>
+                  <small>${escapeHtml(overlapStrength(item.sharedCount, item.score))} link · ${Number(item.sharedCount || 0).toLocaleString()} shared refs · ${Number(item.score || 0).toFixed(2)} overlap${sharedTitles ? ` · ${escapeHtml(sharedTitles)}` : ""}</small>
                 </span>
               </button>
             `;
@@ -458,6 +502,9 @@ export function renderViewer(record) {
     els.viewerFrame.innerHTML = renderViewerStatusRow(record, title, message);
   }
   els.viewerFrame.insertAdjacentHTML("beforeend", renderInformationQuality(record));
+  els.viewerFrame.insertAdjacentHTML("beforeend", renderSourceIdentifiers(record));
+  const knownGaps = renderKnownGaps(record);
+  if (knownGaps) els.viewerFrame.insertAdjacentHTML("beforeend", knownGaps);
   const readerBrief = renderReaderBrief(record);
   if (readerBrief) els.viewerFrame.insertAdjacentHTML("beforeend", readerBrief);
   const abstractBlock = renderAbstractBlock(record);
