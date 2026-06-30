@@ -272,6 +272,12 @@ function referenceStat(label, value) {
   return `<span><strong>${Number(value || 0).toLocaleString()}</strong><small>${escapeHtml(label)}</small></span>`;
 }
 
+function referencePercent(part, total) {
+  const denominator = Number(total || 0);
+  if (!denominator) return "0%";
+  return `${Math.round((Number(part || 0) / denominator) * 100)}%`;
+}
+
 function referenceCountChips(items = []) {
   return items.slice(0, 10).map((item) => `
     <span class="reference-chip"><b>${escapeHtml(item.label || item.author || "")}</b>${Number(item.references || item.count || 0).toLocaleString()}</span>
@@ -380,6 +386,10 @@ async function renderReferences() {
     return;
   }
   const summary = manifest.summary || {};
+  const totalCandidates = Number(summary.pdfRecords || summary.matchedRecords || summary.recordCount || 0);
+  const referenceCoverage = referencePercent(summary.recordsWithReferences, totalCandidates || summary.recordCount);
+  const blockedRemote = Number(summary.remotePdfBlockedRecords || 0);
+  const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);
   const records = Object.entries(manifest.records || {})
     .map(([id, entry]) => ({ id, ...entry, record: findDisplayRecord(id) }))
     .filter((item) => item.record)
@@ -406,6 +416,13 @@ async function renderReferences() {
         ${referenceStat("overlap groups", summary.recordsWithOverlaps)}
         ${referenceStat("unique references", summary.uniqueReferenceKeys)}
       </div>
+      <div class="reference-health-grid">
+        <span><b>${escapeHtml(referenceCoverage)}</b><small>reference coverage for this run</small></span>
+        <span><b>${Number(summary.remotePdfAttemptedRecords || 0).toLocaleString()}</b><small>remote PDF attempts</small></span>
+        <span><b>${blockedRemote.toLocaleString()}</b><small>blocked remote PDFs</small></span>
+        <span><b>${extractionErrors.toLocaleString()}</b><small>extraction errors</small></span>
+      </div>
+      <p class="reference-health-note">${blockedRemote || extractionErrors ? "Blocked or failed PDFs are excluded from citation overlap; semantic map/search still uses title and abstract text." : "No blocking extraction errors in the current reference artifact."}</p>
       <div class="reference-analysis-grid">
         <article class="reference-panel-block">
           <h3>Most cited reference titles</h3>
@@ -421,6 +438,7 @@ async function renderReferences() {
       </div>
       <article class="reference-panel-block">
         <h3>Records with citation overlap</h3>
+        <p class="reference-sort-note">Sorted by overlap count first, then extracted reference count.</p>
         <div class="reference-record-list">
           ${records.map((item, index) => `
             <button class="reference-record-item" type="button" data-id="${escapeHtml(item.id)}">
@@ -470,7 +488,7 @@ async function renderReferenceSelection(recordId) {
             <span class="neighbor-rank">${index + 1}</span>
             <span>
               <strong>${escapeHtml(plainMathTitle(overlapRecord?.title || item.title || item.recordId))}</strong>
-              <small>${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap</small>
+              <small>${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap${(item.references || []).length ? ` · ${escapeHtml((item.references || []).slice(0, 2).map(referenceDisplayText).filter(Boolean).join(" / "))}` : ""}</small>
             </span>
           </button>
         `;

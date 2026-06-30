@@ -60,10 +60,27 @@ function bridgeRecords(left, right, findRecord) {
     .slice(0, 4);
 }
 
+function stageSummary(trail) {
+  const counts = new Map();
+  for (const item of trail) {
+    const label = STAGE_LABELS[item.stage] || item.stage || "Step";
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return [...counts.entries()].map(([label, count]) => ({ label, count }));
+}
+
 export function renderStudyTrail(record, study, findRecord) {
   const trail = (study?.studyTrail || []).map((item) => ({ ...item, record: findRecord(item.recordId) })).filter((item) => item.record);
   if (!trail.length) return "";
+  const stages = stageSummary(trail);
+  const areas = new Set(trail.flatMap((item) => item.record.areaTags || []));
+  const domains = new Set(trail.flatMap((item) => item.record.domainTags || []));
   return renderStudyDisclosure("study-trail", "Study Trail", STUDY_TRAIL_HELP, `
+      <div class="study-trail-summary">
+        ${stages.map((item) => `<span><b>${escapeHtml(item.label)}</b>${Number(item.count).toLocaleString()}</span>`).join("")}
+        <span><b>Areas</b>${Number(areas.size).toLocaleString()}</span>
+        <span><b>Domains</b>${Number(domains.size).toLocaleString()}</span>
+      </div>
       <p class="study-guidance">Reading order: start broad, read the core neighbor, then branch into applied and broader papers. Each step is chosen from embedding proximity plus area/domain diversity.</p>
       <div class="study-trail-list">
         ${trail.map((item, index) => `
@@ -103,11 +120,17 @@ function renderCompareResult(record, target, findRecord) {
   const bridges = bridgeRecords(record, target, findRecord);
   return `
     <div class="semantic-compare-result">
+      <div class="semantic-compare-metrics">
+        <span><b>${common.length}</b><small>shared tags</small></span>
+        <span><b>${differences.length}</b><small>different tags</small></span>
+        <span><b>${bridges.length}</b><small>bridge papers</small></span>
+      </div>
       <span><em>Common topic</em><b>${escapeHtml(common.join(", ") || record.embeddingClusterLabel || record.clusterLabel || "nearby embedding region")}</b></span>
       <span><em>Differences</em><b>${escapeHtml(differences.join(", ") || "different emphasis inside the same area")}</b></span>
       <div class="semantic-bridge-list">
         <em>Bridging papers</em>
         ${bridges.map((bridge) => `<button type="button" class="semantic-bridge" data-study-id="${escapeHtml(bridge.id)}">${escapeHtml(plainMathTitle(bridge.title))}</button>`).join("") || "<small>No bridge paper found in the current neighbor lists.</small>"}
+        <small>Bridge papers are picked from shared nearest-neighbor paths, then fallback study-trail neighbors.</small>
       </div>
     </div>
   `;
