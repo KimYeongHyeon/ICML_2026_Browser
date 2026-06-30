@@ -440,7 +440,7 @@ async function renderReferences() {
   const totalCandidates = referenceCandidateCount(manifest);
   const coveredReferences = referenceCoveredCount(manifest);
   const referenceCoverage = referencePercent(coveredReferences, totalCandidates);
-  const missingReferences = Math.max(0, totalCandidates - coveredReferences);
+  const withoutExtractedReferences = Math.max(0, totalCandidates - coveredReferences);
   const remoteAttempted = optionalSummaryNumber(manifest, "remotePdfAttemptedRecords");
   const blockedRemote = optionalSummaryNumber(manifest, "remotePdfBlockedRecords");
   const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);
@@ -474,7 +474,7 @@ async function renderReferences() {
       <div class="reference-health-grid">
         <span><b>${escapeHtml(referenceCoverage)}</b><small>reference coverage for this run</small></span>
         <span><b>${coveredReferences.toLocaleString()} / ${totalCandidates.toLocaleString()}</b><small>candidate PDFs indexed</small></span>
-        <span><b>${missingReferences.toLocaleString()}</b><small>not indexed yet</small></span>
+        <span><b>${withoutExtractedReferences.toLocaleString()}</b><small>without extracted refs</small></span>
         <span><b>${escapeHtml(optionalMetricLabel(remoteAttempted))}</b><small>remote PDF attempts</small></span>
         <span><b>${extractionErrors.toLocaleString()}</b><small>extraction errors</small></span>
       </div>
