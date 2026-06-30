@@ -362,6 +362,14 @@ function referenceBadge(value) {
   return value ? `<b>${escapeHtml(String(value))}</b>` : "";
 }
 
+function overlapStrength(sharedCount, score) {
+  const shared = Number(sharedCount || 0);
+  const ratio = Number(score || 0);
+  if (shared >= 5 || ratio >= 0.12) return "strong";
+  if (shared >= 3 || ratio >= 0.06) return "moderate";
+  return "weak";
+}
+
 function renderReferenceGraph(payload = {}, record = null) {
   const overlaps = (payload.overlaps || []).slice(0, 10);
   if (!overlaps.length) {
@@ -432,6 +440,7 @@ async function renderReferences() {
   const totalCandidates = referenceCandidateCount(manifest);
   const coveredReferences = referenceCoveredCount(manifest);
   const referenceCoverage = referencePercent(coveredReferences, totalCandidates);
+  const withoutExtractedReferences = Math.max(0, totalCandidates - coveredReferences);
   const remoteAttempted = optionalSummaryNumber(manifest, "remotePdfAttemptedRecords");
   const blockedRemote = optionalSummaryNumber(manifest, "remotePdfBlockedRecords");
   const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);
@@ -464,8 +473,9 @@ async function renderReferences() {
       </div>
       <div class="reference-health-grid">
         <span><b>${escapeHtml(referenceCoverage)}</b><small>reference coverage for this run</small></span>
+        <span><b>${coveredReferences.toLocaleString()} / ${totalCandidates.toLocaleString()}</b><small>with extracted refs / candidate PDFs</small></span>
+        <span><b>${withoutExtractedReferences.toLocaleString()}</b><small>without extracted refs</small></span>
         <span><b>${escapeHtml(optionalMetricLabel(remoteAttempted))}</b><small>remote PDF attempts</small></span>
-        <span><b>${escapeHtml(optionalMetricLabel(blockedRemote))}</b><small>blocked remote PDFs</small></span>
         <span><b>${extractionErrors.toLocaleString()}</b><small>extraction errors</small></span>
       </div>
       <p class="reference-health-note">${blockedRemote || extractionErrors ? "Blocked or failed PDFs are excluded from citation overlap; semantic map/search still uses title and abstract text." : remoteHealthUnknown ? "Remote PDF attempt counts are unavailable for this artifact; extraction errors are shown when reported." : "No blocking extraction errors in the current reference artifact."}</p>
@@ -534,7 +544,7 @@ async function renderReferenceSelection(recordId) {
             <span class="neighbor-rank">${index + 1}</span>
             <span>
               <strong>${escapeHtml(plainMathTitle(overlapRecord?.title || item.title || item.recordId))}</strong>
-              <small>${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap${(item.references || []).length ? ` · ${escapeHtml((item.references || []).slice(0, 2).map(referenceDisplayText).filter(Boolean).join(" / "))}` : ""}</small>
+              <small>${escapeHtml(overlapStrength(item.sharedCount, item.score))} link · ${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap${(item.references || []).length ? ` · ${escapeHtml((item.references || []).slice(0, 2).map(referenceDisplayText).filter(Boolean).join(" / "))}` : ""}</small>
             </span>
           </button>
         `;
