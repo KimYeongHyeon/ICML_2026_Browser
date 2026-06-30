@@ -2,6 +2,15 @@ name: Collect references
 
 on:
   workflow_dispatch:
+    inputs:
+      source:
+        description: Reference extraction source
+        required: true
+        default: pdf
+        type: choice
+        options:
+          - pdf
+          - openreview-pdf
   schedule:
     - cron: "41 19 * * *"
 
@@ -30,11 +39,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y poppler-utils
       - name: Collect reference chunk
+        env:
+          REFERENCE_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.source || 'pdf' }}
         run: |
           collect_chunk() {
             rm -rf "/tmp/icml_ref_chunks/chunk-${{ matrix.offset }}"
             python3 scripts/build_icml_references.py \
-              --source openreview-pdf \
+              --source "$REFERENCE_SOURCE" \
               --record-types paper,workshop \
               --offset "${{ matrix.offset }}" \
               --limit 50 \
