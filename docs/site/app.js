@@ -473,7 +473,7 @@ async function renderReferences() {
       </div>
       <div class="reference-health-grid">
         <span><b>${escapeHtml(referenceCoverage)}</b><small>reference coverage for this run</small></span>
-        <span><b>${coveredReferences.toLocaleString()} / ${totalCandidates.toLocaleString()}</b><small>candidate PDFs indexed</small></span>
+        <span><b>${coveredReferences.toLocaleString()} / ${totalCandidates.toLocaleString()}</b><small>with extracted refs / candidate PDFs</small></span>
         <span><b>${withoutExtractedReferences.toLocaleString()}</b><small>without extracted refs</small></span>
         <span><b>${escapeHtml(optionalMetricLabel(remoteAttempted))}</b><small>remote PDF attempts</small></span>
         <span><b>${extractionErrors.toLocaleString()}</b><small>extraction errors</small></span>

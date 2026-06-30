@@ -798,8 +798,12 @@ if (
 if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
   throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
 }
-if (!referencesTab.healthText.includes(`${referenceManifestExpectedCoverage.covered} / ${referenceManifestExpectedCoverage.totalCandidates}`) || !/without extracted refs/i.test(referencesTab.healthText)) {
-  throw new Error(`References coverage should show the indexed/candidate equation and no-reference count: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+if (
+  !referencesTab.healthText.includes(`${referenceManifestExpectedCoverage.covered} / ${referenceManifestExpectedCoverage.totalCandidates}`)
+  || !/with extracted refs \/ candidate PDFs/i.test(referencesTab.healthText)
+  || !/without extracted refs/i.test(referencesTab.healthText)
+) {
+  throw new Error(`References coverage should show extracted-reference coverage and no-reference count: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
 }
 if (zeroCoverageFallbackCase.covered !== 0 || zeroCoverageFallbackCase.expectedPercent !== "0%") {
   throw new Error(`References coverage should preserve explicit zero before matched-record fallbacks: ${JSON.stringify(zeroCoverageFallbackCase)}`);
