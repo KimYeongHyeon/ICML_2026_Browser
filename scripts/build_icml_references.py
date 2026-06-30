@@ -201,6 +201,10 @@ def record_pdf_url(record: dict[str, Any]) -> str:
   return ""
 
 
+def is_blocked_remote_pdf_error(error: urllib.error.HTTPError) -> bool:
+  return error.code in {401, 403, 404}
+
+
 def strip_pdf_line(line: str) -> str:
   return compact_text(line.replace("\f", " "))
 
@@ -829,6 +833,8 @@ def build_manifest(
       "fallbackRecords": int(source.get("fallbackRecords") or 0),
       "pdfFallbackRecords": int(source.get("pdfFallbackRecords") or 0),
       "remotePdfRecords": int(source.get("remotePdfRecords") or 0),
+      "remotePdfAttemptedRecords": int(source.get("remotePdfAttemptedRecords") or 0),
+      "remotePdfBlockedRecords": int(source.get("remotePdfBlockedRecords") or 0),
       "crossrefReferenceRecords": int(source.get("crossrefReferenceRecords") or 0),
       "recordsWithReferences": sum(1 for payload in record_payloads.values() if payload["referenceCount"]),
       "referenceStrings": total_refs,
@@ -1126,6 +1132,8 @@ def build_openreview_pdf(
   errors: list[dict[str, str]] = []
   refs_by_record: dict[str, list[dict[str, Any]]] = {}
   remote_pdf_records = 0
+  remote_pdf_attempted_records = 0
+  remote_pdf_blocked_records = 0
   total_records = len(records)
 
   print(f"Collecting references from OpenReview PDFs: offset={offset} limit={limit or 'all'} records={total_records}", flush=True)
@@ -1141,9 +1149,17 @@ def build_openreview_pdf(
           errors.append({"id": record_id, "title": title[:140], "source": "local_pdf", "error": "missing_pdf"})
           refs_by_record[record_id] = []
       elif record_pdf_url(record):
+        remote_pdf_attempted_records += 1
         refs_by_record[record_id] = reference_entries_from_remote_pdf(record, str(extractor_path), timeout, sleep)
         remote_pdf_records += 1
       else:
+        refs_by_record[record_id] = []
+    except urllib.error.HTTPError as exc:
+      if is_blocked_remote_pdf_error(exc):
+        remote_pdf_blocked_records += 1
+        refs_by_record[record_id] = []
+      else:
+        errors.append({"id": record_id, "title": title[:140], "source": "openreview_pdf", "error": compact_text(exc)})
         refs_by_record[record_id] = []
     except (
       urllib.error.URLError,
@@ -1159,7 +1175,7 @@ def build_openreview_pdf(
       print(
         f"Reference PDF progress {processed}/{total_records}: "
         f"recordsWithRefs={sum(1 for refs in refs_by_record.values() if refs)} "
-        f"remotePdf={remote_pdf_records} errors={len(errors)}",
+        f"remotePdf={remote_pdf_records} blocked={remote_pdf_blocked_records} errors={len(errors)}",
         flush=True,
       )
 
@@ -1176,6 +1192,8 @@ def build_openreview_pdf(
     "cachedRecords": 0,
     "pdfFallbackRecords": sum(1 for refs in refs_by_record.values() if refs),
     "remotePdfRecords": remote_pdf_records,
+    "remotePdfAttemptedRecords": remote_pdf_attempted_records,
+    "remotePdfBlockedRecords": remote_pdf_blocked_records,
   }
   return build_manifest(index_path, out_root, index, records, refs_by_record, source, errors)
 
