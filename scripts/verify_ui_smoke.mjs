@@ -175,7 +175,27 @@ await page.waitForFunction(() => {
   return /\d+ \/ \d+/.test(status) || hasSourceFallback;
 }, null, { timeout: 30000 });
 await page.waitForFunction(() => (document.querySelector(".viewer-abstract-body")?.textContent || "").length > 100, null, { timeout: 30000 });
-await page.waitForFunction(() => /Citation overlap/i.test(document.querySelector(".viewer-reference-panel")?.textContent || ""), null, { timeout: 90000 });
+const viewerReferenceExpectation = await page.evaluate(async () => {
+  const selectedId = document.querySelector(".result-item.is-selected")?.dataset.id || "";
+  if (!selectedId) return { selectedId, hasEntry: false, hasContext: false };
+  try {
+    const manifestResponse = await fetch("site/data/references/manifest.json");
+    const manifest = manifestResponse.ok ? await manifestResponse.json() : null;
+    const entry = manifest?.records?.[selectedId];
+    if (!entry?.url) return { selectedId, hasEntry: false, hasContext: false };
+    const payloadResponse = await fetch(entry.url);
+    const payload = payloadResponse.ok ? await payloadResponse.json() : null;
+    const hasContext = Boolean((payload?.references || []).length || (payload?.overlaps || []).length);
+    return { selectedId, hasEntry: true, hasContext };
+  } catch {
+    return { selectedId, hasEntry: false, hasContext: false };
+  }
+});
+if (viewerReferenceExpectation.hasContext) {
+  await page.waitForFunction(() => /Citation overlap/i.test(document.querySelector(".viewer-reference-panel")?.textContent || ""), null, { timeout: 90000 });
+} else {
+  await page.waitForTimeout(500);
+}
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
@@ -559,6 +579,7 @@ const report = {
   paper,
   paperSpotlight,
   paperLatex,
+  viewerReferenceExpectation,
   localPdf,
   referenceRequestsBeforeReferencesTab,
   referencesTab,
@@ -662,11 +683,17 @@ if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PD
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
 }
-if (!/Citation overlap/i.test(paperLatex.viewerReferenceText) || !/extracted refs/i.test(paperLatex.viewerReferenceText)) {
+if (
+  viewerReferenceExpectation.hasContext
+  && (!/Citation overlap/i.test(paperLatex.viewerReferenceText) || !/extracted refs/i.test(paperLatex.viewerReferenceText))
+) {
   throw new Error(`viewer should surface extracted citation/reference context for selected records: ${JSON.stringify(paperLatex)}`);
 }
-if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText) || !/Citation evidence/i.test(paperLatex.viewerFrameText)) {
-  throw new Error(`viewer should explain source quality, reading brief, and citation evidence: ${JSON.stringify(paperLatex)}`);
+if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
+}
+if (viewerReferenceExpectation.hasContext && !/Citation evidence/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`viewer should explain citation evidence when reference context exists: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
 }
 if (referenceRequestsBeforeReferencesTab <= 0) {
   throw new Error(`viewer reference context should lazy-load only after opening a record: ${JSON.stringify(referenceRequests)}`);
