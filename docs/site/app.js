@@ -272,6 +272,55 @@ function referenceStat(label, value) {
   return `<span><strong>${Number(value || 0).toLocaleString()}</strong><small>${escapeHtml(label)}</small></span>`;
 }
 
+function referencePercent(part, total) {
+  const denominator = Number(total || 0);
+  if (!denominator) return "0%";
+  return `${Math.round((Number(part || 0) / denominator) * 100)}%`;
+}
+
+function hasMetricValue(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key) && value[key] !== null && value[key] !== undefined;
+}
+
+function metricNumber(value, key) {
+  return Number(value?.[key] || 0);
+}
+
+function referenceCandidateCount(manifest) {
+  const summary = manifest?.summary || {};
+  const source = manifest?.source || {};
+  const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
+  const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
+  if (hasMetricValue(source, "pdfRecords")) return metricNumber(source, "pdfRecords");
+  if (hasMetricValue(summary, "pdfRecords")) return metricNumber(summary, "pdfRecords");
+  if (hasMetricValue(source, "matchedRecords") || hasMetricValue(source, "unmatchedRecords")) return sourceCandidates;
+  if (hasMetricValue(summary, "matchedRecords") || hasMetricValue(summary, "unmatchedRecords")) return summaryCandidates;
+  if (hasMetricValue(summary, "recordCount")) return metricNumber(summary, "recordCount");
+  return 0;
+}
+
+function referenceCoveredCount(manifest) {
+  const summary = manifest?.summary || {};
+  const source = manifest?.source || {};
+  if (hasMetricValue(summary, "recordsWithReferences")) return metricNumber(summary, "recordsWithReferences");
+  if (hasMetricValue(summary, "matchedRecords")) return metricNumber(summary, "matchedRecords");
+  if (hasMetricValue(source, "matchedRecords")) return metricNumber(source, "matchedRecords");
+  if (hasMetricValue(summary, "recordCount")) return metricNumber(summary, "recordCount");
+  return 0;
+}
+
+function optionalSummaryNumber(manifest, key) {
+  const summary = manifest?.summary || {};
+  const source = manifest?.source || {};
+  if (hasMetricValue(summary, key)) return metricNumber(summary, key);
+  if (hasMetricValue(source, key)) return metricNumber(source, key);
+  return null;
+}
+
+function optionalMetricLabel(value) {
+  return value === null ? "unknown" : Number(value || 0).toLocaleString();
+}
+
 function referenceCountChips(items = []) {
   return items.slice(0, 10).map((item) => `
     <span class="reference-chip"><b>${escapeHtml(item.label || item.author || "")}</b>${Number(item.references || item.count || 0).toLocaleString()}</span>
@@ -380,6 +429,13 @@ async function renderReferences() {
     return;
   }
   const summary = manifest.summary || {};
+  const totalCandidates = referenceCandidateCount(manifest);
+  const coveredReferences = referenceCoveredCount(manifest);
+  const referenceCoverage = referencePercent(coveredReferences, totalCandidates);
+  const remoteAttempted = optionalSummaryNumber(manifest, "remotePdfAttemptedRecords");
+  const blockedRemote = optionalSummaryNumber(manifest, "remotePdfBlockedRecords");
+  const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);
+  const remoteHealthUnknown = remoteAttempted === null || blockedRemote === null;
   const records = Object.entries(manifest.records || {})
     .map(([id, entry]) => ({ id, ...entry, record: findDisplayRecord(id) }))
     .filter((item) => item.record)
@@ -402,10 +458,17 @@ async function renderReferences() {
       </div>
       <div class="selection-stat-grid reference-stat-grid">
         ${referenceStat("matched records", summary.matchedRecords || summary.pdfRecords)}
-        ${referenceStat("reference sets", summary.recordsWithReferences)}
+        ${referenceStat("reference sets", coveredReferences)}
         ${referenceStat("overlap groups", summary.recordsWithOverlaps)}
         ${referenceStat("unique references", summary.uniqueReferenceKeys)}
       </div>
+      <div class="reference-health-grid">
+        <span><b>${escapeHtml(referenceCoverage)}</b><small>reference coverage for this run</small></span>
+        <span><b>${escapeHtml(optionalMetricLabel(remoteAttempted))}</b><small>remote PDF attempts</small></span>
+        <span><b>${escapeHtml(optionalMetricLabel(blockedRemote))}</b><small>blocked remote PDFs</small></span>
+        <span><b>${extractionErrors.toLocaleString()}</b><small>extraction errors</small></span>
+      </div>
+      <p class="reference-health-note">${blockedRemote || extractionErrors ? "Blocked or failed PDFs are excluded from citation overlap; semantic map/search still uses title and abstract text." : remoteHealthUnknown ? "Remote PDF attempt counts are unavailable for this artifact; extraction errors are shown when reported." : "No blocking extraction errors in the current reference artifact."}</p>
       <div class="reference-analysis-grid">
         <article class="reference-panel-block">
           <h3>Most cited reference titles</h3>
@@ -421,6 +484,7 @@ async function renderReferences() {
       </div>
       <article class="reference-panel-block">
         <h3>Records with citation overlap</h3>
+        <p class="reference-sort-note">Sorted by overlap count first, then extracted reference count.</p>
         <div class="reference-record-list">
           ${records.map((item, index) => `
             <button class="reference-record-item" type="button" data-id="${escapeHtml(item.id)}">
@@ -470,7 +534,7 @@ async function renderReferenceSelection(recordId) {
             <span class="neighbor-rank">${index + 1}</span>
             <span>
               <strong>${escapeHtml(plainMathTitle(overlapRecord?.title || item.title || item.recordId))}</strong>
-              <small>${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap</small>
+              <small>${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap${(item.references || []).length ? ` · ${escapeHtml((item.references || []).slice(0, 2).map(referenceDisplayText).filter(Boolean).join(" / "))}` : ""}</small>
             </span>
           </button>
         `;

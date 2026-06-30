@@ -25,6 +25,39 @@ function isSameOrigin(url) {
   return url.startsWith(baseUrl) || url.startsWith(new URL(baseUrl).origin);
 }
 
+function hasMetricValue(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key) && value[key] !== null && value[key] !== undefined;
+}
+
+function metricNumber(value, key) {
+  return Number(value?.[key] || 0);
+}
+
+function referenceCoverageForManifest(manifest) {
+  const summary = manifest.summary || {};
+  const source = manifest.source || {};
+  const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
+  const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
+  let totalCandidates = 0;
+  if (hasMetricValue(source, "pdfRecords")) totalCandidates = metricNumber(source, "pdfRecords");
+  else if (hasMetricValue(summary, "pdfRecords")) totalCandidates = metricNumber(summary, "pdfRecords");
+  else if (hasMetricValue(source, "matchedRecords") || hasMetricValue(source, "unmatchedRecords")) totalCandidates = sourceCandidates;
+  else if (hasMetricValue(summary, "matchedRecords") || hasMetricValue(summary, "unmatchedRecords")) totalCandidates = summaryCandidates;
+  else if (hasMetricValue(summary, "recordCount")) totalCandidates = metricNumber(summary, "recordCount");
+
+  let covered = 0;
+  if (hasMetricValue(summary, "recordsWithReferences")) covered = metricNumber(summary, "recordsWithReferences");
+  else if (hasMetricValue(summary, "matchedRecords")) covered = metricNumber(summary, "matchedRecords");
+  else if (hasMetricValue(source, "matchedRecords")) covered = metricNumber(source, "matchedRecords");
+  else if (hasMetricValue(summary, "recordCount")) covered = metricNumber(summary, "recordCount");
+
+  return {
+    totalCandidates,
+    covered,
+    expectedPercent: totalCandidates ? `${Math.round((covered / totalCandidates) * 100)}%` : "0%",
+  };
+}
+
 page.on("console", (message) => {
   if (message.type() === "error" && !isBenignConsoleError(message.text())) consoleErrors.push(message.text());
 });
@@ -204,6 +237,7 @@ const paperLatex = await page.evaluate(() => ({
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
   viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
   viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
+  confidenceText: document.querySelector(".viewer-confidence")?.innerText || "",
   hasPdfShell: Boolean(document.querySelector(".pdfjs-shell")),
   pdfStatus: document.querySelector("[data-pdf-status]")?.textContent || "",
   pdfCanvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
@@ -255,6 +289,7 @@ const studyTrail = await page.evaluate(() => ({
   defaultOpen: document.querySelector(".study-trail")?.open ?? true,
   helpCount: document.querySelectorAll(".study-help").length,
   helpTitle: document.querySelector(".study-trail .study-help")?.getAttribute("title") || "",
+  summaryText: document.querySelector(".study-trail-summary")?.textContent || "",
   guidance: document.querySelector(".study-guidance")?.textContent || "",
   count: document.querySelectorAll(".study-trail .study-trail-item").length,
   stages: [...document.querySelectorAll(".study-trail-item em")].map((item) => item.textContent || ""),
@@ -267,6 +302,7 @@ await page.locator(".semantic-compare .compare-candidate").first().click();
 await page.waitForSelector(".semantic-compare-result", { timeout: 10000 });
 const semanticCompare = await page.evaluate(() => ({
   text: document.querySelector(".semantic-compare")?.innerText || "",
+  metricsText: document.querySelector(".semantic-compare-metrics")?.innerText || "",
   bridgeCount: document.querySelectorAll(".semantic-bridge").length,
   modalCount: document.querySelectorAll("dialog,[role='dialog'],.modal,.drawer").length,
 }));
@@ -557,6 +593,9 @@ const referencesTab = await page.evaluate(() => ({
   resultCount: document.querySelector("#resultCount")?.textContent || "",
   activeSummary: document.querySelector("#activeSummary")?.textContent || "",
   statText: document.querySelector(".reference-stat-grid")?.textContent || "",
+  healthText: document.querySelector(".reference-health-grid")?.textContent || "",
+  healthNote: document.querySelector(".reference-health-note")?.textContent || "",
+  sortNote: document.querySelector(".reference-sort-note")?.textContent || "",
   topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
   topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
   recordCount: document.querySelectorAll(".reference-record-item").length,
@@ -568,6 +607,24 @@ const referencesTab = await page.evaluate(() => ({
   recordListOverflowY: getComputedStyle(document.querySelector(".reference-record-list")).overflowY,
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
+const referenceManifestCoverage = await page.evaluate(async () => {
+  return fetch("site/data/references/manifest.json").then((response) => response.json());
+});
+const referenceManifestExpectedCoverage = referenceCoverageForManifest(referenceManifestCoverage);
+const zeroCoverageFallbackCase = referenceCoverageForManifest({
+  summary: {
+    recordsWithReferences: 0,
+    matchedRecords: 7,
+    unmatchedRecords: 3,
+  },
+});
+const zeroCandidateFallbackCase = referenceCoverageForManifest({
+  source: { pdfRecords: 0 },
+  summary: {
+    recordsWithReferences: 0,
+    recordCount: 7,
+  },
+});
 
 const report = {
   baseUrl,
@@ -583,6 +640,9 @@ const report = {
   localPdf,
   referenceRequestsBeforeReferencesTab,
   referencesTab,
+  referenceManifestCoverage: referenceManifestExpectedCoverage,
+  zeroCoverageFallbackCase,
+  zeroCandidateFallbackCase,
   rapidPdfSwitch,
   studyTrail,
   semanticCompare,
@@ -674,6 +734,9 @@ if (!paperLatex.hasPdfShell && (!/OpenReview link/i.test(paperLatex.viewerFrameT
 if (/Main claim|Evidence cue/i.test(paperLatex.viewerFrameText) || !/Opening context/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`reader brief should label abstract sentences neutrally: ${JSON.stringify(paperLatex)}`);
 }
+if (!/confidence/i.test(paperLatex.confidenceText) || !/\d+\/4 evidence checks/i.test(paperLatex.confidenceText)) {
+  throw new Error(`viewer should expose an evidence confidence summary: ${JSON.stringify(paperLatex)}`);
+}
 if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
   throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
 }
@@ -689,6 +752,12 @@ if (
 ) {
   throw new Error(`viewer should surface extracted citation/reference context for selected records: ${JSON.stringify(paperLatex)}`);
 }
+if (!viewerReferenceExpectation.hasContext && !/Citation evidence|Not indexed for this record/i.test(paperLatex.viewerReferenceText)) {
+  throw new Error(`viewer should explain when citation evidence is not indexed: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
+}
+if (!viewerReferenceExpectation.hasEntry && !paperLatex.hasPdfShell && !/No downloadable PDF was available for reference extraction/i.test(paperLatex.viewerReferenceText)) {
+  throw new Error(`OpenReview-only records should not be described as having a collected PDF reference shard: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
+}
 if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
 }
@@ -702,6 +771,8 @@ if (
   !referencesTab.active
   || referencesTab.title !== "Reference analysis"
   || !/reference records/.test(referencesTab.resultCount)
+  || !/reference coverage/i.test(referencesTab.healthText)
+  || !/Sorted by overlap count/i.test(referencesTab.sortNote)
   || !referencesTab.topReferenceCount
   || !referencesTab.recordCount
   || referencesTab.viewOverflowY !== "auto"
@@ -712,11 +783,23 @@ if (
 ) {
   throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
 }
+if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
+  throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+}
+if (zeroCoverageFallbackCase.covered !== 0 || zeroCoverageFallbackCase.expectedPercent !== "0%") {
+  throw new Error(`References coverage should preserve explicit zero before matched-record fallbacks: ${JSON.stringify(zeroCoverageFallbackCase)}`);
+}
+if (zeroCandidateFallbackCase.totalCandidates !== 0 || zeroCandidateFallbackCase.expectedPercent !== "0%") {
+  throw new Error(`References coverage should preserve explicit zero candidate denominators: ${JSON.stringify(zeroCandidateFallbackCase)}`);
+}
 if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.topReferenceText)) {
   throw new Error(`References top list should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);
 }
 if (!referencesTab.selectedSampleCount || !/extracted refs/i.test(referencesTab.selectedText)) {
   throw new Error(`References selected record should show extracted reference samples: ${JSON.stringify(referencesTab)}`);
+}
+if (!/shared references/i.test(referencesTab.selectedText)) {
+  throw new Error(`References selected record should show overlap evidence labels: ${JSON.stringify(referencesTab)}`);
 }
 if (referencesTab.graphNodeCount < 2 || referencesTab.graphEdgeCount < 1) {
   throw new Error(`References selected record should show a citation-overlap graph: ${JSON.stringify(referencesTab)}`);
@@ -763,6 +846,7 @@ if (
   || studyTrail.defaultOpen
   || studyTrail.helpCount < 2
   || !/Staged recommended papers/.test(studyTrail.helpTitle)
+  || !/Intro|Core|Areas|Domains/.test(studyTrail.summaryText)
   || !/Reading order/i.test(studyTrail.guidance)
   || studyTrail.count < 5
   || studyTrail.count > 10
@@ -772,7 +856,7 @@ if (
 ) {
   throw new Error(`Study Trail should render 5-10 staged clickable items plus compare controls: ${JSON.stringify(studyTrail)}`);
 }
-if (!/common topic/i.test(semanticCompare.text) || !/differences/i.test(semanticCompare.text) || !/bridging papers/i.test(semanticCompare.text) || !semanticCompare.bridgeCount || semanticCompare.modalCount) {
+if (!/common topic/i.test(semanticCompare.text) || !/differences/i.test(semanticCompare.text) || !/bridging papers/i.test(semanticCompare.text) || !/shared tags|bridge papers/i.test(semanticCompare.metricsText) || !semanticCompare.bridgeCount || semanticCompare.modalCount) {
   throw new Error(`Semantic Compare should render inline common/different/bridge sections without modal UI: ${JSON.stringify(semanticCompare)}`);
 }
 if (!bridgeClick.viewerTitle || !studyTrailClick.viewerTitle || bridgeClick.viewerTitle === studyTrailClick.viewerTitle) {

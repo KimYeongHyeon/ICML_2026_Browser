@@ -12,7 +12,7 @@ import {
 } from "./records.js";
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle, queueMathTypeset } from "./utils.js";
-import { loadReferenceRecord } from "./references.js";
+import { loadReferenceRecord, referenceManifestSummary } from "./references.js";
 import {
   destroyPdfViewer,
   isPdfAsset,
@@ -220,6 +220,14 @@ function renderInformationQuality(record) {
     : openReviewPdfUrl(record)
     ? "OpenReview link"
     : displayAvailabilityLabel(record);
+  const checks = [
+    { label: "abstract", ok: Boolean(record.abstract) },
+    { label: "map", ok: Boolean(record.mapAvailable) },
+    { label: "material link", ok: Boolean(record.localPdfPath || record.bestAsset || record.pdfUrl || openReviewPdfUrl(record) || record.pageUrl) },
+    { label: "source status", ok: record.status === "accepted_public" || Boolean(record.decision) },
+  ];
+  const okCount = checks.filter((item) => item.ok).length;
+  const confidence = okCount >= 4 ? "high" : okCount >= 2 ? "medium" : "low";
   return `
     <section class="viewer-trust-panel">
       <p class="eyebrow">Information quality</p>
@@ -228,6 +236,10 @@ function renderInformationQuality(record) {
         <span><em>Text</em><b>${escapeHtml(text)}</b></span>
         <span><em>Map</em><b>${escapeHtml(map)}</b></span>
         <span><em>Material</em><b>${escapeHtml(material)}</b></span>
+      </div>
+      <div class="viewer-confidence">
+        <strong>${escapeHtml(confidence)} confidence</strong>
+        <span>${okCount}/${checks.length} evidence checks available: ${escapeHtml(checks.filter((item) => item.ok).map((item) => item.label).join(", ") || "metadata only")}</span>
       </div>
     </section>
   `;
@@ -320,6 +332,34 @@ function renderViewerReferencePanel(payload = {}) {
   `;
 }
 
+function referenceSummaryCoveredCount(summary = {}) {
+  if (Object.prototype.hasOwnProperty.call(summary, "recordsWithReferences")) return Number(summary.recordsWithReferences || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "matchedRecords")) return Number(summary.matchedRecords || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "recordCount")) return Number(summary.recordCount || 0);
+  return 0;
+}
+
+function renderReferenceUnavailablePanel(record) {
+  const summary = referenceManifestSummary() || {};
+  const covered = referenceSummaryCoveredCount(summary).toLocaleString();
+  const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);
+  const reason = hasCollectedPdf
+    ? "No reference shard has been matched to this record yet."
+    : "No downloadable PDF was available for reference extraction.";
+  return `
+    <section class="viewer-reference-panel is-empty">
+      <div class="viewer-section-head">
+        <div>
+          <p class="eyebrow">Citation evidence</p>
+          <h3>Not indexed for this record</h3>
+        </div>
+        <span>${covered} records covered</span>
+      </div>
+      <p class="viewer-reference-note">${escapeHtml(reason)} Semantic neighbors above still come from title/abstract embeddings, not citations.</p>
+    </section>
+  `;
+}
+
 function mountReferencePanelActions() {
   els.viewerFrame.querySelectorAll("[data-reference-id]").forEach((button) => {
     button.addEventListener("click", () => openReferenceRecord(button.dataset.referenceId));
@@ -333,7 +373,7 @@ function mountReferencePanel(record) {
     if (state.selectedId !== record.id || !marker.isConnected) return;
     const html = renderViewerReferencePanel(payload || {});
     if (!html) {
-      marker.remove();
+      marker.innerHTML = renderReferenceUnavailablePanel(record);
       return;
     }
     marker.innerHTML = html;

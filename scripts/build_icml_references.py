@@ -1052,6 +1052,8 @@ def merge_chunks(chunk_dir: Path, out_root: Path) -> dict[str, Any]:
       "fallbackRecords": sum(summary_int(summary, "fallbackRecords") for summary in summaries),
       "pdfFallbackRecords": sum(summary_int(summary, "pdfFallbackRecords") for summary in summaries),
       "remotePdfRecords": sum(summary_int(summary, "remotePdfRecords") for summary in summaries),
+      "remotePdfAttemptedRecords": sum(summary_int(summary, "remotePdfAttemptedRecords") for summary in summaries),
+      "remotePdfBlockedRecords": sum(summary_int(summary, "remotePdfBlockedRecords") for summary in summaries),
       "crossrefReferenceRecords": sum(summary_int(summary, "crossrefReferenceRecords") for summary in summaries),
       "recordsWithReferences": sum(1 for payload in record_payloads.values() if int(payload.get("referenceCount") or 0)),
       "referenceStrings": reference_strings,
@@ -1534,6 +1536,9 @@ def self_check() -> None:
           "matchedRecords": 1,
           "unmatchedRecords": 0,
           "cachedRecords": record_index,
+          "remotePdfRecords": 1,
+          "remotePdfAttemptedRecords": chunk_index + 1,
+          "remotePdfBlockedRecords": 1 if chunk_index == 1 else 0,
         },
         "records": {
           record_id: {
@@ -1563,6 +1568,9 @@ def self_check() -> None:
     assert merged["summary"]["recordCount"] == 2
     assert merged["summary"]["manifestRecords"] == 2
     assert merged["summary"]["cachedRecords"] == 1
+    assert merged["summary"]["remotePdfRecords"] == 3
+    assert merged["summary"]["remotePdfAttemptedRecords"] == 6
+    assert merged["summary"]["remotePdfBlockedRecords"] == 1
     assert merged["summary"]["uniqueReferenceKeys"] == 2
     assert merged["summary"]["recordsWithOverlaps"] == 2
     assert [item["label"] for item in merged["analysis"]["referenceCounts"]["byArea"]] == ["Area 0", "Area 1"]

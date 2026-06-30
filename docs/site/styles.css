@@ -865,6 +865,42 @@ a:focus-visible {
   line-height: 1.2;
 }
 
+.reference-health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reference-health-grid span,
+.study-trail-summary span,
+.semantic-compare-metrics span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.reference-health-grid b,
+.study-trail-summary b,
+.semantic-compare-metrics b {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.reference-health-note,
+.reference-sort-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .reference-analysis-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -2331,6 +2367,13 @@ a:focus-visible {
   margin-top: 8px;
 }
 
+.study-trail-summary,
+.semantic-compare-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 6px;
+}
+
 .study-disclosure-toggle::before {
   content: "+";
 }
@@ -2620,6 +2663,11 @@ a:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.viewer-reference-panel.is-empty {
+  border-style: dashed;
+  background: var(--surface-3);
+}
+
 .viewer-trust-panel,
 .viewer-brief {
   display: grid;
@@ -2664,6 +2712,24 @@ a:focus-visible {
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.viewer-confidence {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: #f5faf8;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.viewer-confidence strong {
+  color: var(--accent-strong);
+  text-transform: capitalize;
 }
 
 .viewer-brief ul {
