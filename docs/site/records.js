@@ -97,9 +97,11 @@ export function icmlPresentationId(record) {
 }
 
 export function openReviewForumId(record) {
-  const values = [record.openreviewUrl, record.id].filter(Boolean);
+  const values = [record.pageUrl, record.id, record.openreviewUrl, record.pdfUrl].filter(Boolean);
   for (const value of values) {
-    const match = String(value).match(/(?:[?&]id=|openreview:)([^;&]+)/);
+    const text = String(value);
+    if (/openreview\.net\/group\?/i.test(text)) continue;
+    const match = text.match(/(?:[?&]id=|openreview:)([^;&]+)/);
     if (match) return decodeURIComponent(match[1]);
   }
   return "";

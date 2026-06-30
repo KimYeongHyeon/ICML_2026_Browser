@@ -351,6 +351,7 @@ await page.waitForFunction(() => {
 }, null, { timeout: 60000 });
 const localPdf = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
+  sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
   shellExists: Boolean(document.querySelector(".pdfjs-shell")),
   hasError: Boolean(document.querySelector(".pdfjs-shell.has-error")),
   status: document.querySelector("[data-pdf-status]")?.textContent || "",
@@ -751,6 +752,9 @@ if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PD
 }
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
+}
+if (!/OpenReview\s+0yK6aZLoEF/i.test(localPdf.sourcePanelText) || /ICML\.cc\/2026\/Workshop/i.test(localPdf.sourcePanelText)) {
+  throw new Error(`workshop source identifiers should show the submission/forum id, not the venue group id: ${JSON.stringify(localPdf)}`);
 }
 if (
   viewerReferenceExpectation.hasContext
