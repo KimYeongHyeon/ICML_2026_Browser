@@ -574,6 +574,27 @@ const referencesTab = await page.evaluate(() => ({
   recordListOverflowY: getComputedStyle(document.querySelector(".reference-record-list")).overflowY,
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
+const referenceManifestCoverage = await page.evaluate(async () => {
+  const manifest = await fetch("site/data/references/manifest.json").then((response) => response.json());
+  const summary = manifest.summary || {};
+  const source = manifest.source || {};
+  const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
+  const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
+  const totalCandidates = Number(
+    source.pdfRecords
+      || summary.pdfRecords
+      || sourceCandidates
+      || summaryCandidates
+      || summary.recordCount
+      || 0,
+  );
+  const covered = Number(summary.recordsWithReferences || 0);
+  return {
+    totalCandidates,
+    covered,
+    expectedPercent: totalCandidates ? `${Math.round((covered / totalCandidates) * 100)}%` : "0%",
+  };
+});
 
 const report = {
   baseUrl,
@@ -589,6 +610,7 @@ const report = {
   localPdf,
   referenceRequestsBeforeReferencesTab,
   referencesTab,
+  referenceManifestCoverage,
   rapidPdfSwitch,
   studyTrail,
   semanticCompare,
@@ -725,6 +747,9 @@ if (
   || !referenceRequests.some((url) => /\/site\/data\/references\/records\//.test(url))
 ) {
   throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
+}
+if (!referencesTab.healthText.includes(referenceManifestCoverage.expectedPercent)) {
+  throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage })}`);
 }
 if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.topReferenceText)) {
   throw new Error(`References top list should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);

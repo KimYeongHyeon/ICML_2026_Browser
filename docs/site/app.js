@@ -278,6 +278,21 @@ function referencePercent(part, total) {
   return `${Math.round((Number(part || 0) / denominator) * 100)}%`;
 }
 
+function referenceCandidateCount(manifest) {
+  const summary = manifest?.summary || {};
+  const source = manifest?.source || {};
+  const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
+  const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
+  return Number(
+    source.pdfRecords
+      || summary.pdfRecords
+      || sourceCandidates
+      || summaryCandidates
+      || summary.recordCount
+      || 0,
+  );
+}
+
 function referenceCountChips(items = []) {
   return items.slice(0, 10).map((item) => `
     <span class="reference-chip"><b>${escapeHtml(item.label || item.author || "")}</b>${Number(item.references || item.count || 0).toLocaleString()}</span>
@@ -386,7 +401,7 @@ async function renderReferences() {
     return;
   }
   const summary = manifest.summary || {};
-  const totalCandidates = Number(summary.pdfRecords || summary.matchedRecords || summary.recordCount || 0);
+  const totalCandidates = referenceCandidateCount(manifest);
   const referenceCoverage = referencePercent(summary.recordsWithReferences, totalCandidates || summary.recordCount);
   const blockedRemote = Number(summary.remotePdfBlockedRecords || 0);
   const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);
