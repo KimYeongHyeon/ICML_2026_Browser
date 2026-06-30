@@ -278,38 +278,42 @@ function referencePercent(part, total) {
   return `${Math.round((Number(part || 0) / denominator) * 100)}%`;
 }
 
+function hasMetricValue(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key) && value[key] !== null && value[key] !== undefined;
+}
+
+function metricNumber(value, key) {
+  return Number(value?.[key] || 0);
+}
+
 function referenceCandidateCount(manifest) {
   const summary = manifest?.summary || {};
   const source = manifest?.source || {};
   const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
   const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
-  return Number(
-    source.pdfRecords
-      || summary.pdfRecords
-      || sourceCandidates
-      || summaryCandidates
-      || summary.recordCount
-      || 0,
-  );
+  if (hasMetricValue(source, "pdfRecords")) return metricNumber(source, "pdfRecords");
+  if (hasMetricValue(summary, "pdfRecords")) return metricNumber(summary, "pdfRecords");
+  if (hasMetricValue(source, "matchedRecords") || hasMetricValue(source, "unmatchedRecords")) return sourceCandidates;
+  if (hasMetricValue(summary, "matchedRecords") || hasMetricValue(summary, "unmatchedRecords")) return summaryCandidates;
+  if (hasMetricValue(summary, "recordCount")) return metricNumber(summary, "recordCount");
+  return 0;
 }
 
 function referenceCoveredCount(manifest) {
   const summary = manifest?.summary || {};
   const source = manifest?.source || {};
-  return Number(
-    summary.recordsWithReferences
-      || summary.matchedRecords
-      || source.matchedRecords
-      || summary.recordCount
-      || 0,
-  );
+  if (hasMetricValue(summary, "recordsWithReferences")) return metricNumber(summary, "recordsWithReferences");
+  if (hasMetricValue(summary, "matchedRecords")) return metricNumber(summary, "matchedRecords");
+  if (hasMetricValue(source, "matchedRecords")) return metricNumber(source, "matchedRecords");
+  if (hasMetricValue(summary, "recordCount")) return metricNumber(summary, "recordCount");
+  return 0;
 }
 
 function optionalSummaryNumber(manifest, key) {
   const summary = manifest?.summary || {};
   const source = manifest?.source || {};
-  if (Object.prototype.hasOwnProperty.call(summary, key)) return Number(summary[key] || 0);
-  if (Object.prototype.hasOwnProperty.call(source, key)) return Number(source[key] || 0);
+  if (hasMetricValue(summary, key)) return metricNumber(summary, key);
+  if (hasMetricValue(source, key)) return metricNumber(source, key);
   return null;
 }
 

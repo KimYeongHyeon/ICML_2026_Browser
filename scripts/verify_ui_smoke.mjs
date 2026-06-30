@@ -25,6 +25,39 @@ function isSameOrigin(url) {
   return url.startsWith(baseUrl) || url.startsWith(new URL(baseUrl).origin);
 }
 
+function hasMetricValue(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key) && value[key] !== null && value[key] !== undefined;
+}
+
+function metricNumber(value, key) {
+  return Number(value?.[key] || 0);
+}
+
+function referenceCoverageForManifest(manifest) {
+  const summary = manifest.summary || {};
+  const source = manifest.source || {};
+  const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
+  const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
+  let totalCandidates = 0;
+  if (hasMetricValue(source, "pdfRecords")) totalCandidates = metricNumber(source, "pdfRecords");
+  else if (hasMetricValue(summary, "pdfRecords")) totalCandidates = metricNumber(summary, "pdfRecords");
+  else if (hasMetricValue(source, "matchedRecords") || hasMetricValue(source, "unmatchedRecords")) totalCandidates = sourceCandidates;
+  else if (hasMetricValue(summary, "matchedRecords") || hasMetricValue(summary, "unmatchedRecords")) totalCandidates = summaryCandidates;
+  else if (hasMetricValue(summary, "recordCount")) totalCandidates = metricNumber(summary, "recordCount");
+
+  let covered = 0;
+  if (hasMetricValue(summary, "recordsWithReferences")) covered = metricNumber(summary, "recordsWithReferences");
+  else if (hasMetricValue(summary, "matchedRecords")) covered = metricNumber(summary, "matchedRecords");
+  else if (hasMetricValue(source, "matchedRecords")) covered = metricNumber(source, "matchedRecords");
+  else if (hasMetricValue(summary, "recordCount")) covered = metricNumber(summary, "recordCount");
+
+  return {
+    totalCandidates,
+    covered,
+    expectedPercent: totalCandidates ? `${Math.round((covered / totalCandidates) * 100)}%` : "0%",
+  };
+}
+
 page.on("console", (message) => {
   if (message.type() === "error" && !isBenignConsoleError(message.text())) consoleErrors.push(message.text());
 });
@@ -575,31 +608,15 @@ const referencesTab = await page.evaluate(() => ({
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
 const referenceManifestCoverage = await page.evaluate(async () => {
-  const manifest = await fetch("site/data/references/manifest.json").then((response) => response.json());
-  const summary = manifest.summary || {};
-  const source = manifest.source || {};
-  const sourceCandidates = Number(source.matchedRecords || 0) + Number(source.unmatchedRecords || 0);
-  const summaryCandidates = Number(summary.matchedRecords || 0) + Number(summary.unmatchedRecords || 0);
-  const totalCandidates = Number(
-    source.pdfRecords
-      || summary.pdfRecords
-      || sourceCandidates
-      || summaryCandidates
-      || summary.recordCount
-      || 0,
-  );
-  const covered = Number(
-    summary.recordsWithReferences
-      || summary.matchedRecords
-      || source.matchedRecords
-      || summary.recordCount
-      || 0,
-  );
-  return {
-    totalCandidates,
-    covered,
-    expectedPercent: totalCandidates ? `${Math.round((covered / totalCandidates) * 100)}%` : "0%",
-  };
+  return fetch("site/data/references/manifest.json").then((response) => response.json());
+});
+const referenceManifestExpectedCoverage = referenceCoverageForManifest(referenceManifestCoverage);
+const zeroCoverageFallbackCase = referenceCoverageForManifest({
+  summary: {
+    recordsWithReferences: 0,
+    matchedRecords: 7,
+    unmatchedRecords: 3,
+  },
 });
 
 const report = {
@@ -616,7 +633,8 @@ const report = {
   localPdf,
   referenceRequestsBeforeReferencesTab,
   referencesTab,
-  referenceManifestCoverage,
+  referenceManifestCoverage: referenceManifestExpectedCoverage,
+  zeroCoverageFallbackCase,
   rapidPdfSwitch,
   studyTrail,
   semanticCompare,
@@ -754,8 +772,11 @@ if (
 ) {
   throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
 }
-if (!referencesTab.healthText.includes(referenceManifestCoverage.expectedPercent)) {
-  throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage })}`);
+if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
+  throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+}
+if (zeroCoverageFallbackCase.covered !== 0 || zeroCoverageFallbackCase.expectedPercent !== "0%") {
+  throw new Error(`References coverage should preserve explicit zero before matched-record fallbacks: ${JSON.stringify(zeroCoverageFallbackCase)}`);
 }
 if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.topReferenceText)) {
   throw new Error(`References top list should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);
