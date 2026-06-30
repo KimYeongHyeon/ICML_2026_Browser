@@ -332,9 +332,16 @@ function renderViewerReferencePanel(payload = {}) {
   `;
 }
 
+function referenceSummaryCoveredCount(summary = {}) {
+  if (Object.prototype.hasOwnProperty.call(summary, "recordsWithReferences")) return Number(summary.recordsWithReferences || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "matchedRecords")) return Number(summary.matchedRecords || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "recordCount")) return Number(summary.recordCount || 0);
+  return 0;
+}
+
 function renderReferenceUnavailablePanel(record) {
   const summary = referenceManifestSummary() || {};
-  const covered = Number(summary.recordCount || summary.recordsWithReferences || 0).toLocaleString();
+  const covered = referenceSummaryCoveredCount(summary).toLocaleString();
   const reason = record.localPdfPath || record.pdfUrl || openReviewPdfUrl(record)
     ? "No reference shard has been matched to this record yet."
     : "No downloadable PDF was available for reference extraction.";
