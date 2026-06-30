@@ -431,7 +431,7 @@ async function renderReferences() {
   const summary = manifest.summary || {};
   const totalCandidates = referenceCandidateCount(manifest);
   const coveredReferences = referenceCoveredCount(manifest);
-  const referenceCoverage = referencePercent(coveredReferences, totalCandidates || summary.recordCount);
+  const referenceCoverage = referencePercent(coveredReferences, totalCandidates);
   const remoteAttempted = optionalSummaryNumber(manifest, "remotePdfAttemptedRecords");
   const blockedRemote = optionalSummaryNumber(manifest, "remotePdfBlockedRecords");
   const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);

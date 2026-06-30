@@ -618,6 +618,13 @@ const zeroCoverageFallbackCase = referenceCoverageForManifest({
     unmatchedRecords: 3,
   },
 });
+const zeroCandidateFallbackCase = referenceCoverageForManifest({
+  source: { pdfRecords: 0 },
+  summary: {
+    recordsWithReferences: 0,
+    recordCount: 7,
+  },
+});
 
 const report = {
   baseUrl,
@@ -635,6 +642,7 @@ const report = {
   referencesTab,
   referenceManifestCoverage: referenceManifestExpectedCoverage,
   zeroCoverageFallbackCase,
+  zeroCandidateFallbackCase,
   rapidPdfSwitch,
   studyTrail,
   semanticCompare,
@@ -777,6 +785,9 @@ if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expecte
 }
 if (zeroCoverageFallbackCase.covered !== 0 || zeroCoverageFallbackCase.expectedPercent !== "0%") {
   throw new Error(`References coverage should preserve explicit zero before matched-record fallbacks: ${JSON.stringify(zeroCoverageFallbackCase)}`);
+}
+if (zeroCandidateFallbackCase.totalCandidates !== 0 || zeroCandidateFallbackCase.expectedPercent !== "0%") {
+  throw new Error(`References coverage should preserve explicit zero candidate denominators: ${JSON.stringify(zeroCandidateFallbackCase)}`);
 }
 if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.topReferenceText)) {
   throw new Error(`References top list should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);
