@@ -588,7 +588,13 @@ const referenceManifestCoverage = await page.evaluate(async () => {
       || summary.recordCount
       || 0,
   );
-  const covered = Number(summary.recordsWithReferences || 0);
+  const covered = Number(
+    summary.recordsWithReferences
+      || summary.matchedRecords
+      || source.matchedRecords
+      || summary.recordCount
+      || 0,
+  );
   return {
     totalCandidates,
     covered,
