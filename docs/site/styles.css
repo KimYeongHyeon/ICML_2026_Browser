@@ -2298,7 +2298,7 @@ a:focus-visible {
 .trend-panel {
   display: grid;
   gap: 14px;
-  padding: 22px 18px;
+  padding: 22px 18px 48px;
 }
 
 .trend-panel-head {

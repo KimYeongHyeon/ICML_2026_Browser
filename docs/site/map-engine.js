@@ -259,23 +259,30 @@ function graphDataBounds(graphData) {
   });
 }
 
+function defaultMapFitPadding(height) {
+  if (state.mapMode === "focused") return 96;
+  return Math.min(280, Math.max(210, height * 0.26));
+}
+
 export function fitForceGraph(graph = state.mapGraph, graphData = state.mapGraphData, options = {}) {
   if (!graph || !graphData?.nodes?.length) return;
   const bounds = graphDataBounds(graphData);
   if (!bounds) return;
   const width = els.mapCanvas.clientWidth || 840;
   const height = els.mapCanvas.clientHeight || 640;
-  const padding = options.padding ?? (state.mapMode === "focused" ? 84 : 92);
+  const padding = options.padding ?? defaultMapFitPadding(height);
   const duration = options.duration ?? 420;
-  const spanX = Math.max(80, bounds.maxX - bounds.minX);
-  const spanY = Math.max(80, bounds.maxY - bounds.minY);
+  const nodeMargin = state.mapMode === "focused" ? 28 : 68;
+  const spanX = Math.max(80, bounds.maxX - bounds.minX + nodeMargin * 2);
+  const spanY = Math.max(80, bounds.maxY - bounds.minY + nodeMargin * 2);
   const availableWidth = Math.max(80, width - padding * 2);
   const availableHeight = Math.max(80, height - padding * 2);
   const fitScale = Math.min(
     availableWidth / spanX,
     availableHeight / spanY,
   );
-  const zoom = Math.max(0.14, Math.min(state.mapMode === "focused" ? 2.8 : 1.12, fitScale));
+  const minZoom = state.mapMode === "focused" ? 0.14 : 0.07;
+  const zoom = Math.max(minZoom, Math.min(state.mapMode === "focused" ? 2.8 : 1.12, fitScale));
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2;
   graph.centerAt?.(centerX, centerY, duration);
@@ -328,7 +335,7 @@ export function reflowMap(options = {}) {
     const scheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapGraph === graph && state.mapLastUserInteraction <= scheduledAt) {
-        fitForceGraph(graph, state.mapGraphData, { duration: 420, padding: 96 });
+        fitForceGraph(graph, state.mapGraphData, { duration: 420, padding: options.padding });
       }
     }, options.delay || 120);
   }
@@ -396,21 +403,21 @@ export function renderForceGraph(graphData) {
     const firstFitScheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= firstFitScheduledAt) {
-        fitForceGraph(graph, graphData, { duration: 580, padding: 176 });
+        fitForceGraph(graph, graphData, { duration: 520 });
       }
-    }, 450);
+    }, 220);
     const secondFitScheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= secondFitScheduledAt) {
-        fitForceGraph(graph, graphData, { duration: 520, padding: 190 });
+        fitForceGraph(graph, graphData, { duration: 520 });
       }
-    }, 1100);
+    }, 850);
     const finalFitScheduledAt = performance.now();
     window.setTimeout(() => {
       if (state.tab === "map" && state.mapMode === "global" && state.mapGraph === graph && state.mapLastUserInteraction <= finalFitScheduledAt) {
-        fitForceGraph(graph, graphData, { duration: 560, padding: 220 });
+        fitForceGraph(graph, graphData, { duration: 560 });
       }
-    }, 2300);
+    }, 1700);
   }
   reflowMap();
   return true;

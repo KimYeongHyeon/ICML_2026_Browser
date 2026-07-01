@@ -93,7 +93,7 @@ function renderTrendCards() {
             <div class="trend-keywords">
               ${(trend.keywords || []).slice(0, 5).map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}
             </div>
-            ${(trend.representativeSentences || []).slice(0, 2).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
+            ${(trend.representativeSentences || []).slice(0, 1).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
             <div class="trend-counts">${trendCountGroup("Areas", trend.areaCounts)}${trendCountGroup("Domains", trend.domainCounts)}</div>
             <div class="trend-study-section">
               <span><em>Core question</em>${escapeHtml(trend.coreQuestion || "What should I read first in this embedding cluster?")}</span>
