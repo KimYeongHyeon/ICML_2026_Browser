@@ -305,7 +305,7 @@ export function buildGraphData(visibleRecords, mapById) {
   }).filter((node) => node.record);
   const links = [];
   const seen = new Set();
-  const neighborLimit = state.mapMode === "focused" ? 6 : 3;
+  const neighborLimit = state.mapMode === "focused" ? 6 : hasMapQuery ? 1 : 2;
   for (const node of nodes) {
     const map = mapById.get(node.id);
     for (const neighbor of (map?.nearestNeighbors || []).slice(0, neighborLimit)) {

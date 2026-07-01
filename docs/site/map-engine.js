@@ -31,19 +31,29 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   radius = Math.max(radius, minScreenRadius / safeScale);
   const domainShape = options.domainShape || domainShapeValue(node.record);
   const useDomainShape = (options.showDomainShape ?? state.mapColor === "area-domain") && node.record;
+  if (isSearchMatch) {
+    ctx.save();
+    ctx.lineWidth = Math.max(1.4 / safeScale, 1.2);
+    ctx.strokeStyle = "rgba(194,151,63,0.64)";
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius + 7.2, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
   if (isSelected || isHover || isSearchMatch) {
     ctx.save();
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius + (isSelected ? 9.5 : isSearchMatch ? 7 : 5.6), 0, 2 * Math.PI);
-    ctx.fillStyle = isSelected ? "rgba(106,165,147,0.13)" : isSearchMatch ? "rgba(230,200,120,0.14)" : "rgba(255,255,255,0.58)";
-    ctx.shadowBlur = isSelected ? 16 : 11;
-    ctx.shadowColor = isSelected ? "rgba(106,165,147,0.22)" : isSearchMatch ? "rgba(230,200,120,0.18)" : "rgba(106,165,147,0.12)";
+    ctx.fillStyle = isSelected ? "rgba(106,165,147,0.13)" : isSearchMatch ? "rgba(230,200,120,0.24)" : "rgba(255,255,255,0.58)";
+    ctx.shadowBlur = isSelected ? 16 : isSearchMatch ? 15 : 11;
+    ctx.shadowColor = isSelected ? "rgba(106,165,147,0.22)" : isSearchMatch ? "rgba(194,151,63,0.28)" : "rgba(106,165,147,0.12)";
     ctx.fill();
     ctx.restore();
   }
   drawNodeShape(ctx, node.x, node.y, radius, useDomainShape ? domainShape : "circle");
-  ctx.fillStyle = color;
-  ctx.globalAlpha = isSearchMatch ? 0.98 : isEmphasized ? 0.94 : isSemanticContext ? 0.58 : mode === "focused" ? 0.72 : 0.66;
+  ctx.fillStyle = isSearchMatch ? "#e9b949" : color;
+  const queryDimmed = state.tab === "map" && Boolean(state.query) && !isSearchMatch && !isSemanticContext && !isSelected && !isHover;
+  ctx.globalAlpha = isSearchMatch ? 1 : isEmphasized ? 0.94 : isSemanticContext ? 0.62 : queryDimmed ? 0.24 : mode === "focused" ? 0.72 : 0.66;
   ctx.fill();
   ctx.globalAlpha = 1;
   const showDomainRing = (options.showDomainRing ?? state.mapColor === "area-domain")
@@ -76,7 +86,7 @@ export function drawForceGraphNode(node, ctx, globalScale, options = {}) {
   }
   if (isSearchMatch) {
     ctx.lineWidth = isSelected ? 2.2 : 1.4;
-    ctx.strokeStyle = "rgba(194,151,63,0.86)";
+    ctx.strokeStyle = "rgba(178,125,22,0.95)";
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius + (isSelected ? 4.4 : 3.4), 0, 2 * Math.PI);
     ctx.stroke();
