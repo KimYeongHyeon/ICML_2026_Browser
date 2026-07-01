@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ICML Atlas 2026</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="site/styles.css" />
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["$", "$"], ["\\(", "\\)"]],
+          processEscapes: true
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code", "select", "option"]
+        },
+        startup: {
+          typeset: false
+        }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-main">
+        <div>
+          <p class="eyebrow">Public archive</p>
+          <h1>ICML Atlas 2026</h1>
+        </div>
+        <nav class="tabs" aria-label="Material type">
+          <button class="tab is-active" data-tab="paper" type="button">Papers</button>
+          <button class="tab" data-tab="workshop" type="button">Workshops</button>
+          <button class="tab" data-tab="map" type="button">Map</button>
+          <button class="tab" data-tab="references" type="button">References</button>
+        </nav>
+      </div>
+      <div class="header-stats" id="headerStats" aria-live="polite"></div>
+    </header>
+
+    <main class="workspace">
+      <section class="browser-panel" aria-label="ICML material browser">
+        <div class="data-note" id="dataNote" role="note">
+          <strong>Unofficial public beta.</strong>
+          <span>Papers and workshops are separated at the top level. Poster, Spotlight, and Oral are presentation badges on paper records; PDFs preview only when public/local files are available.</span>
+        </div>
+
+        <div class="filters">
+          <label>
+            <span>Search</span>
+            <input id="searchInput" type="search" placeholder="Title, author, keyword" autocomplete="off" />
+          </label>
+          <label>
+            <span>Field</span>
+            <select id="categorySelect"></select>
+          </label>
+          <label>
+            <span>Group</span>
+            <select id="groupSelect"></select>
+          </label>
+          <label>
+            <span>Asset</span>
+            <select id="assetSelect">
+              <option value="all">All records</option>
+              <option value="local">Downloaded locally</option>
+              <option value="pdf">Has PDF</option>
+              <option value="poster">Has poster image</option>
+              <option value="slide">Has slide deck</option>
+              <option value="blocked">PDF pending / blocked</option>
+              <option value="metadata">Metadata only</option>
+              <option value="unavailable">Unavailable / skipped</option>
+            </select>
+          </label>
+        </div>
+        <div class="filter-pills" id="assetPills" aria-label="Asset filters"></div>
+
+        <div class="result-bar">
+          <strong id="resultCount">0 results</strong>
+          <span id="activeSummary"></span>
+        </div>
+
+        <div class="results" id="results" tabindex="0" aria-label="Filtered results"></div>
+        <div class="map-view" id="mapView" hidden>
+          <div class="map-body">
+            <div class="map-canvas-wrap">
+              <aside class="map-dock" aria-label="Graph settings">
+                <div class="map-dock-title">Display</div>
+                <div class="map-section-body">
+                  <label class="map-setting">
+                    <span>Colour by</span>
+                    <select id="mapColorSelect">
+                      <option value="area-domain">Area + Domain</option>
+                      <option value="area">Research area</option>
+                      <option value="domain">Domain</option>
+                      <option value="embedding-cluster">Embedding cluster</option>
+                      <option value="cluster">Semantic area group</option>
+                    </select>
+                  </label>
+                  <label class="map-setting" id="mapClusterLevelSetting" hidden>
+                    <span>Clusters</span>
+                    <select id="mapClusterLevelSelect">
+                      <option value="5">5 clusters</option>
+                      <option value="10">10 clusters</option>
+                      <option value="15" selected>15 clusters</option>
+                      <option value="20">20 clusters</option>
+                      <option value="25">25 clusters</option>
+                      <option value="30">30 clusters</option>
+                    </select>
+                  </label>
+                  <label class="map-setting">
+                    <span>Scope</span>
+                    <select id="mapModeSelect">
+                      <option value="global">Global</option>
+                      <option value="focused">Focused</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="map-divider"></div>
+                <div class="map-section-title">Areas</div>
+                <div class="map-legend" id="mapLegend" aria-label="Map color legend"></div>
+                <div class="map-divider"></div>
+                <div class="map-actions compact" aria-label="Map display controls">
+                  <button class="map-control" id="mapFitButton" type="button" title="Fit graph to view">Fit</button>
+                  <button class="map-control icon" id="mapZoomOutButton" type="button" title="Zoom out">-</button>
+                  <button class="map-control icon" id="mapZoomInButton" type="button" title="Zoom in">+</button>
+                </div>
+                <div class="map-dev-actions" aria-label="Map force controls">
+                  <button class="map-control" id="mapLiveButton" type="button" aria-pressed="true" title="Pause or resume the force layout">Live: On</button>
+                  <button class="map-control" id="mapReflowButton" type="button" title="Restart the force layout">Reflow</button>
+                </div>
+              </aside>
+              <div class="map-canvas" id="mapCanvas" aria-label="Semantic paper map"></div>
+              <div class="map-search-overlay" aria-label="Search the map">
+                <span aria-hidden="true">⌕</span>
+                <input id="mapSearchInput" type="search" placeholder="Search the map..." autocomplete="off" />
+                <button
+                  class="map-search-help"
+                  type="button"
+                  aria-label="Map search help"
+                  data-tip="Semantic search: embeds your query in the browser and matches the precomputed SPECTER2-style title+abstract index. Lexical fallback is used while the model or index is loading."
+                >?</button>
+              </div>
+              <button
+                class="map-embedding-info"
+                type="button"
+                aria-label="Embedding index information"
+                data-tip="Embedding index: SPECTER2-level title+abstract vectors are precomputed for mapped records. Queries are embedded in-browser when the model is ready; lexical matching is used as a fallback."
+              >!</button>
+              <div class="map-help-pill"><span></span>Click a node to inspect · wheel to zoom · drag to pan</div>
+            </div>
+            <aside class="map-detail" id="mapDetail" aria-label="Selected map record"></aside>
+          </div>
+        </div>
+        <div class="references-view" id="referencesView" hidden aria-label="Reference overlap analysis"></div>
+      </section>
+
+      <aside class="viewer-panel" aria-label="Selected material viewer">
+        <div class="viewer-header">
+          <div>
+            <p class="eyebrow" id="viewerKind">No selection</p>
+            <h2 id="viewerTitle">Select a record</h2>
+          </div>
+          <div class="viewer-actions" id="viewerActions"></div>
+        </div>
+        <div class="viewer-meta" id="viewerMeta"></div>
+        <div class="viewer-frame" id="viewerFrame">
+          <div class="empty-state">
+            <strong>Pick a paper or workshop item.</strong>
+            <span>PDFs, slide decks, and poster images open here when a public local file exists.</span>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="site/vendor/force-graph.min.js"></script>
+    <script src="site/app.js" type="module"></script>
+  </body>
+</html>
