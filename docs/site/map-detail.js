@@ -174,6 +174,7 @@ export function renderMapDetail(record) {
         <span><em>${escapeHtml(clusterLabel)}</em><b>${clusterSize ? clusterSize.toLocaleString() : "HDBSCAN"}</b></span>
       </div>
       <p class="map-neighborhood-note">Neighborhood evidence: nearest records are ranked from the precomputed title+abstract embedding graph; bars are normalized within this selected record.</p>
+      <p class="map-selected-basis">Selected basis: ${escapeHtml(record.embeddingTextQuality || "title/topic")} · ${escapeHtml(record.sourceType || "collected metadata")}</p>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">
         ${neighbors.map((item) => {

@@ -542,6 +542,8 @@ a:focus-visible {
 .result-trace,
 .result-scope,
 .result-map-context,
+.result-read-hint,
+.result-open-hint,
 .trend-basis-note,
 .reference-selected-note,
 .reference-list-note {
@@ -553,6 +555,11 @@ a:focus-visible {
 }
 
 .result-map-context {
+  color: var(--muted-2);
+}
+
+.result-read-hint,
+.result-open-hint {
   color: var(--muted-2);
 }
 
@@ -2687,12 +2694,17 @@ a:focus-visible {
   line-height: 1.35;
 }
 
-.map-neighborhood-note {
+.map-neighborhood-note,
+.map-selected-basis {
   margin: -4px 0 0;
   color: var(--muted);
   font-size: 11px;
   font-weight: 750;
   line-height: 1.4;
+}
+
+.map-selected-basis {
+  color: var(--muted-2);
 }
 
 .neighbor-list {
