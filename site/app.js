@@ -209,15 +209,23 @@ configureViewer({
 function renderDataHealthNote() {
   if (!els.dataNote) return;
   const embedding = state.data?.summary?.embedding || {};
+  const summary = state.data?.summary || {};
+  const typeCounts = summary.typeCounts || {};
+  const assetCounts = summary.assetCounts || {};
   const status = embedding.status || "missing";
   const source = state.dataManifest ? "sharded index" : "monolithic index";
   const generatedAt = state.data?.generatedAt ? new Date(state.data.generatedAt).toLocaleString() : "";
   const stale = status !== "fresh";
-  els.dataNote.classList.toggle("is-visible", stale);
+  els.dataNote.classList.add("is-visible");
   els.dataNote.classList.toggle("is-warning", stale);
   const loadedText = `Loaded ${escapeHtml(source)}${generatedAt ? ` · ${escapeHtml(generatedAt)}` : ""}.`;
+  const snapshot = [
+    `${Number(typeCounts.paper || 0).toLocaleString()} papers`,
+    `${Number(typeCounts.workshop || 0).toLocaleString()} workshops`,
+    `${Number(assetCounts.pdf || 0).toLocaleString()} local PDFs`,
+  ].filter((item) => !item.startsWith("0 ")).join(" · ");
   const messages = {
-    fresh: ["Semantic index fresh.", loadedText],
+    fresh: ["Data snapshot.", `${loadedText}${snapshot ? ` ${snapshot}.` : ""} Semantic index fresh.`],
     legacy: ["Semantic metadata pending.", `${loadedText} Existing semantic vectors are available; the rebuild workflow will attach freshness metadata.`],
     stale: ["Semantic rebuild recommended.", `${loadedText} Dense vectors may be older than the current records, so search also uses lexical matching.`],
     missing: ["Semantic search limited.", `${loadedText} Dense vectors are not available yet, so map/search use lexical matching until the rebuild workflow runs.`],
@@ -479,6 +487,11 @@ async function renderReferences() {
         <span><b>${extractionErrors.toLocaleString()}</b><small>extraction errors</small></span>
       </div>
       <p class="reference-health-note">${blockedRemote || extractionErrors ? "Blocked or failed PDFs are excluded from citation overlap; semantic map/search still uses title and abstract text." : remoteHealthUnknown ? "Remote PDF attempt counts are unavailable for this artifact; extraction errors are shown when reported." : "No blocking extraction errors in the current reference artifact."}</p>
+      <div class="reference-coverage-explain">
+        <span><b>What counts</b>Only records with extracted references can contribute citation-overlap edges.</span>
+        <span><b>What does not count</b>Semantic map/search still works for records without extracted references.</span>
+        <span><b>Coverage gap</b>${withoutExtractedReferences.toLocaleString()} candidate PDFs currently have no extracted bibliography.</span>
+      </div>
       <div class="reference-analysis-grid">
         <article class="reference-panel-block">
           <h3>Most cited reference titles</h3>
