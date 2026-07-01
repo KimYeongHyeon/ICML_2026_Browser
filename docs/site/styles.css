@@ -539,6 +539,16 @@ a:focus-visible {
   line-height: 1.4;
 }
 
+.result-trace,
+.trend-basis-note,
+.reference-selected-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .result-abstract {
   color: var(--muted);
   font-size: 13px;
@@ -2255,6 +2265,10 @@ a:focus-visible {
   font-weight: 700;
 }
 
+.trend-basis-note {
+  max-width: 340px;
+}
+
 .trend-list {
   display: grid;
   gap: 12px;
@@ -2728,6 +2742,7 @@ a:focus-visible {
 
 .viewer-trust-panel,
 .viewer-facts-panel,
+.viewer-study-signals,
 .viewer-source-panel,
 .viewer-gap-panel,
 .viewer-brief {

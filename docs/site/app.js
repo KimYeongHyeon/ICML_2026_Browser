@@ -546,6 +546,7 @@ async function renderReferenceSelection(recordId) {
       <span>${Number(payload?.referenceCount || 0).toLocaleString()} extracted refs</span>
     </div>
     ${renderReferenceGraph(payload || {}, record)}
+    <p class="reference-selected-note">Overlap means shared normalized references for this selected record; it is citation evidence, separate from semantic-map similarity.</p>
     <div class="reference-sample-list reference-selected-samples">
       ${references.map((item) => `<span>${escapeHtml(item.displayText)}${referenceBadge(item.year || item.source || "")}</span>`).join("") || "<small>No clean citation sample in this shard yet.</small>"}
     </div>

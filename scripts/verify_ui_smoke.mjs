@@ -147,6 +147,7 @@ const initial = await page.evaluate(() => ({
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
   firstEvidence: document.querySelector(".result-item .result-evidence")?.innerText || "",
   firstReason: document.querySelector(".result-item .result-reason")?.innerText || "",
+  firstTrace: document.querySelector(".result-item .result-trace")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -158,6 +159,21 @@ const expectedDataSnapshot = await page.evaluate(async () => {
     paperLabel: `${Number(typeCounts.paper || 0).toLocaleString()} papers`,
     workshopLabel: `${Number(typeCounts.workshop || 0).toLocaleString()} workshops`,
     pdfLabel: `${Number(assetCounts.pdf || 0).toLocaleString()} local PDFs`,
+  };
+});
+const provenanceUnits = await page.evaluate(async () => {
+  const [{ resultTrace }, { checkedAtLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
+    import("./site/browse.js"),
+    import("./site/viewer.js"),
+    fetch("site/data/shards/paper.json").then((response) => response.json()),
+    fetch("site/data/shards/poster.json").then((response) => response.json()),
+    fetch("site/data/shards/workshop.json").then((response) => response.json()),
+  ]);
+  return {
+    paper: resultTrace((paperShard.records || [])[0] || {}),
+    poster: resultTrace((posterShard.records || [])[0] || {}),
+    workshop: resultTrace((workshopShard.records || [])[0] || {}),
+    utcDate: checkedAtLabel("2026-06-17T00:30:00+00:00"),
   };
 });
 
@@ -250,6 +266,7 @@ const paperLatex = await page.evaluate(() => ({
   sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
   gapPanelText: document.querySelector(".viewer-gap-panel")?.innerText || "",
   factsPanelText: document.querySelector(".viewer-facts-panel")?.innerText || "",
+  studySignalsText: document.querySelector(".viewer-study-signals")?.innerText || "",
   viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
   viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
   confidenceText: document.querySelector(".viewer-confidence")?.innerText || "",
@@ -364,6 +381,7 @@ await page.waitForFunction(() => {
 const localPdf = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
+  factsPanelText: document.querySelector(".viewer-facts-panel")?.innerText || "",
   shellExists: Boolean(document.querySelector(".pdfjs-shell")),
   hasError: Boolean(document.querySelector(".pdfjs-shell.has-error")),
   status: document.querySelector("[data-pdf-status]")?.textContent || "",
@@ -410,6 +428,7 @@ const trendsInitial = await page.evaluate(() => ({
   firstKeywords: document.querySelector(".trend-keywords")?.textContent || "",
   firstRepresentatives: document.querySelectorAll(".trend-representatives button").length,
   firstSummary: document.querySelector(".trend-card p")?.textContent || "",
+  basisNote: document.querySelector(".trend-basis-note")?.textContent || "",
   studyLabels: [...document.querySelectorAll(".trend-study-section em")].map((item) => item.textContent || ""),
   firstReadText: document.querySelector(".trend-representatives")?.textContent || "",
   unusualText: document.querySelector(".unusual-directions")?.textContent || "",
@@ -626,6 +645,7 @@ const referencesTab = await page.evaluate(() => ({
   topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
+  selectedNote: document.querySelector(".reference-selected-note")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
   graphNodeCount: document.querySelectorAll(".reference-overlap-graph .reference-node").length,
   graphEdgeCount: document.querySelectorAll(".reference-overlap-graph line").length,
@@ -656,6 +676,7 @@ const report = {
   baseUrl,
   initial,
   expectedDataSnapshot,
+  provenanceUnits,
   initialReferenceRequestCount,
   initialStudyRequestCount,
   mapEntryStudyRequestCount,
@@ -731,6 +752,21 @@ if (!/Accepted/i.test(initial.firstEvidence) || !/Mapped/i.test(initial.firstEvi
 if (!/Why shown:/i.test(initial.firstReason) || !/accepted public/i.test(initial.firstReason)) {
   throw new Error(`result cards should explain why the record is visible: ${JSON.stringify(initial)}`);
 }
+if (!/Source:/i.test(initial.firstTrace) || !/Text:/i.test(initial.firstTrace) || !/Material:/i.test(initial.firstTrace)) {
+  throw new Error(`result cards should expose source/text/material provenance: ${JSON.stringify(initial)}`);
+}
+if (!/Source: ICML \+ OpenReview/.test(initial.firstTrace)) {
+  throw new Error(`paper result provenance should identify ICML + OpenReview: ${JSON.stringify(initial)}`);
+}
+if (!/Source: ICML\b/.test(provenanceUnits.poster) || /Source: OpenReview/.test(provenanceUnits.poster)) {
+  throw new Error(`poster provenance should use the official ICML source, not OpenReview fallback: ${JSON.stringify(provenanceUnits)}`);
+}
+if (!/Source: ICML \+ OpenReview/.test(provenanceUnits.paper) || !/Source: OpenReview/.test(provenanceUnits.workshop)) {
+  throw new Error(`paper/workshop provenance should distinguish ICML+OpenReview from OpenReview submissions: ${JSON.stringify(provenanceUnits)}`);
+}
+if (provenanceUnits.utcDate !== "Jun 17, 2026") {
+  throw new Error(`checked date formatting should use the UTC calendar day: ${JSON.stringify(provenanceUnits)}`);
+}
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
 }
@@ -791,6 +827,9 @@ if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.
 if (!/OpenReview\s+0yK6aZLoEF/i.test(localPdf.sourcePanelText) || /ICML\.cc\/2026\/Workshop/i.test(localPdf.sourcePanelText)) {
   throw new Error(`workshop source identifiers should show the submission/forum id, not the venue group id: ${JSON.stringify(localPdf)}`);
 }
+if (!/Checked/i.test(localPdf.factsPanelText)) {
+  throw new Error(`viewer facts should include source checked date when the record has one: ${JSON.stringify(localPdf)}`);
+}
 if (
   viewerReferenceExpectation.hasContext
   && (!/Citation overlap/i.test(paperLatex.viewerReferenceText) || !/extracted refs/i.test(paperLatex.viewerReferenceText))
@@ -808,6 +847,9 @@ if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i
 }
 if (!/At a glance/i.test(paperLatex.factsPanelText) || !/Record/i.test(paperLatex.factsPanelText) || !/Area/i.test(paperLatex.factsPanelText) || !/Domain/i.test(paperLatex.factsPanelText) || !/Map basis/i.test(paperLatex.factsPanelText)) {
   throw new Error(`viewer should expose compact record facts: ${JSON.stringify(paperLatex)}`);
+}
+if (!/Study signals/i.test(paperLatex.studySignalsText) || !/Priority/i.test(paperLatex.studySignalsText) || !/Suggestion/i.test(paperLatex.studySignalsText) || !/Evidence/i.test(paperLatex.studySignalsText)) {
+  throw new Error(`viewer should expose study signals for the selected record: ${JSON.stringify(paperLatex)}`);
 }
 if (!/Source identifiers/i.test(paperLatex.sourcePanelText) || !/ICML|OpenReview|Record id/i.test(paperLatex.sourcePanelText)) {
   throw new Error(`viewer should expose source identifiers for traceability: ${JSON.stringify(paperLatex)}`);
@@ -839,6 +881,9 @@ if (
 }
 if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
   throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+}
+if (!/shared normalized references/i.test(referencesTab.selectedNote) || !/separate from semantic-map similarity/i.test(referencesTab.selectedNote)) {
+  throw new Error(`References selected record should explain citation-overlap interpretation: ${JSON.stringify(referencesTab)}`);
 }
 if (!/What counts/i.test(referencesTab.coverageExplainText) || !/What does not count/i.test(referencesTab.coverageExplainText) || !/Coverage gap/i.test(referencesTab.coverageExplainText) || !/candidate PDFs/i.test(referencesTab.coverageExplainText)) {
   throw new Error(`References tab should explain what extracted-reference coverage means: ${JSON.stringify(referencesTab)}`);
@@ -944,6 +989,8 @@ if (
   || !trendsInitial.firstKeywords.trim()
   || trendsInitial.firstRepresentatives < 3
   || !trendsInitial.firstSummary.includes("This trend groups papers around")
+  || !/title\+abstract embedding clusters/i.test(trendsInitial.basisNote)
+  || !/not official ICML subject areas/i.test(trendsInitial.basisNote)
   || !["Core question", "Method", "Branches"].every((label) => trendsInitial.studyLabels.includes(label))
   || !/First reads/.test(trendsInitial.firstReadText)
   || !/Unusual directions/.test(trendsInitial.unusualText)

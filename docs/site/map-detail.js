@@ -67,6 +67,7 @@ function renderTrendCards() {
         <p class="eyebrow">Semantic trends</p>
         <h3>Research currents</h3>
         <span>${trends.length.toLocaleString()} embedding clusters</span>
+        <p class="trend-basis-note">Derived from title+abstract embedding clusters, not official ICML subject areas.</p>
       </div>
       <div class="trend-list">
         ${trends.map((trend, index) => {
