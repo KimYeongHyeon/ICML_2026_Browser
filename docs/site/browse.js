@@ -219,6 +219,15 @@ function resultEvidenceBadges(record) {
   ]).slice(0, 4);
 }
 
+function resultReason(record, matched) {
+  const parts = [
+    matched ? `${MATCH_FIELD_LABEL[matched]} matched` : `${typeLabel(record.type)} tab`,
+    record.status === "accepted_public" ? "accepted public" : statusLabel(record.status),
+    (record.areaTags || categoryTags(record)).slice(0, 1)[0],
+  ].filter(Boolean);
+  return `Why shown: ${parts.join(" · ")}`;
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -291,6 +300,7 @@ export function renderResults() {
           <span class="result-evidence" aria-label="Record evidence">
             ${evidenceBadges.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
           </span>
+          <span class="result-reason">${escapeHtml(resultReason(record, matched))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;

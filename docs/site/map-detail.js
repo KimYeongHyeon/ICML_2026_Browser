@@ -167,6 +167,7 @@ export function renderMapDetail(record) {
         <strong>Embedding cluster</strong>
         <span><em>${escapeHtml(clusterLabel)}</em><b>${clusterSize ? clusterSize.toLocaleString() : "HDBSCAN"}</b></span>
       </div>
+      <p class="map-neighborhood-note">Neighborhood evidence: nearest records are ranked from the precomputed title+abstract embedding graph; bars are normalized within this selected record.</p>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">
         ${neighbors.map((item) => {

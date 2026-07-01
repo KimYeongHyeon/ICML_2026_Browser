@@ -205,6 +205,23 @@ function renderReaderBrief(record) {
   `;
 }
 
+function renderRecordFacts(record) {
+  const facts = [
+    ["Record", viewerKindLabel(record)],
+    ["Area", (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ")],
+    ["Domain", (record.domainTags || ["General"]).slice(0, 2).join(", ")],
+    ["Map basis", record.embeddingTextQuality === "title_abstract" ? "title + abstract" : record.embeddingTextQuality || "title/topic"],
+  ].filter(([, value]) => value);
+  return `
+    <section class="viewer-facts-panel">
+      <p class="eyebrow">At a glance</p>
+      <div class="viewer-source-grid">
+        ${facts.map(([label, value]) => `<span><em>${escapeHtml(label)}</em><b>${escapeHtml(String(value))}</b></span>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderInformationQuality(record) {
   const source = record.type === "paper"
     ? "ICML paper page + OpenReview metadata"
@@ -502,6 +519,7 @@ export function renderViewer(record) {
     els.viewerFrame.innerHTML = renderViewerStatusRow(record, title, message);
   }
   els.viewerFrame.insertAdjacentHTML("beforeend", renderInformationQuality(record));
+  els.viewerFrame.insertAdjacentHTML("beforeend", renderRecordFacts(record));
   els.viewerFrame.insertAdjacentHTML("beforeend", renderSourceIdentifiers(record));
   const knownGaps = renderKnownGaps(record);
   if (knownGaps) els.viewerFrame.insertAdjacentHTML("beforeend", knownGaps);

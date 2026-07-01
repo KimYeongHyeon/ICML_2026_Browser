@@ -146,6 +146,7 @@ const initial = await page.evaluate(() => ({
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
   firstEvidence: document.querySelector(".result-item .result-evidence")?.innerText || "",
+  firstReason: document.querySelector(".result-item .result-reason")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -238,6 +239,7 @@ const paperLatex = await page.evaluate(() => ({
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
   sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
   gapPanelText: document.querySelector(".viewer-gap-panel")?.innerText || "",
+  factsPanelText: document.querySelector(".viewer-facts-panel")?.innerText || "",
   viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
   viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
   confidenceText: document.querySelector(".viewer-confidence")?.innerText || "",
@@ -437,6 +439,15 @@ if (mapBox) {
 await page.waitForTimeout(200);
 const forceProbePoints = await page.evaluate(() => window.__icmlMapDebug?.forceProbePoints?.(120) || []);
 const mapTooltip = await scanGraphTooltipAtPoints("#mapCanvas", forceProbePoints) || await scanGraphTooltip("#mapCanvas", broadGrid);
+const selectableMapPoint = forceProbePoints.find((point) => mapBox && point.x > 8 && point.y > 8 && point.x < mapBox.width - 8 && point.y < mapBox.height - 8);
+if (mapBox && selectableMapPoint) {
+  await page.mouse.click(mapBox.x + selectableMapPoint.x, mapBox.y + selectableMapPoint.y);
+  await page.waitForTimeout(500);
+}
+const mapSelectedDetail = await page.evaluate(() => ({
+  title: document.querySelector(".map-detail-card h3")?.textContent || "",
+  note: document.querySelector(".map-neighborhood-note")?.textContent || "",
+}));
 
 await page.locator("#mapSearchInput").fill("O(3)");
 await page.waitForTimeout(900);
@@ -599,6 +610,7 @@ const referencesTab = await page.evaluate(() => ({
   statText: document.querySelector(".reference-stat-grid")?.textContent || "",
   healthText: document.querySelector(".reference-health-grid")?.textContent || "",
   healthNote: document.querySelector(".reference-health-note")?.textContent || "",
+  coverageExplainText: document.querySelector(".reference-coverage-explain")?.textContent || "",
   sortNote: document.querySelector(".reference-sort-note")?.textContent || "",
   topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
   topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
@@ -660,6 +672,7 @@ const report = {
   trendsInitial,
   trendCardClick,
   trendRepresentativeClick,
+  mapSelectedDetail,
   mapBoundarySearch,
   map,
   embeddingMap,
@@ -690,11 +703,17 @@ if (initial.paperHidden || !initial.paperActive) {
 if (!/^6,343 results/.test(initial.resultCount)) {
   throw new Error(`unexpected initial paper count: ${initial.resultCount}`);
 }
+if (!/Data snapshot/i.test(initial.note) || !/6,343 papers/i.test(initial.note) || !/723 workshops/i.test(initial.note) || !/328 local PDFs/i.test(initial.note)) {
+  throw new Error(`data note should expose the current loaded snapshot: ${JSON.stringify(initial)}`);
+}
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
 if (!/Accepted/i.test(initial.firstEvidence) || !/Mapped/i.test(initial.firstEvidence)) {
   throw new Error(`result cards should expose concise record evidence badges: ${JSON.stringify(initial)}`);
+}
+if (!/Why shown:/i.test(initial.firstReason) || !/accepted public/i.test(initial.firstReason)) {
+  throw new Error(`result cards should explain why the record is visible: ${JSON.stringify(initial)}`);
 }
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
@@ -771,6 +790,9 @@ if (!viewerReferenceExpectation.hasEntry && !paperLatex.hasPdfShell && !/No down
 if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
 }
+if (!/At a glance/i.test(paperLatex.factsPanelText) || !/Record/i.test(paperLatex.factsPanelText) || !/Area/i.test(paperLatex.factsPanelText) || !/Domain/i.test(paperLatex.factsPanelText) || !/Map basis/i.test(paperLatex.factsPanelText)) {
+  throw new Error(`viewer should expose compact record facts: ${JSON.stringify(paperLatex)}`);
+}
 if (!/Source identifiers/i.test(paperLatex.sourcePanelText) || !/ICML|OpenReview|Record id/i.test(paperLatex.sourcePanelText)) {
   throw new Error(`viewer should expose source identifiers for traceability: ${JSON.stringify(paperLatex)}`);
 }
@@ -801,6 +823,9 @@ if (
 }
 if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
   throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+}
+if (!/What counts/i.test(referencesTab.coverageExplainText) || !/What does not count/i.test(referencesTab.coverageExplainText) || !/Coverage gap/i.test(referencesTab.coverageExplainText) || !/candidate PDFs/i.test(referencesTab.coverageExplainText)) {
+  throw new Error(`References tab should explain what extracted-reference coverage means: ${JSON.stringify(referencesTab)}`);
 }
 if (
   !referencesTab.healthText.includes(`${referenceManifestExpectedCoverage.covered} / ${referenceManifestExpectedCoverage.totalCandidates}`)
@@ -939,6 +964,9 @@ if (!/(Biology|General|Scientific Discovery|Social Science|Robotics|Medical)\s+\
 }
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);
+}
+if (!mapSelectedDetail.title || !/Neighborhood evidence/i.test(mapSelectedDetail.note) || !/precomputed title\+abstract embedding graph/i.test(mapSelectedDetail.note)) {
+  throw new Error(`map detail should explain how nearest neighbors are ranked: ${JSON.stringify(mapSelectedDetail)}`);
 }
 if (
   embeddingMap.colorValue !== "embedding-cluster"
