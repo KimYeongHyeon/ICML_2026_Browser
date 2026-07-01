@@ -228,6 +228,33 @@ function resultReason(record, matched) {
   return `Why shown: ${parts.join(" · ")}`;
 }
 
+function resultSource(record) {
+  if ((record.sourceType || "").startsWith("official_icml")) {
+    return record.openreviewUrl || record.openreviewForum || record.openreviewId ? "ICML + OpenReview" : "ICML";
+  }
+  if (record.type === "paper") {
+    return "ICML + OpenReview";
+  }
+  if (record.type === "poster") {
+    return "ICML";
+  }
+  if ((record.sourceType || "").includes("openreview") || record.openreviewUrl || record.pdfUrl) {
+    return "OpenReview";
+  }
+  return "Collected metadata";
+}
+
+export function resultTrace(record) {
+  const source = resultSource(record);
+  const text = record.abstract ? "title + abstract" : "title only";
+  const material = record.localPdfPath || record.localSlidePath || record.localPosterPath
+    ? "local asset"
+    : record.pdfUrl || record.pageUrl
+    ? "source link"
+    : "metadata only";
+  return `Source: ${source} · Text: ${text} · Material: ${material}`;
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -301,6 +328,7 @@ export function renderResults() {
             ${evidenceBadges.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
           </span>
           <span class="result-reason">${escapeHtml(resultReason(record, matched))}</span>
+          <span class="result-trace">${escapeHtml(resultTrace(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;

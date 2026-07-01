@@ -205,18 +205,56 @@ function renderReaderBrief(record) {
   `;
 }
 
+export function checkedAtLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
 function renderRecordFacts(record) {
   const facts = [
     ["Record", viewerKindLabel(record)],
     ["Area", (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ")],
     ["Domain", (record.domainTags || ["General"]).slice(0, 2).join(", ")],
     ["Map basis", record.embeddingTextQuality === "title_abstract" ? "title + abstract" : record.embeddingTextQuality || "title/topic"],
+    ["Checked", checkedAtLabel(record.sourceCheckedAt)],
   ].filter(([, value]) => value);
   return `
     <section class="viewer-facts-panel">
       <p class="eyebrow">At a glance</p>
       <div class="viewer-source-grid">
         ${facts.map(([label, value]) => `<span><em>${escapeHtml(label)}</em><b>${escapeHtml(String(value))}</b></span>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderStudySignals(record) {
+  const priority = (record.presentationLabels || []).includes("Spotlight")
+    ? "Spotlight"
+    : (record.presentationLabels || []).includes("Oral")
+    ? "Oral"
+    : record.type === "workshop"
+    ? "Workshop"
+    : "Regular";
+  const signals = uniqueChipValues([
+    record.abstract ? "abstract" : "",
+    record.mapAvailable ? "semantic map" : "",
+    record.localPdfPath || record.bestAssetKind === "pdf" ? "local PDF" : record.pdfUrl || openReviewPdfUrl(record) ? "PDF link" : "",
+    record.hasPoster ? "poster" : "",
+    record.hasSlide ? "slides" : "",
+  ]);
+  const suggestion = signals.includes("abstract") && signals.includes("semantic map")
+    ? "Good study candidate"
+    : "Skim metadata first";
+  return `
+    <section class="viewer-study-signals">
+      <p class="eyebrow">Study signals</p>
+      <div class="viewer-source-grid">
+        <span><em>Priority</em><b>${escapeHtml(priority)}</b></span>
+        <span><em>Suggestion</em><b>${escapeHtml(suggestion)}</b></span>
+        <span><em>Evidence</em><b>${escapeHtml(signals.join(", ") || "metadata only")}</b></span>
       </div>
     </section>
   `;
@@ -520,6 +558,7 @@ export function renderViewer(record) {
   }
   els.viewerFrame.insertAdjacentHTML("beforeend", renderInformationQuality(record));
   els.viewerFrame.insertAdjacentHTML("beforeend", renderRecordFacts(record));
+  els.viewerFrame.insertAdjacentHTML("beforeend", renderStudySignals(record));
   els.viewerFrame.insertAdjacentHTML("beforeend", renderSourceIdentifiers(record));
   const knownGaps = renderKnownGaps(record);
   if (knownGaps) els.viewerFrame.insertAdjacentHTML("beforeend", knownGaps);
