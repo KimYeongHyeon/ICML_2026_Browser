@@ -113,7 +113,7 @@ jobs:
           trap 'git worktree remove --force "$tmp_dir" 2>/dev/null || rm -rf "$tmp_dir"' EXIT
           git fetch origin gh-pages
           git worktree add -B gh-pages "$tmp_dir" origin/gh-pages
-          rsync -a --delete docs/site/ "$tmp_dir"/
+          rsync -a --delete --exclude=.git docs/ "$tmp_dir"/
           git -C "$tmp_dir" add -A
           if git -C "$tmp_dir" diff --cached --quiet; then
             echo "No GitHub Pages changes."
