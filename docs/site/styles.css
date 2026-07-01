@@ -531,6 +531,14 @@ a:focus-visible {
   font-weight: 850;
 }
 
+.result-reason {
+  display: block;
+  color: var(--muted-2);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .result-abstract {
   color: var(--muted);
   font-size: 13px;
@@ -917,6 +925,30 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 750;
   line-height: 1.4;
+}
+
+.reference-coverage-explain {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reference-coverage-explain span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: #f7faf9;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.reference-coverage-explain b {
+  color: var(--text);
+  font-size: 12px;
 }
 
 .reference-analysis-grid {
@@ -2602,6 +2634,14 @@ a:focus-visible {
   line-height: 1.35;
 }
 
+.map-neighborhood-note {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .neighbor-list {
   display: grid;
   gap: 2px;
@@ -2687,6 +2727,7 @@ a:focus-visible {
 }
 
 .viewer-trust-panel,
+.viewer-facts-panel,
 .viewer-source-panel,
 .viewer-gap-panel,
 .viewer-brief {
