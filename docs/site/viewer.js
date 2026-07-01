@@ -205,11 +205,11 @@ function renderReaderBrief(record) {
   `;
 }
 
-function checkedAtLabel(value) {
+export function checkedAtLabel(value) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 function renderRecordFacts(record) {

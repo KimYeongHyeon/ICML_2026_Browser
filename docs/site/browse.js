@@ -228,8 +228,24 @@ function resultReason(record, matched) {
   return `Why shown: ${parts.join(" · ")}`;
 }
 
-function resultTrace(record) {
-  const source = record.type === "paper" ? "ICML + OpenReview" : "OpenReview";
+function resultSource(record) {
+  if ((record.sourceType || "").startsWith("official_icml")) {
+    return record.openreviewUrl || record.openreviewForum || record.openreviewId ? "ICML + OpenReview" : "ICML";
+  }
+  if (record.type === "paper") {
+    return "ICML + OpenReview";
+  }
+  if (record.type === "poster") {
+    return "ICML";
+  }
+  if ((record.sourceType || "").includes("openreview") || record.openreviewUrl || record.pdfUrl) {
+    return "OpenReview";
+  }
+  return "Collected metadata";
+}
+
+export function resultTrace(record) {
+  const source = resultSource(record);
   const text = record.abstract ? "title + abstract" : "title only";
   const material = record.localPdfPath || record.localSlidePath || record.localPosterPath
     ? "local asset"

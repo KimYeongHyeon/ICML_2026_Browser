@@ -161,6 +161,21 @@ const expectedDataSnapshot = await page.evaluate(async () => {
     pdfLabel: `${Number(assetCounts.pdf || 0).toLocaleString()} local PDFs`,
   };
 });
+const provenanceUnits = await page.evaluate(async () => {
+  const [{ resultTrace }, { checkedAtLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
+    import("./site/browse.js"),
+    import("./site/viewer.js"),
+    fetch("site/data/shards/paper.json").then((response) => response.json()),
+    fetch("site/data/shards/poster.json").then((response) => response.json()),
+    fetch("site/data/shards/workshop.json").then((response) => response.json()),
+  ]);
+  return {
+    paper: resultTrace((paperShard.records || [])[0] || {}),
+    poster: resultTrace((posterShard.records || [])[0] || {}),
+    workshop: resultTrace((workshopShard.records || [])[0] || {}),
+    utcDate: checkedAtLabel("2026-06-17T00:30:00+00:00"),
+  };
+});
 
 const studyRequestsBeforeMapEntry = studyRequests.length;
 await page.locator('.tab[data-tab="map"]').click();
@@ -661,6 +676,7 @@ const report = {
   baseUrl,
   initial,
   expectedDataSnapshot,
+  provenanceUnits,
   initialReferenceRequestCount,
   initialStudyRequestCount,
   mapEntryStudyRequestCount,
@@ -738,6 +754,18 @@ if (!/Why shown:/i.test(initial.firstReason) || !/accepted public/i.test(initial
 }
 if (!/Source:/i.test(initial.firstTrace) || !/Text:/i.test(initial.firstTrace) || !/Material:/i.test(initial.firstTrace)) {
   throw new Error(`result cards should expose source/text/material provenance: ${JSON.stringify(initial)}`);
+}
+if (!/Source: ICML \+ OpenReview/.test(initial.firstTrace)) {
+  throw new Error(`paper result provenance should identify ICML + OpenReview: ${JSON.stringify(initial)}`);
+}
+if (!/Source: ICML\b/.test(provenanceUnits.poster) || /Source: OpenReview/.test(provenanceUnits.poster)) {
+  throw new Error(`poster provenance should use the official ICML source, not OpenReview fallback: ${JSON.stringify(provenanceUnits)}`);
+}
+if (!/Source: ICML \+ OpenReview/.test(provenanceUnits.paper) || !/Source: OpenReview/.test(provenanceUnits.workshop)) {
+  throw new Error(`paper/workshop provenance should distinguish ICML+OpenReview from OpenReview submissions: ${JSON.stringify(provenanceUnits)}`);
+}
+if (provenanceUnits.utcDate !== "Jun 17, 2026") {
+  throw new Error(`checked date formatting should use the UTC calendar day: ${JSON.stringify(provenanceUnits)}`);
 }
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
