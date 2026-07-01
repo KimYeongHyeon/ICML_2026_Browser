@@ -228,6 +228,17 @@ function resultReason(record, matched) {
   return `Why shown: ${parts.join(" · ")}`;
 }
 
+function resultTrace(record) {
+  const source = record.type === "paper" ? "ICML + OpenReview" : "OpenReview";
+  const text = record.abstract ? "title + abstract" : "title only";
+  const material = record.localPdfPath || record.localSlidePath || record.localPosterPath
+    ? "local asset"
+    : record.pdfUrl || record.pageUrl
+    ? "source link"
+    : "metadata only";
+  return `Source: ${source} · Text: ${text} · Material: ${material}`;
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -301,6 +312,7 @@ export function renderResults() {
             ${evidenceBadges.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
           </span>
           <span class="result-reason">${escapeHtml(resultReason(record, matched))}</span>
+          <span class="result-trace">${escapeHtml(resultTrace(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;
