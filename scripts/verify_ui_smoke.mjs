@@ -149,6 +149,7 @@ const initial = await page.evaluate(() => ({
   firstReason: document.querySelector(".result-item .result-reason")?.innerText || "",
   firstTrace: document.querySelector(".result-item .result-trace")?.innerText || "",
   firstScope: document.querySelector(".result-item .result-scope")?.innerText || "",
+  firstMapContext: document.querySelector(".result-item .result-map-context")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -644,12 +645,14 @@ const referencesTab = await page.evaluate(() => ({
   coverageExplainText: document.querySelector(".reference-coverage-explain")?.textContent || "",
   sortNote: document.querySelector(".reference-sort-note")?.textContent || "",
   topReferenceNote: document.querySelector(".reference-list-note")?.textContent || "",
+  concentrationLabels: [...document.querySelectorAll(".reference-chip-label")].map((item) => item.textContent || ""),
   topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
   topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
   selectedHeadText: document.querySelector(".reference-selected-head")?.textContent || "",
   selectedNote: document.querySelector(".reference-selected-note")?.textContent || "",
+  selectedSampleNote: document.querySelector(".reference-selected .reference-list-note")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
   graphNodeCount: document.querySelectorAll(".reference-overlap-graph .reference-node").length,
   graphEdgeCount: document.querySelectorAll(".reference-overlap-graph line").length,
@@ -765,6 +768,9 @@ if (!/Source: ICML \+ OpenReview/.test(initial.firstTrace)) {
 if (!/Area:/i.test(initial.firstScope) || !/Domain:/i.test(initial.firstScope)) {
   throw new Error(`result cards should expose area/domain scope: ${JSON.stringify(initial)}`);
 }
+if (!/Map:/i.test(initial.firstMapContext)) {
+  throw new Error(`result cards should expose map context: ${JSON.stringify(initial)}`);
+}
 if (!/Source: ICML\b/.test(provenanceUnits.poster) || /Source: OpenReview/.test(provenanceUnits.poster)) {
   throw new Error(`poster provenance should use the official ICML source, not OpenReview fallback: ${JSON.stringify(provenanceUnits)}`);
 }
@@ -821,6 +827,9 @@ if (/Main claim|Evidence cue/i.test(paperLatex.viewerFrameText) || !/Opening con
 }
 if (!/confidence/i.test(paperLatex.confidenceText) || !/\d+\/4 evidence checks/i.test(paperLatex.confidenceText)) {
   throw new Error(`viewer should expose an evidence confidence summary: ${JSON.stringify(paperLatex)}`);
+}
+if (!/Missing:/i.test(paperLatex.confidenceText)) {
+  throw new Error(`viewer confidence should expose missing evidence explicitly: ${JSON.stringify(paperLatex)}`);
 }
 if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
   throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
@@ -895,8 +904,14 @@ if (!/shared normalized references/i.test(referencesTab.selectedNote) || !/separ
 if (!/Normalized citation titles/i.test(referencesTab.topReferenceNote) || !/excluded/i.test(referencesTab.topReferenceNote)) {
   throw new Error(`References top list should explain title normalization and excluded fragments: ${JSON.stringify(referencesTab)}`);
 }
+if (!referencesTab.concentrationLabels.includes("Areas") || !referencesTab.concentrationLabels.includes("Domains")) {
+  throw new Error(`References concentration should label area/domain chip groups: ${JSON.stringify(referencesTab)}`);
+}
 if (!/extracted refs/i.test(referencesTab.selectedHeadText) || !/shown overlaps/i.test(referencesTab.selectedHeadText)) {
   throw new Error(`References selected header should expose extracted refs and shown overlap count: ${JSON.stringify(referencesTab)}`);
+}
+if (!/Sample extracted reference titles/i.test(referencesTab.selectedSampleNote)) {
+  throw new Error(`References selected samples should be labeled as extracted titles: ${JSON.stringify(referencesTab)}`);
 }
 if (!/What counts/i.test(referencesTab.coverageExplainText) || !/What does not count/i.test(referencesTab.coverageExplainText) || !/Coverage gap/i.test(referencesTab.coverageExplainText) || !/candidate PDFs/i.test(referencesTab.coverageExplainText)) {
   throw new Error(`References tab should explain what extracted-reference coverage means: ${JSON.stringify(referencesTab)}`);
@@ -1099,6 +1114,7 @@ if (
   || !/query-vector matches|SPECTER2|lexical matches/.test(mapSearch.activeSummary)
   || !/Topic lens|Area|Domain|Nearby trend|Search mode/.test(mapSearch.insightText)
   || !/Why highlighted/i.test(mapSearch.insightText)
+  || !/Current map filters are applied before ranking/i.test(mapSearch.insightText)
   || !mapSearch.topicLensButtons
 ) {
   throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);

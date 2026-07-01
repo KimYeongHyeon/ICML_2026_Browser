@@ -293,6 +293,7 @@ function renderInformationQuality(record) {
     { label: "source status", ok: record.status === "accepted_public" || Boolean(record.decision) },
   ];
   const okCount = checks.filter((item) => item.ok).length;
+  const missing = checks.filter((item) => !item.ok).map((item) => item.label);
   const confidence = okCount >= 4 ? "high" : okCount >= 2 ? "medium" : "low";
   return `
     <section class="viewer-trust-panel">
@@ -306,6 +307,7 @@ function renderInformationQuality(record) {
       <div class="viewer-confidence">
         <strong>${escapeHtml(confidence)} confidence</strong>
         <span>${okCount}/${checks.length} evidence checks available: ${escapeHtml(checks.filter((item) => item.ok).map((item) => item.label).join(", ") || "metadata only")}</span>
+        <span>Missing: ${escapeHtml(missing.join(", ") || "none")}</span>
       </div>
     </section>
   `;

@@ -541,6 +541,7 @@ a:focus-visible {
 
 .result-trace,
 .result-scope,
+.result-map-context,
 .trend-basis-note,
 .reference-selected-note,
 .reference-list-note {
@@ -549,6 +550,10 @@ a:focus-visible {
   font-size: 11px;
   font-weight: 750;
   line-height: 1.4;
+}
+
+.result-map-context {
+  color: var(--muted-2);
 }
 
 .result-abstract {
@@ -937,6 +942,15 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 750;
   line-height: 1.4;
+}
+
+.reference-chip-label {
+  margin: 8px 0 0;
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .reference-coverage-explain {
@@ -1802,6 +1816,14 @@ a:focus-visible {
   color: var(--muted);
   font-size: 11px;
   font-weight: 750;
+  line-height: 1.35;
+}
+
+.semantic-insight-scope {
+  margin: 0;
+  color: var(--muted-2);
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1.35;
 }
 
