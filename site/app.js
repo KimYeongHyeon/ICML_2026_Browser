@@ -502,7 +502,9 @@ async function renderReferences() {
         </article>
         <article class="reference-panel-block">
           <h3>Reference concentration</h3>
+          <p class="reference-chip-label">Areas</p>
           <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byArea || [])}</div>
+          <p class="reference-chip-label">Domains</p>
           <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byDomain || [])}</div>
         </article>
       </div>
@@ -548,6 +550,7 @@ async function renderReferenceSelection(recordId) {
     </div>
     ${renderReferenceGraph(payload || {}, record)}
     <p class="reference-selected-note">Overlap means shared normalized references for this selected record; it is citation evidence, separate from semantic-map similarity.</p>
+    <p class="reference-list-note">Sample extracted reference titles from this record.</p>
     <div class="reference-sample-list reference-selected-samples">
       ${references.map((item) => `<span>${escapeHtml(item.displayText)}${referenceBadge(item.year || item.source || "")}</span>`).join("") || "<small>No clean citation sample in this shard yet.</small>"}
     </div>
