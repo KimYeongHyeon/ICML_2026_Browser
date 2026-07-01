@@ -255,6 +255,12 @@ export function resultTrace(record) {
   return `Source: ${source} · Text: ${text} · Material: ${material}`;
 }
 
+function resultScope(record) {
+  const area = (record.areaTags || categoryTags(record)).slice(0, 2).join(", ") || "Other";
+  const domain = (record.domainTags || ["General"]).slice(0, 2).join(", ") || "General";
+  return `Area: ${area} · Domain: ${domain}`;
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -329,6 +335,7 @@ export function renderResults() {
           </span>
           <span class="result-reason">${escapeHtml(resultReason(record, matched))}</span>
           <span class="result-trace">${escapeHtml(resultTrace(record))}</span>
+          <span class="result-scope">${escapeHtml(resultScope(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;

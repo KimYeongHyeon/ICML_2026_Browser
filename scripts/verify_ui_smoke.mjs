@@ -148,6 +148,7 @@ const initial = await page.evaluate(() => ({
   firstEvidence: document.querySelector(".result-item .result-evidence")?.innerText || "",
   firstReason: document.querySelector(".result-item .result-reason")?.innerText || "",
   firstTrace: document.querySelector(".result-item .result-trace")?.innerText || "",
+  firstScope: document.querySelector(".result-item .result-scope")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -429,6 +430,7 @@ const trendsInitial = await page.evaluate(() => ({
   firstRepresentatives: document.querySelectorAll(".trend-representatives button").length,
   firstSummary: document.querySelector(".trend-card p")?.textContent || "",
   basisNote: document.querySelector(".trend-basis-note")?.textContent || "",
+  countText: document.querySelector(".trend-counts")?.textContent || "",
   studyLabels: [...document.querySelectorAll(".trend-study-section em")].map((item) => item.textContent || ""),
   firstReadText: document.querySelector(".trend-representatives")?.textContent || "",
   unusualText: document.querySelector(".unusual-directions")?.textContent || "",
@@ -641,10 +643,12 @@ const referencesTab = await page.evaluate(() => ({
   healthNote: document.querySelector(".reference-health-note")?.textContent || "",
   coverageExplainText: document.querySelector(".reference-coverage-explain")?.textContent || "",
   sortNote: document.querySelector(".reference-sort-note")?.textContent || "",
+  topReferenceNote: document.querySelector(".reference-list-note")?.textContent || "",
   topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
   topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
+  selectedHeadText: document.querySelector(".reference-selected-head")?.textContent || "",
   selectedNote: document.querySelector(".reference-selected-note")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
   graphNodeCount: document.querySelectorAll(".reference-overlap-graph .reference-node").length,
@@ -758,6 +762,9 @@ if (!/Source:/i.test(initial.firstTrace) || !/Text:/i.test(initial.firstTrace) |
 if (!/Source: ICML \+ OpenReview/.test(initial.firstTrace)) {
   throw new Error(`paper result provenance should identify ICML + OpenReview: ${JSON.stringify(initial)}`);
 }
+if (!/Area:/i.test(initial.firstScope) || !/Domain:/i.test(initial.firstScope)) {
+  throw new Error(`result cards should expose area/domain scope: ${JSON.stringify(initial)}`);
+}
 if (!/Source: ICML\b/.test(provenanceUnits.poster) || /Source: OpenReview/.test(provenanceUnits.poster)) {
   throw new Error(`poster provenance should use the official ICML source, not OpenReview fallback: ${JSON.stringify(provenanceUnits)}`);
 }
@@ -845,7 +852,7 @@ if (!viewerReferenceExpectation.hasEntry && !paperLatex.hasPdfShell && !/No down
 if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
 }
-if (!/At a glance/i.test(paperLatex.factsPanelText) || !/Record/i.test(paperLatex.factsPanelText) || !/Area/i.test(paperLatex.factsPanelText) || !/Domain/i.test(paperLatex.factsPanelText) || !/Map basis/i.test(paperLatex.factsPanelText)) {
+if (!/At a glance/i.test(paperLatex.factsPanelText) || !/Record/i.test(paperLatex.factsPanelText) || !/Decision/i.test(paperLatex.factsPanelText) || !/Area/i.test(paperLatex.factsPanelText) || !/Domain/i.test(paperLatex.factsPanelText) || !/Map basis/i.test(paperLatex.factsPanelText)) {
   throw new Error(`viewer should expose compact record facts: ${JSON.stringify(paperLatex)}`);
 }
 if (!/Study signals/i.test(paperLatex.studySignalsText) || !/Priority/i.test(paperLatex.studySignalsText) || !/Suggestion/i.test(paperLatex.studySignalsText) || !/Evidence/i.test(paperLatex.studySignalsText)) {
@@ -884,6 +891,12 @@ if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expecte
 }
 if (!/shared normalized references/i.test(referencesTab.selectedNote) || !/separate from semantic-map similarity/i.test(referencesTab.selectedNote)) {
   throw new Error(`References selected record should explain citation-overlap interpretation: ${JSON.stringify(referencesTab)}`);
+}
+if (!/Normalized citation titles/i.test(referencesTab.topReferenceNote) || !/excluded/i.test(referencesTab.topReferenceNote)) {
+  throw new Error(`References top list should explain title normalization and excluded fragments: ${JSON.stringify(referencesTab)}`);
+}
+if (!/extracted refs/i.test(referencesTab.selectedHeadText) || !/shown overlaps/i.test(referencesTab.selectedHeadText)) {
+  throw new Error(`References selected header should expose extracted refs and shown overlap count: ${JSON.stringify(referencesTab)}`);
 }
 if (!/What counts/i.test(referencesTab.coverageExplainText) || !/What does not count/i.test(referencesTab.coverageExplainText) || !/Coverage gap/i.test(referencesTab.coverageExplainText) || !/candidate PDFs/i.test(referencesTab.coverageExplainText)) {
   throw new Error(`References tab should explain what extracted-reference coverage means: ${JSON.stringify(referencesTab)}`);
@@ -991,6 +1004,8 @@ if (
   || !trendsInitial.firstSummary.includes("This trend groups papers around")
   || !/title\+abstract embedding clusters/i.test(trendsInitial.basisNote)
   || !/not official ICML subject areas/i.test(trendsInitial.basisNote)
+  || !/Areas/i.test(trendsInitial.countText)
+  || !/Domains/i.test(trendsInitial.countText)
   || !["Core question", "Method", "Branches"].every((label) => trendsInitial.studyLabels.includes(label))
   || !/First reads/.test(trendsInitial.firstReadText)
   || !/Unusual directions/.test(trendsInitial.unusualText)
