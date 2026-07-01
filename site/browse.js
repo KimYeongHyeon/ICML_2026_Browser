@@ -266,6 +266,16 @@ function resultMapContext(record) {
   return record.mapAvailable ? `Map: ${label || "mapped"}` : "Map: not mapped";
 }
 
+function resultReadHint(record) {
+  return record.abstract ? "Read: abstract-backed" : "Read: title-only metadata";
+}
+
+function resultOpenHint(record) {
+  if (record.localPdfPath || record.localSlidePath || record.localPosterPath) return "Open: local preview";
+  if (record.pdfUrl || record.pageUrl || record.openreviewUrl) return "Open: source link";
+  return "Open: metadata only";
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -342,6 +352,8 @@ export function renderResults() {
           <span class="result-trace">${escapeHtml(resultTrace(record))}</span>
           <span class="result-scope">${escapeHtml(resultScope(record))}</span>
           <span class="result-map-context">${escapeHtml(resultMapContext(record))}</span>
+          <span class="result-read-hint">${escapeHtml(resultReadHint(record))}</span>
+          <span class="result-open-hint">${escapeHtml(resultOpenHint(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;
