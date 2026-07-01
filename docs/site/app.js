@@ -495,6 +495,7 @@ async function renderReferences() {
       <div class="reference-analysis-grid">
         <article class="reference-panel-block">
           <h3>Most cited reference titles</h3>
+          <p class="reference-list-note">Normalized citation titles are merged before counting; URL-only and generic fragments are excluded.</p>
           <div class="reference-sample-list reference-top-list">
             ${topReferences.map((item) => `<span>${escapeHtml(item.displayText)}<b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("") || "<small>No clean citation titles available yet.</small>"}
           </div>
@@ -543,7 +544,7 @@ async function renderReferenceSelection(recordId) {
   target.innerHTML = `
     <div class="reference-selected-head">
       <strong>${escapeHtml(plainMathTitle(record?.title || payload?.title || recordId))}</strong>
-      <span>${Number(payload?.referenceCount || 0).toLocaleString()} extracted refs</span>
+      <span>${Number(payload?.referenceCount || 0).toLocaleString()} extracted refs · ${overlaps.length.toLocaleString()} shown overlaps</span>
     </div>
     ${renderReferenceGraph(payload || {}, record)}
     <p class="reference-selected-note">Overlap means shared normalized references for this selected record; it is citation evidence, separate from semantic-map similarity.</p>
