@@ -212,9 +212,18 @@ export function checkedAtLabel(value) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
+function decisionLabel(record) {
+  return uniqueChipValues([
+    ...(record.presentationLabels || []),
+    record.decision,
+    record.status === "accepted_public" ? "accepted public" : statusLabel(record.status),
+  ]).slice(0, 2).join(", ");
+}
+
 function renderRecordFacts(record) {
   const facts = [
     ["Record", viewerKindLabel(record)],
+    ["Decision", decisionLabel(record)],
     ["Area", (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ")],
     ["Domain", (record.domainTags || ["General"]).slice(0, 2).join(", ")],
     ["Map basis", record.embeddingTextQuality === "title_abstract" ? "title + abstract" : record.embeddingTextQuality || "title/topic"],

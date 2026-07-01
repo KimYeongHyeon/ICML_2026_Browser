@@ -33,6 +33,11 @@ function countLabelsHtml(items = []) {
   return items.slice(0, 3).map((item) => `<span>${escapeHtml(item.label)} <b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("");
 }
 
+function trendCountGroup(label, items = []) {
+  const html = countLabelsHtml(items);
+  return html ? `<div class="trend-count-group"><em>${escapeHtml(label)}</em>${html}</div>` : "";
+}
+
 function selectedMiniLabels(record) {
   const labels = [
     ...(record.areaTags || []).slice(0, 2).map((label) => ({ kind: "Area", label })),
@@ -89,7 +94,7 @@ function renderTrendCards() {
               ${(trend.keywords || []).slice(0, 5).map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}
             </div>
             ${(trend.representativeSentences || []).slice(0, 2).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
-            <div class="trend-counts">${countLabelsHtml(trend.areaCounts)}${countLabelsHtml(trend.domainCounts)}</div>
+            <div class="trend-counts">${trendCountGroup("Areas", trend.areaCounts)}${trendCountGroup("Domains", trend.domainCounts)}</div>
             <div class="trend-study-section">
               <span><em>Core question</em>${escapeHtml(trend.coreQuestion || "What should I read first in this embedding cluster?")}</span>
               <span><em>Method</em>${escapeHtml(trend.representativeMethodology || "Embedding-neighborhood analysis")}</span>
