@@ -1,0 +1,14 @@
+export const DATA_URL = "site/data/icml2026_index.json";
+export const DATA_MANIFEST_URL = "site/data/icml2026_index.manifest.json";
+export const MAP_URL = "site/data/icml2026_map.json";
+export const SEARCH_EMBEDDINGS_URL = "site/data/icml2026_search_embeddings.json";
+export const TRENDS_URL = "site/data/icml2026_trends.json";
+export const STUDY_FEATURES_URL = "site/data/icml2026_study_features.json";
+export const REFERENCES_MANIFEST_URL = "site/data/references/manifest.json";
+export const PAGE_SIZE = 80;
+export const REPO_CDN_BASE = "https://cdn.jsdelivr.net/gh/KimYeongHyeon/ICML_2026_Browser@main/";
+export const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";
+export const MATHJAX_RETRY_LIMIT = 40;
+export const PDFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm";
+export const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+export const TRANSFORMERS_JS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
