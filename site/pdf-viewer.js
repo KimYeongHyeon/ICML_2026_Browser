@@ -54,6 +54,7 @@ export function renderAssetOpenFallback(record, assetPath, url) {
           <a class="action" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open in new tab</a>
         </div>
         <div class="pdfjs-stage">
+          <div class="pdfjs-scroll-cue">Scroll inside PDF · wheel turns pages at edges</div>
           <canvas data-pdf-canvas aria-label="${escapeHtml(record.title)} PDF preview"></canvas>
         </div>
         <div class="source-page-open pdfjs-error" data-pdf-error hidden>
