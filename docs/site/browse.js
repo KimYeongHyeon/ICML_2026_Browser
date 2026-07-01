@@ -261,6 +261,11 @@ function resultScope(record) {
   return `Area: ${area} · Domain: ${domain}`;
 }
 
+function resultMapContext(record) {
+  const label = record.embeddingClusterLabel || record.clusterLabel || record.clusterId || "";
+  return record.mapAvailable ? `Map: ${label || "mapped"}` : "Map: not mapped";
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -336,6 +341,7 @@ export function renderResults() {
           <span class="result-reason">${escapeHtml(resultReason(record, matched))}</span>
           <span class="result-trace">${escapeHtml(resultTrace(record))}</span>
           <span class="result-scope">${escapeHtml(resultScope(record))}</span>
+          <span class="result-map-context">${escapeHtml(resultMapContext(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;

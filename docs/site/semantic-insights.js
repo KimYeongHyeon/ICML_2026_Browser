@@ -102,6 +102,7 @@ export function renderSemanticInsightPanel(records, query) {
       ${keywords.map((word) => `<b>${escapeHtml(word)}</b>`).join("") || "<b>title-only</b>"}
     </div>
     <p class="semantic-insight-evidence">${escapeHtml(searchEvidenceText(records))}</p>
+    <p class="semantic-insight-scope">Current map filters are applied before ranking; open a title below to inspect the same record.</p>
     <div class="semantic-insight-keywords topic-lens-records">
       ${(lens.representatives.length ? lens.representatives : records.slice(0, 3)).map((record) => `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>`).join("")}
     </div>
