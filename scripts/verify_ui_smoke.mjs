@@ -150,6 +150,16 @@ const initial = await page.evaluate(() => ({
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
+const expectedDataSnapshot = await page.evaluate(async () => {
+  const startup = await fetch("site/data/icml2026_startup.json").then((response) => response.json());
+  const typeCounts = startup.summary?.typeCounts || {};
+  const assetCounts = startup.summary?.assetCounts || {};
+  return {
+    paperLabel: `${Number(typeCounts.paper || 0).toLocaleString()} papers`,
+    workshopLabel: `${Number(typeCounts.workshop || 0).toLocaleString()} workshops`,
+    pdfLabel: `${Number(assetCounts.pdf || 0).toLocaleString()} local PDFs`,
+  };
+});
 
 const studyRequestsBeforeMapEntry = studyRequests.length;
 await page.locator('.tab[data-tab="map"]').click();
@@ -645,6 +655,7 @@ const zeroCandidateFallbackCase = referenceCoverageForManifest({
 const report = {
   baseUrl,
   initial,
+  expectedDataSnapshot,
   initialReferenceRequestCount,
   initialStudyRequestCount,
   mapEntryStudyRequestCount,
@@ -703,8 +714,13 @@ if (initial.paperHidden || !initial.paperActive) {
 if (!/^6,343 results/.test(initial.resultCount)) {
   throw new Error(`unexpected initial paper count: ${initial.resultCount}`);
 }
-if (!/Data snapshot/i.test(initial.note) || !/6,343 papers/i.test(initial.note) || !/723 workshops/i.test(initial.note) || !/328 local PDFs/i.test(initial.note)) {
-  throw new Error(`data note should expose the current loaded snapshot: ${JSON.stringify(initial)}`);
+if (
+  !/Data snapshot/i.test(initial.note)
+  || !initial.note.includes(expectedDataSnapshot.paperLabel)
+  || !initial.note.includes(expectedDataSnapshot.workshopLabel)
+  || !initial.note.includes(expectedDataSnapshot.pdfLabel)
+) {
+  throw new Error(`data note should expose the current loaded snapshot: ${JSON.stringify({ initial, expectedDataSnapshot })}`);
 }
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
