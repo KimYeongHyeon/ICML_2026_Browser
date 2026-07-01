@@ -150,6 +150,8 @@ const initial = await page.evaluate(() => ({
   firstTrace: document.querySelector(".result-item .result-trace")?.innerText || "",
   firstScope: document.querySelector(".result-item .result-scope")?.innerText || "",
   firstMapContext: document.querySelector(".result-item .result-map-context")?.innerText || "",
+  firstReadHint: document.querySelector(".result-item .result-read-hint")?.innerText || "",
+  firstOpenHint: document.querySelector(".result-item .result-open-hint")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -479,6 +481,7 @@ if (mapBox && selectableMapPoint) {
 const mapSelectedDetail = await page.evaluate(() => ({
   title: document.querySelector(".map-detail-card h3")?.textContent || "",
   note: document.querySelector(".map-neighborhood-note")?.textContent || "",
+  selectedBasis: document.querySelector(".map-selected-basis")?.textContent || "",
 }));
 
 await page.locator("#mapSearchInput").fill("O(3)");
@@ -652,6 +655,7 @@ const referencesTab = await page.evaluate(() => ({
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
   selectedHeadText: document.querySelector(".reference-selected-head")?.textContent || "",
   selectedNote: document.querySelector(".reference-selected-note")?.textContent || "",
+  graphText: document.querySelector(".reference-overlap-graph")?.textContent || "",
   selectedSampleNote: document.querySelector(".reference-selected .reference-list-note")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
   graphNodeCount: document.querySelectorAll(".reference-overlap-graph .reference-node").length,
@@ -771,6 +775,9 @@ if (!/Area:/i.test(initial.firstScope) || !/Domain:/i.test(initial.firstScope)) 
 if (!/Map:/i.test(initial.firstMapContext)) {
   throw new Error(`result cards should expose map context: ${JSON.stringify(initial)}`);
 }
+if (!/Read:/i.test(initial.firstReadHint) || !/Open:/i.test(initial.firstOpenHint)) {
+  throw new Error(`result cards should expose read/open hints: ${JSON.stringify(initial)}`);
+}
 if (!/Source: ICML\b/.test(provenanceUnits.poster) || /Source: OpenReview/.test(provenanceUnits.poster)) {
   throw new Error(`poster provenance should use the official ICML source, not OpenReview fallback: ${JSON.stringify(provenanceUnits)}`);
 }
@@ -864,7 +871,7 @@ if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i
 if (!/At a glance/i.test(paperLatex.factsPanelText) || !/Record/i.test(paperLatex.factsPanelText) || !/Decision/i.test(paperLatex.factsPanelText) || !/Area/i.test(paperLatex.factsPanelText) || !/Domain/i.test(paperLatex.factsPanelText) || !/Map basis/i.test(paperLatex.factsPanelText)) {
   throw new Error(`viewer should expose compact record facts: ${JSON.stringify(paperLatex)}`);
 }
-if (!/Study signals/i.test(paperLatex.studySignalsText) || !/Priority/i.test(paperLatex.studySignalsText) || !/Suggestion/i.test(paperLatex.studySignalsText) || !/Evidence/i.test(paperLatex.studySignalsText)) {
+if (!/Study signals/i.test(paperLatex.studySignalsText) || !/Priority/i.test(paperLatex.studySignalsText) || !/Suggestion/i.test(paperLatex.studySignalsText) || !/Evidence/i.test(paperLatex.studySignalsText) || !/Read path/i.test(paperLatex.studySignalsText)) {
   throw new Error(`viewer should expose study signals for the selected record: ${JSON.stringify(paperLatex)}`);
 }
 if (!/Source identifiers/i.test(paperLatex.sourcePanelText) || !/ICML|OpenReview|Record id/i.test(paperLatex.sourcePanelText)) {
@@ -912,6 +919,9 @@ if (!/extracted refs/i.test(referencesTab.selectedHeadText) || !/shown overlaps/
 }
 if (!/Sample extracted reference titles/i.test(referencesTab.selectedSampleNote)) {
   throw new Error(`References selected samples should be labeled as extracted titles: ${JSON.stringify(referencesTab)}`);
+}
+if (!/sorted by shared normalized references/i.test(referencesTab.graphText)) {
+  throw new Error(`References graph should explain overlap ranking basis: ${JSON.stringify(referencesTab)}`);
 }
 if (!/What counts/i.test(referencesTab.coverageExplainText) || !/What does not count/i.test(referencesTab.coverageExplainText) || !/Coverage gap/i.test(referencesTab.coverageExplainText) || !/candidate PDFs/i.test(referencesTab.coverageExplainText)) {
   throw new Error(`References tab should explain what extracted-reference coverage means: ${JSON.stringify(referencesTab)}`);
@@ -1058,7 +1068,7 @@ if (!/(Biology|General|Scientific Discovery|Social Science|Robotics|Medical)\s+\
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);
 }
-if (!mapSelectedDetail.title || !/Neighborhood evidence/i.test(mapSelectedDetail.note) || !/precomputed title\+abstract embedding graph/i.test(mapSelectedDetail.note)) {
+if (!mapSelectedDetail.title || !/Neighborhood evidence/i.test(mapSelectedDetail.note) || !/precomputed title\+abstract embedding graph/i.test(mapSelectedDetail.note) || !/Selected basis/i.test(mapSelectedDetail.selectedBasis)) {
   throw new Error(`map detail should explain how nearest neighbors are ranked: ${JSON.stringify(mapSelectedDetail)}`);
 }
 if (

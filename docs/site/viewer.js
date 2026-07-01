@@ -257,6 +257,11 @@ function renderStudySignals(record) {
   const suggestion = signals.includes("abstract") && signals.includes("semantic map")
     ? "Good study candidate"
     : "Skim metadata first";
+  const readPath = [
+    record.localPdfPath || record.bestAssetKind === "pdf" ? "PDF" : record.pdfUrl || openReviewPdfUrl(record) ? "PDF link" : "",
+    record.abstract ? "abstract" : "",
+    record.mapAvailable ? "semantic neighbors" : "",
+  ].filter(Boolean).join(" → ") || "metadata first";
   return `
     <section class="viewer-study-signals">
       <p class="eyebrow">Study signals</p>
@@ -264,6 +269,7 @@ function renderStudySignals(record) {
         <span><em>Priority</em><b>${escapeHtml(priority)}</b></span>
         <span><em>Suggestion</em><b>${escapeHtml(suggestion)}</b></span>
         <span><em>Evidence</em><b>${escapeHtml(signals.join(", ") || "metadata only")}</b></span>
+        <span><em>Read path</em><b>${escapeHtml(readPath)}</b></span>
       </div>
     </section>
   `;

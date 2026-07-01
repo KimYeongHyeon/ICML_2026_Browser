@@ -427,6 +427,7 @@ function renderReferenceGraph(payload = {}, record = null) {
         `).join("")}
       </svg>
       <small>Node size follows shared reference count. Edge width follows shared references with the selected paper.</small>
+      <small>Shown overlap records are sorted by shared normalized references, then extracted-reference count.</small>
     </div>
   `;
 }
