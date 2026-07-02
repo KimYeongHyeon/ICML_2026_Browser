@@ -301,6 +301,13 @@ function renderInformationQuality(record) {
   const okCount = checks.filter((item) => item.ok).length;
   const missing = checks.filter((item) => !item.ok).map((item) => item.label);
   const confidence = okCount >= 4 ? "high" : okCount >= 2 ? "medium" : "low";
+  const nextAction = record.localPdfPath || record.bestAssetKind === "pdf"
+    ? "read local PDF"
+    : record.abstract && record.mapAvailable
+    ? "read abstract, then semantic neighbors"
+    : record.abstract
+    ? "read abstract first"
+    : "verify source before deep reading";
   return `
     <section class="viewer-trust-panel">
       <p class="eyebrow">Information quality</p>
@@ -309,6 +316,7 @@ function renderInformationQuality(record) {
         <span><em>Text</em><b>${escapeHtml(text)}</b></span>
         <span><em>Map</em><b>${escapeHtml(map)}</b></span>
         <span><em>Material</em><b>${escapeHtml(material)}</b></span>
+        <span><em>Next action</em><b>${escapeHtml(nextAction)}</b></span>
       </div>
       <div class="viewer-confidence">
         <strong>${escapeHtml(confidence)} confidence</strong>
@@ -409,6 +417,10 @@ function renderViewerReferencePanel(payload = {}) {
   if (!references.length && !overlaps.length) return "";
   const topShared = Math.max(0, ...overlaps.map((item) => Number(item.sharedCount || 0)));
   const hasOverlaps = overlaps.length > 0;
+  const summary = referenceManifestSummary() || {};
+  const covered = referenceSummaryCoveredCount(summary);
+  const total = Number(summary.recordCount || summary.matchedRecords || covered || 0);
+  const coverage = total ? `${Math.round((covered / total) * 100)}% coverage` : "coverage unknown";
   return `
     <section class="viewer-reference-panel">
       <div class="viewer-section-head">
@@ -416,7 +428,7 @@ function renderViewerReferencePanel(payload = {}) {
           <p class="eyebrow">Citation overlap</p>
           <h3>${hasOverlaps ? "Strongest reference links" : "Extracted references"}</h3>
         </div>
-        <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs</span>
+        <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs · ${escapeHtml(coverage)}</span>
       </div>
       <div class="selection-stat-grid viewer-reference-stats">
         <span><b>${Number(payload.referenceCount || 0).toLocaleString()}</b><small>refs</small></span>
@@ -457,7 +469,10 @@ function referenceSummaryCoveredCount(summary = {}) {
 
 function renderReferenceUnavailablePanel(record) {
   const summary = referenceManifestSummary() || {};
-  const covered = referenceSummaryCoveredCount(summary).toLocaleString();
+  const coveredCount = referenceSummaryCoveredCount(summary);
+  const total = Number(summary.recordCount || summary.matchedRecords || coveredCount || 0);
+  const covered = coveredCount.toLocaleString();
+  const coverage = total ? `${Math.round((coveredCount / total) * 100)}% coverage` : "coverage unknown";
   const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);
   const reason = hasCollectedPdf
     ? "No reference shard has been matched to this record yet."
@@ -469,7 +484,7 @@ function renderReferenceUnavailablePanel(record) {
           <p class="eyebrow">Citation evidence</p>
           <h3>Not indexed for this record</h3>
         </div>
-        <span>${covered} records covered</span>
+        <span>${covered} records covered · ${escapeHtml(coverage)}</span>
       </div>
       <p class="viewer-reference-note">${escapeHtml(reason)} Semantic neighbors above still come from title/abstract embeddings, not citations.</p>
     </section>

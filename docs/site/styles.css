@@ -544,7 +544,9 @@ a:focus-visible {
 .result-map-context,
 .result-read-hint,
 .result-open-hint,
+.result-study-fit,
 .trend-basis-note,
+.trend-evidence-basis,
 .reference-selected-note,
 .reference-list-note {
   margin: 0;
@@ -2716,7 +2718,8 @@ a:focus-visible {
 }
 
 .map-neighborhood-note,
-.map-selected-basis {
+.map-selected-basis,
+.map-similarity-scale {
   margin: -4px 0 0;
   color: var(--muted);
   font-size: 11px;
@@ -2724,7 +2727,8 @@ a:focus-visible {
   line-height: 1.4;
 }
 
-.map-selected-basis {
+.map-selected-basis,
+.map-similarity-scale {
   color: var(--muted-2);
 }
 
