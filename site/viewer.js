@@ -301,6 +301,13 @@ function renderInformationQuality(record) {
   const okCount = checks.filter((item) => item.ok).length;
   const missing = checks.filter((item) => !item.ok).map((item) => item.label);
   const confidence = okCount >= 4 ? "high" : okCount >= 2 ? "medium" : "low";
+  const nextAction = record.localPdfPath || record.bestAssetKind === "pdf"
+    ? "read local PDF"
+    : record.abstract && record.mapAvailable
+    ? "read abstract, then semantic neighbors"
+    : record.abstract
+    ? "read abstract first"
+    : "verify source before deep reading";
   return `
     <section class="viewer-trust-panel">
       <p class="eyebrow">Information quality</p>
@@ -309,6 +316,7 @@ function renderInformationQuality(record) {
         <span><em>Text</em><b>${escapeHtml(text)}</b></span>
         <span><em>Map</em><b>${escapeHtml(map)}</b></span>
         <span><em>Material</em><b>${escapeHtml(material)}</b></span>
+        <span><em>Next action</em><b>${escapeHtml(nextAction)}</b></span>
       </div>
       <div class="viewer-confidence">
         <strong>${escapeHtml(confidence)} confidence</strong>
@@ -409,6 +417,8 @@ function renderViewerReferencePanel(payload = {}) {
   if (!references.length && !overlaps.length) return "";
   const topShared = Math.max(0, ...overlaps.map((item) => Number(item.sharedCount || 0)));
   const hasOverlaps = overlaps.length > 0;
+  const summary = referenceManifestSummary() || {};
+  const coverage = referenceSummaryCoverageLabel(summary);
   return `
     <section class="viewer-reference-panel">
       <div class="viewer-section-head">
@@ -416,7 +426,7 @@ function renderViewerReferencePanel(payload = {}) {
           <p class="eyebrow">Citation overlap</p>
           <h3>${hasOverlaps ? "Strongest reference links" : "Extracted references"}</h3>
         </div>
-        <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs</span>
+        <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs · ${escapeHtml(coverage)}</span>
       </div>
       <div class="selection-stat-grid viewer-reference-stats">
         <span><b>${Number(payload.referenceCount || 0).toLocaleString()}</b><small>refs</small></span>
@@ -455,9 +465,34 @@ function referenceSummaryCoveredCount(summary = {}) {
   return 0;
 }
 
+function referenceSummaryCandidateCount(summary = {}) {
+  const matched = Number(summary.matchedRecords || 0);
+  const unmatched = Number(summary.unmatchedRecords || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "pdfRecords")) return Number(summary.pdfRecords || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "matchedRecords") || Object.prototype.hasOwnProperty.call(summary, "unmatchedRecords")) return matched + unmatched;
+  if (Object.prototype.hasOwnProperty.call(summary, "recordCount")) return Number(summary.recordCount || 0);
+  return 0;
+}
+
+function referenceSummaryHasCandidateCount(summary = {}) {
+  return Object.prototype.hasOwnProperty.call(summary, "pdfRecords")
+    || Object.prototype.hasOwnProperty.call(summary, "matchedRecords")
+    || Object.prototype.hasOwnProperty.call(summary, "unmatchedRecords")
+    || Object.prototype.hasOwnProperty.call(summary, "recordCount");
+}
+
+export function referenceSummaryCoverageLabel(summary = {}) {
+  const covered = referenceSummaryCoveredCount(summary);
+  const total = referenceSummaryCandidateCount(summary);
+  if (total) return `${Math.round((covered / total) * 100)}% coverage`;
+  return referenceSummaryHasCandidateCount(summary) ? "0% coverage" : "coverage unknown";
+}
+
 function renderReferenceUnavailablePanel(record) {
   const summary = referenceManifestSummary() || {};
-  const covered = referenceSummaryCoveredCount(summary).toLocaleString();
+  const coveredCount = referenceSummaryCoveredCount(summary);
+  const covered = coveredCount.toLocaleString();
+  const coverage = referenceSummaryCoverageLabel(summary);
   const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);
   const reason = hasCollectedPdf
     ? "No reference shard has been matched to this record yet."
@@ -469,7 +504,7 @@ function renderReferenceUnavailablePanel(record) {
           <p class="eyebrow">Citation evidence</p>
           <h3>Not indexed for this record</h3>
         </div>
-        <span>${covered} records covered</span>
+        <span>${covered} records covered · ${escapeHtml(coverage)}</span>
       </div>
       <p class="viewer-reference-note">${escapeHtml(reason)} Semantic neighbors above still come from title/abstract embeddings, not citations.</p>
     </section>
@@ -497,6 +532,17 @@ function mountReferencePanel(record) {
   });
 }
 
+function needsFullMetadata(record) {
+  return Boolean(
+    record
+      && state.dataManifest
+      && !state.dataShardsLoaded
+      && record.type === "paper"
+      && !record.abstract
+      && record.mapAvailable
+  );
+}
+
 export function renderViewer(record) {
   viewerDeps.destroyMiniGraph();
   destroyPdfViewer();
@@ -513,6 +559,20 @@ export function renderViewer(record) {
 
   els.viewerKind.textContent = viewerKindLabel(record);
   els.viewerTitle.textContent = plainMathTitle(record.title);
+  if (needsFullMetadata(record)) {
+    els.viewerActions.innerHTML = "";
+    els.viewerMeta.innerHTML = "";
+    els.viewerFrame.innerHTML = `
+      <div class="empty-state">
+        <strong>Loading full metadata</strong>
+        <span>Attaching abstract, semantic-map evidence, and study signals from the full paper shard.</span>
+      </div>
+    `;
+    viewerDeps.hydrateSelectedRecord?.(record.id);
+    queueMathTypeset(els.viewerFrame);
+    return;
+  }
+
   const primaryMeta = [
     ["Authors", record.authors || "Authors unavailable"],
     ["Session", uniqueChipValues([record.session, record.roomName, paperPresentationMode(record)]).join(" · ")],

@@ -38,6 +38,16 @@ function trendCountGroup(label, items = []) {
   return html ? `<div class="trend-count-group"><em>${escapeHtml(label)}</em>${html}</div>` : "";
 }
 
+function trendEvidenceBasis(trend, firstReads) {
+  const parts = [
+    `${Number(trend.size || 0).toLocaleString()} mapped records`,
+    `${(trend.keywords || []).length.toLocaleString()} keywords`,
+    `${firstReads.length.toLocaleString()} first reads`,
+    `${(trend.representativeSentences || []).length.toLocaleString()} representative sentences`,
+  ];
+  return `Basis: ${parts.join(" · ")}`;
+}
+
 function selectedMiniLabels(record) {
   const labels = [
     ...(record.areaTags || []).slice(0, 2).map((label) => ({ kind: "Area", label })),
@@ -93,6 +103,7 @@ function renderTrendCards() {
             <div class="trend-keywords">
               ${(trend.keywords || []).slice(0, 5).map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}
             </div>
+            <p class="trend-evidence-basis">${escapeHtml(trendEvidenceBasis(trend, firstReads))}</p>
             ${(trend.representativeSentences || []).slice(0, 1).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
             <div class="trend-counts">${trendCountGroup("Areas", trend.areaCounts)}${trendCountGroup("Domains", trend.domainCounts)}</div>
             <div class="trend-study-section">
@@ -148,6 +159,7 @@ export function renderMapDetail(record) {
   const clusterSize = embeddingClusterSize(record);
   const unusual = unusualDirectionForRecord(record.id);
   const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
+  const similarityBand = topScore >= 0.9 ? "tight local neighborhood" : topScore >= 0.75 ? "clear related neighborhood" : "broad topical neighborhood";
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
       <p class="eyebrow">${escapeHtml(typeLabel(record.type))} · ${escapeHtml(record.clusterLabel || "Mapped record")}</p>
@@ -175,6 +187,7 @@ export function renderMapDetail(record) {
       </div>
       <p class="map-neighborhood-note">Neighborhood evidence: nearest records are ranked from the precomputed title+abstract embedding graph; bars are normalized within this selected record.</p>
       <p class="map-selected-basis">Selected basis: ${escapeHtml(record.embeddingTextQuality || "title/topic")} · ${escapeHtml(record.sourceType || "collected metadata")}</p>
+      <p class="map-similarity-scale">Similarity scale: ${escapeHtml(similarityBand)} · top score ${Number(topScore || 0).toFixed(2)} · compare bars only within this selected record.</p>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">
         ${neighbors.map((item) => {
@@ -345,11 +358,48 @@ export function controlMiniGraph(action, record) {
   state.miniGraph.zoom?.(Math.max(0.45, Math.min(6, currentZoom * factor)), 180);
 }
 
+function miniGraphPoint(event, container) {
+  const rect = container.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function nearestMiniNodeAtScreen(point, maxDist = 28) {
+  const graph = state.miniGraph;
+  const nodes = graph?.graphData?.()?.nodes || [];
+  if (!graph || typeof graph.graph2ScreenCoords !== "function" || !nodes.length) return null;
+  let best = null;
+  let bestDistSq = maxDist * maxDist;
+  for (const node of nodes) {
+    const screen = graph.graph2ScreenCoords(Number(node.x) || 0, Number(node.y) || 0);
+    const dx = (Number(screen.x) || 0) - point.x;
+    const dy = (Number(screen.y) || 0) - point.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = node;
+    }
+  }
+  return best;
+}
+
 export function mountMiniGraph(graphData, selectedId) {
   destroyMiniGraph();
   const container = els.viewerFrame.querySelector(".mini-graph");
   if (!container || typeof window.ForceGraph !== "function") return;
   let miniHoverId = "";
+  const showMiniHover = (node) => {
+    miniHoverId = node?.id || "";
+    container.style.cursor = node ? "pointer" : "";
+    if (node && typeof state.miniGraph?.graph2ScreenCoords === "function") {
+      detailDeps.showGraphTooltip?.(container, node, state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
+    } else {
+      detailDeps.hideGraphTooltip?.(container, 90);
+    }
+    state.miniGraph?.refresh?.();
+  };
   state.miniGraph = window.ForceGraph()(container)
     .backgroundColor("rgba(0,0,0,0)")
     .nodeId("id")
@@ -389,14 +439,7 @@ export function mountMiniGraph(graphData, selectedId) {
       });
     })
     .onNodeHover((node) => {
-      miniHoverId = node?.id || "";
-      container.style.cursor = node ? "pointer" : "";
-      if (node && typeof state.miniGraph?.graph2ScreenCoords === "function") {
-        detailDeps.showGraphTooltip?.(container, node, state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
-      } else {
-        detailDeps.hideGraphTooltip?.(container, 90);
-      }
-      state.miniGraph?.refresh?.();
+      showMiniHover(node);
     })
     .onNodeClick((node) => {
       if (!node?.record) return;
@@ -422,6 +465,11 @@ export function mountMiniGraph(graphData, selectedId) {
   window.setTimeout(() => fitMiniGraph(180), 180);
   window.setTimeout(() => fitMiniGraph(220), 900);
   window.setTimeout(() => fitMiniGraph(220), 1800);
+  container.addEventListener("pointermove", (event) => {
+    const node = nearestMiniNodeAtScreen(miniGraphPoint(event, container));
+    if ((node?.id || "") !== miniHoverId) showMiniHover(node);
+  }, { passive: true });
+  container.addEventListener("pointerleave", () => showMiniHover(null));
 }
 
 export function renderMiniMap(record) {
