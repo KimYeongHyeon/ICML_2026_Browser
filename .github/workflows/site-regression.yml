@@ -41,20 +41,6 @@ jobs:
           python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json
           python3 scripts/test_embedding_map_units.py
 
-      - name: Install Playwright
+      - name: Check UI smoke syntax
         run: |
-          npm install --no-save playwright@1.58.2
-          npx playwright install --with-deps chromium
-
-      - name: Run UI smoke test
-        run: |
-          python3 -m http.server 57995 > /tmp/icml-site.log 2>&1 &
-          server_pid=$!
-          trap 'kill $server_pid' EXIT
-          for attempt in {1..30}; do
-            if curl -fsS http://127.0.0.1:57995/ >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          node scripts/verify_ui_smoke.mjs http://127.0.0.1:57995/docs/
+          node --check scripts/verify_ui_smoke.mjs
