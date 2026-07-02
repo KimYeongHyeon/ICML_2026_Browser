@@ -418,9 +418,7 @@ function renderViewerReferencePanel(payload = {}) {
   const topShared = Math.max(0, ...overlaps.map((item) => Number(item.sharedCount || 0)));
   const hasOverlaps = overlaps.length > 0;
   const summary = referenceManifestSummary() || {};
-  const covered = referenceSummaryCoveredCount(summary);
-  const total = referenceSummaryCandidateCount(summary);
-  const coverage = total ? `${Math.round((covered / total) * 100)}% coverage` : "coverage unknown";
+  const coverage = referenceSummaryCoverageLabel(summary);
   return `
     <section class="viewer-reference-panel">
       <div class="viewer-section-head">
@@ -476,12 +474,25 @@ function referenceSummaryCandidateCount(summary = {}) {
   return 0;
 }
 
+function referenceSummaryHasCandidateCount(summary = {}) {
+  return Object.prototype.hasOwnProperty.call(summary, "pdfRecords")
+    || Object.prototype.hasOwnProperty.call(summary, "matchedRecords")
+    || Object.prototype.hasOwnProperty.call(summary, "unmatchedRecords")
+    || Object.prototype.hasOwnProperty.call(summary, "recordCount");
+}
+
+export function referenceSummaryCoverageLabel(summary = {}) {
+  const covered = referenceSummaryCoveredCount(summary);
+  const total = referenceSummaryCandidateCount(summary);
+  if (total) return `${Math.round((covered / total) * 100)}% coverage`;
+  return referenceSummaryHasCandidateCount(summary) ? "0% coverage" : "coverage unknown";
+}
+
 function renderReferenceUnavailablePanel(record) {
   const summary = referenceManifestSummary() || {};
   const coveredCount = referenceSummaryCoveredCount(summary);
-  const total = referenceSummaryCandidateCount(summary);
   const covered = coveredCount.toLocaleString();
-  const coverage = total ? `${Math.round((coveredCount / total) * 100)}% coverage` : "coverage unknown";
+  const coverage = referenceSummaryCoverageLabel(summary);
   const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);
   const reason = hasCollectedPdf
     ? "No reference shard has been matched to this record yet."

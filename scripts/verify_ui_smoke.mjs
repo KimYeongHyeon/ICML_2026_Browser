@@ -167,7 +167,7 @@ const expectedDataSnapshot = await page.evaluate(async () => {
   };
 });
 const provenanceUnits = await page.evaluate(async () => {
-  const [{ resultTrace }, { checkedAtLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
+  const [{ resultTrace }, { checkedAtLabel, referenceSummaryCoverageLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
     import("./site/browse.js"),
     import("./site/viewer.js"),
     fetch("site/data/shards/paper.json").then((response) => response.json()),
@@ -179,6 +179,7 @@ const provenanceUnits = await page.evaluate(async () => {
     poster: resultTrace((posterShard.records || [])[0] || {}),
     workshop: resultTrace((workshopShard.records || [])[0] || {}),
     utcDate: checkedAtLabel("2026-06-17T00:30:00+00:00"),
+    zeroCandidateViewerCoverage: referenceSummaryCoverageLabel({ pdfRecords: 0 }),
   };
 });
 
@@ -794,6 +795,9 @@ if (!/Source: ICML \+ OpenReview/.test(provenanceUnits.paper) || !/Source: OpenR
 }
 if (provenanceUnits.utcDate !== "Jun 17, 2026") {
   throw new Error(`checked date formatting should use the UTC calendar day: ${JSON.stringify(provenanceUnits)}`);
+}
+if (provenanceUnits.zeroCandidateViewerCoverage !== "0% coverage") {
+  throw new Error(`viewer citation coverage should preserve explicit zero candidate denominators: ${JSON.stringify(provenanceUnits)}`);
 }
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
