@@ -152,6 +152,7 @@ const initial = await page.evaluate(() => ({
   firstMapContext: document.querySelector(".result-item .result-map-context")?.innerText || "",
   firstReadHint: document.querySelector(".result-item .result-read-hint")?.innerText || "",
   firstOpenHint: document.querySelector(".result-item .result-open-hint")?.innerText || "",
+  firstStudyFit: document.querySelector(".result-item .result-study-fit")?.innerText || "",
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -166,7 +167,7 @@ const expectedDataSnapshot = await page.evaluate(async () => {
   };
 });
 const provenanceUnits = await page.evaluate(async () => {
-  const [{ resultTrace }, { checkedAtLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
+  const [{ resultTrace }, { checkedAtLabel, referenceSummaryCoverageLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
     import("./site/browse.js"),
     import("./site/viewer.js"),
     fetch("site/data/shards/paper.json").then((response) => response.json()),
@@ -178,6 +179,7 @@ const provenanceUnits = await page.evaluate(async () => {
     poster: resultTrace((posterShard.records || [])[0] || {}),
     workshop: resultTrace((workshopShard.records || [])[0] || {}),
     utcDate: checkedAtLabel("2026-06-17T00:30:00+00:00"),
+    zeroCandidateViewerCoverage: referenceSummaryCoverageLabel({ pdfRecords: 0 }),
   };
 });
 
@@ -263,6 +265,7 @@ if (viewerReferenceExpectation.hasContext) {
 }
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
+  resultStudyFit: document.querySelector(".result-item .result-study-fit")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
@@ -270,6 +273,7 @@ const paperLatex = await page.evaluate(() => ({
   sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
   gapPanelText: document.querySelector(".viewer-gap-panel")?.innerText || "",
   factsPanelText: document.querySelector(".viewer-facts-panel")?.innerText || "",
+  infoQualityText: document.querySelector(".viewer-trust-panel")?.innerText || "",
   studySignalsText: document.querySelector(".viewer-study-signals")?.innerText || "",
   viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
   viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
@@ -435,6 +439,7 @@ const trendsInitial = await page.evaluate(() => ({
   firstSummary: document.querySelector(".trend-card p")?.textContent || "",
   basisNote: document.querySelector(".trend-basis-note")?.textContent || "",
   countText: document.querySelector(".trend-counts")?.textContent || "",
+  evidenceBasis: document.querySelector(".trend-evidence-basis")?.textContent || "",
   studyLabels: [...document.querySelectorAll(".trend-study-section em")].map((item) => item.textContent || ""),
   firstReadText: document.querySelector(".trend-representatives")?.textContent || "",
   unusualText: document.querySelector(".unusual-directions")?.textContent || "",
@@ -483,6 +488,7 @@ const mapSelectedDetail = await page.evaluate(() => ({
   title: document.querySelector(".map-detail-card h3")?.textContent || "",
   note: document.querySelector(".map-neighborhood-note")?.textContent || "",
   selectedBasis: document.querySelector(".map-selected-basis")?.textContent || "",
+  similarityScale: document.querySelector(".map-similarity-scale")?.textContent || "",
 }));
 
 await page.locator("#mapSearchInput").fill("O(3)");
@@ -758,6 +764,9 @@ if (
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
+if (!/Study fit: (strong|usable|thin)/i.test(initial.firstStudyFit)) {
+  throw new Error(`paper results should expose a compact study-fit signal: ${JSON.stringify(initial)}`);
+}
 if (!/Accepted/i.test(initial.firstEvidence) || !/Mapped/i.test(initial.firstEvidence)) {
   throw new Error(`result cards should expose concise record evidence badges: ${JSON.stringify(initial)}`);
 }
@@ -787,6 +796,9 @@ if (!/Source: ICML \+ OpenReview/.test(provenanceUnits.paper) || !/Source: OpenR
 }
 if (provenanceUnits.utcDate !== "Jun 17, 2026") {
   throw new Error(`checked date formatting should use the UTC calendar day: ${JSON.stringify(provenanceUnits)}`);
+}
+if (provenanceUnits.zeroCandidateViewerCoverage !== "0% coverage") {
+  throw new Error(`viewer citation coverage should preserve explicit zero candidate denominators: ${JSON.stringify(provenanceUnits)}`);
 }
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
@@ -836,6 +848,9 @@ if (/Main claim|Evidence cue/i.test(paperLatex.viewerFrameText) || !/Opening con
 if (!/confidence/i.test(paperLatex.confidenceText) || !/\d+\/4 evidence checks/i.test(paperLatex.confidenceText)) {
   throw new Error(`viewer should expose an evidence confidence summary: ${JSON.stringify(paperLatex)}`);
 }
+if (!/Next action/i.test(paperLatex.infoQualityText) || !/read|verify/i.test(paperLatex.infoQualityText)) {
+  throw new Error(`viewer should expose the next study action from available evidence: ${JSON.stringify(paperLatex)}`);
+}
 if (!/Missing:/i.test(paperLatex.confidenceText)) {
   throw new Error(`viewer confidence should expose missing evidence explicitly: ${JSON.stringify(paperLatex)}`);
 }
@@ -844,6 +859,9 @@ if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
 }
 if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO"))) {
   throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.hasPdfShell && !/\bPDF\b/.test(paperLatex.resultStudyFit)) {
+  throw new Error(`OpenReview PDF papers should include PDF in result-card study fit: ${JSON.stringify(paperLatex)}`);
 }
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
@@ -886,6 +904,12 @@ if (!paperLatex.hasPdfShell && !/No downloaded local material|No public PDF link
 }
 if (viewerReferenceExpectation.hasContext && !/Citation evidence/i.test(paperLatex.viewerFrameText)) {
   throw new Error(`viewer should explain citation evidence when reference context exists: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
+}
+if (paperLatex.viewerReferenceText && !/coverage/i.test(paperLatex.viewerReferenceText)) {
+  throw new Error(`viewer citation panel should expose collection coverage: ${JSON.stringify(paperLatex)}`);
+}
+if (paperLatex.viewerReferenceText && !paperLatex.viewerReferenceText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
+  throw new Error(`viewer citation coverage should use the same candidate-PDF denominator as References: ${JSON.stringify({ paperLatex, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
 }
 if (referenceRequestsBeforeReferencesTab <= 0) {
   throw new Error(`viewer reference context should lazy-load only after opening a record: ${JSON.stringify(referenceRequests)}`);
@@ -1033,6 +1057,9 @@ if (
   || !trendsInitial.firstSummary.includes("This trend groups papers around")
   || !/title\+abstract embedding clusters/i.test(trendsInitial.basisNote)
   || !/not official ICML subject areas/i.test(trendsInitial.basisNote)
+  || !/Basis:/i.test(trendsInitial.evidenceBasis)
+  || !/mapped records/i.test(trendsInitial.evidenceBasis)
+  || !/first reads/i.test(trendsInitial.evidenceBasis)
   || !/Areas/i.test(trendsInitial.countText)
   || !/Domains/i.test(trendsInitial.countText)
   || !["Core question", "Method", "Branches"].every((label) => trendsInitial.studyLabels.includes(label))
@@ -1072,7 +1099,7 @@ if (!/(Biology|General|Scientific Discovery|Social Science|Robotics|Medical)\s+\
 if (!mapTooltip.includes("Area:") || !mapTooltip.includes("Domain:")) {
   throw new Error(`main ForceGraph tooltip did not expose title and area/domain decoder: ${mapTooltip}`);
 }
-if (!mapSelectedDetail.title || !/Neighborhood evidence/i.test(mapSelectedDetail.note) || !/precomputed title\+abstract embedding graph/i.test(mapSelectedDetail.note) || !/Selected basis/i.test(mapSelectedDetail.selectedBasis)) {
+if (!mapSelectedDetail.title || !/Neighborhood evidence/i.test(mapSelectedDetail.note) || !/precomputed title\+abstract embedding graph/i.test(mapSelectedDetail.note) || !/Selected basis/i.test(mapSelectedDetail.selectedBasis) || !/Similarity scale:/i.test(mapSelectedDetail.similarityScale) || !/top score/i.test(mapSelectedDetail.similarityScale)) {
   throw new Error(`map detail should explain how nearest neighbors are ranked: ${JSON.stringify(mapSelectedDetail)}`);
 }
 if (

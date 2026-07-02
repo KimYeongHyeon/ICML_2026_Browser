@@ -38,6 +38,16 @@ function trendCountGroup(label, items = []) {
   return html ? `<div class="trend-count-group"><em>${escapeHtml(label)}</em>${html}</div>` : "";
 }
 
+function trendEvidenceBasis(trend, firstReads) {
+  const parts = [
+    `${Number(trend.size || 0).toLocaleString()} mapped records`,
+    `${(trend.keywords || []).length.toLocaleString()} keywords`,
+    `${firstReads.length.toLocaleString()} first reads`,
+    `${(trend.representativeSentences || []).length.toLocaleString()} representative sentences`,
+  ];
+  return `Basis: ${parts.join(" · ")}`;
+}
+
 function selectedMiniLabels(record) {
   const labels = [
     ...(record.areaTags || []).slice(0, 2).map((label) => ({ kind: "Area", label })),
@@ -93,6 +103,7 @@ function renderTrendCards() {
             <div class="trend-keywords">
               ${(trend.keywords || []).slice(0, 5).map((keyword) => `<span>${escapeHtml(keyword)}</span>`).join("")}
             </div>
+            <p class="trend-evidence-basis">${escapeHtml(trendEvidenceBasis(trend, firstReads))}</p>
             ${(trend.representativeSentences || []).slice(0, 1).map((sentence) => `<blockquote>${escapeHtml(sentence)}</blockquote>`).join("")}
             <div class="trend-counts">${trendCountGroup("Areas", trend.areaCounts)}${trendCountGroup("Domains", trend.domainCounts)}</div>
             <div class="trend-study-section">
@@ -148,6 +159,7 @@ export function renderMapDetail(record) {
   const clusterSize = embeddingClusterSize(record);
   const unusual = unusualDirectionForRecord(record.id);
   const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
+  const similarityBand = topScore >= 0.9 ? "tight local neighborhood" : topScore >= 0.75 ? "clear related neighborhood" : "broad topical neighborhood";
   els.mapDetail.innerHTML = `
     <div class="map-detail-card">
       <p class="eyebrow">${escapeHtml(typeLabel(record.type))} · ${escapeHtml(record.clusterLabel || "Mapped record")}</p>
@@ -175,6 +187,7 @@ export function renderMapDetail(record) {
       </div>
       <p class="map-neighborhood-note">Neighborhood evidence: nearest records are ranked from the precomputed title+abstract embedding graph; bars are normalized within this selected record.</p>
       <p class="map-selected-basis">Selected basis: ${escapeHtml(record.embeddingTextQuality || "title/topic")} · ${escapeHtml(record.sourceType || "collected metadata")}</p>
+      <p class="map-similarity-scale">Similarity scale: ${escapeHtml(similarityBand)} · top score ${Number(topScore || 0).toFixed(2)} · compare bars only within this selected record.</p>
       <button class="action primary map-open-record" type="button">Open in viewer</button>
       <div class="neighbor-list">
         ${neighbors.map((item) => {

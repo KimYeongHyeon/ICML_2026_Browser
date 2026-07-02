@@ -5,6 +5,7 @@ import {
   assetLabel,
   categoryTags,
   matchedField,
+  openReviewPdfUrl,
   presentationBadges,
   recordHaystack,
   resultDetails,
@@ -276,6 +277,18 @@ function resultOpenHint(record) {
   return "Open: metadata only";
 }
 
+function resultStudyFit(record) {
+  const hasPdfSignal = Boolean(record.hasPdf || record.pdfUrl || openReviewPdfUrl(record));
+  const signals = [
+    record.abstract ? "abstract" : "",
+    record.mapAvailable ? "map" : "",
+    hasPdfSignal ? "PDF" : "",
+    (record.presentationLabels || []).includes("Spotlight") ? "spotlight" : "",
+  ].filter(Boolean);
+  const label = signals.length >= 3 ? "strong" : signals.length >= 2 ? "usable" : "thin";
+  return `Study fit: ${label} · ${signals.join(", ") || "metadata only"}`;
+}
+
 const ASSET_FILTER_LABELS = {
   all: "all assets",
   local: "downloaded locally",
@@ -354,6 +367,7 @@ export function renderResults() {
           <span class="result-map-context">${escapeHtml(resultMapContext(record))}</span>
           <span class="result-read-hint">${escapeHtml(resultReadHint(record))}</span>
           <span class="result-open-hint">${escapeHtml(resultOpenHint(record))}</span>
+          <span class="result-study-fit">${escapeHtml(resultStudyFit(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;
