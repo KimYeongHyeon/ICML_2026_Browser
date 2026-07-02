@@ -197,6 +197,7 @@ configureViewer({
   destroyMiniGraph,
   ensureMapData,
   findDisplayRecord,
+  hydrateSelectedRecord: hydrateFullRecordsInBackground,
   mountMiniGraph,
   renderMap,
   renderMiniMap,
@@ -263,7 +264,7 @@ function hydrateFullRecordsInBackground() {
 function scheduleFullRecordsHydration() {
   window.setTimeout(() => {
     void hydrateFullRecordsInBackground();
-  }, 3000);
+  }, 300);
 }
 
 function scheduleMapDataPreload() {

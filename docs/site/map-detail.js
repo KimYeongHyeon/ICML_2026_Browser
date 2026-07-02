@@ -358,11 +358,48 @@ export function controlMiniGraph(action, record) {
   state.miniGraph.zoom?.(Math.max(0.45, Math.min(6, currentZoom * factor)), 180);
 }
 
+function miniGraphPoint(event, container) {
+  const rect = container.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function nearestMiniNodeAtScreen(point, maxDist = 28) {
+  const graph = state.miniGraph;
+  const nodes = graph?.graphData?.()?.nodes || [];
+  if (!graph || typeof graph.graph2ScreenCoords !== "function" || !nodes.length) return null;
+  let best = null;
+  let bestDistSq = maxDist * maxDist;
+  for (const node of nodes) {
+    const screen = graph.graph2ScreenCoords(Number(node.x) || 0, Number(node.y) || 0);
+    const dx = (Number(screen.x) || 0) - point.x;
+    const dy = (Number(screen.y) || 0) - point.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = node;
+    }
+  }
+  return best;
+}
+
 export function mountMiniGraph(graphData, selectedId) {
   destroyMiniGraph();
   const container = els.viewerFrame.querySelector(".mini-graph");
   if (!container || typeof window.ForceGraph !== "function") return;
   let miniHoverId = "";
+  const showMiniHover = (node) => {
+    miniHoverId = node?.id || "";
+    container.style.cursor = node ? "pointer" : "";
+    if (node && typeof state.miniGraph?.graph2ScreenCoords === "function") {
+      detailDeps.showGraphTooltip?.(container, node, state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
+    } else {
+      detailDeps.hideGraphTooltip?.(container, 90);
+    }
+    state.miniGraph?.refresh?.();
+  };
   state.miniGraph = window.ForceGraph()(container)
     .backgroundColor("rgba(0,0,0,0)")
     .nodeId("id")
@@ -402,14 +439,7 @@ export function mountMiniGraph(graphData, selectedId) {
       });
     })
     .onNodeHover((node) => {
-      miniHoverId = node?.id || "";
-      container.style.cursor = node ? "pointer" : "";
-      if (node && typeof state.miniGraph?.graph2ScreenCoords === "function") {
-        detailDeps.showGraphTooltip?.(container, node, state.miniGraph.graph2ScreenCoords(node.x || 0, node.y || 0));
-      } else {
-        detailDeps.hideGraphTooltip?.(container, 90);
-      }
-      state.miniGraph?.refresh?.();
+      showMiniHover(node);
     })
     .onNodeClick((node) => {
       if (!node?.record) return;
@@ -435,6 +465,11 @@ export function mountMiniGraph(graphData, selectedId) {
   window.setTimeout(() => fitMiniGraph(180), 180);
   window.setTimeout(() => fitMiniGraph(220), 900);
   window.setTimeout(() => fitMiniGraph(220), 1800);
+  container.addEventListener("pointermove", (event) => {
+    const node = nearestMiniNodeAtScreen(miniGraphPoint(event, container));
+    if ((node?.id || "") !== miniHoverId) showMiniHover(node);
+  }, { passive: true });
+  container.addEventListener("pointerleave", () => showMiniHover(null));
 }
 
 export function renderMiniMap(record) {

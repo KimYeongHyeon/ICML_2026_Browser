@@ -105,20 +105,12 @@ function nearestNodeAtScreen(point, maxDist = 24) {
   const graph = state.mapGraph;
   const nodes = state.mapGraphData?.nodes;
   if (!graph || typeof graph.graph2ScreenCoords !== "function" || !nodes?.length) return null;
-  const origin = graph.graph2ScreenCoords(0, 0);
-  const unitX = graph.graph2ScreenCoords(1, 0);
-  const unitY = graph.graph2ScreenCoords(0, 1);
-  const axx = unitX.x - origin.x;
-  const axy = unitX.y - origin.y;
-  const ayx = unitY.x - origin.x;
-  const ayy = unitY.y - origin.y;
   let best = null;
   let bestDistSq = maxDist * maxDist;
   for (const node of nodes) {
-    const nx = Number(node.x) || 0;
-    const ny = Number(node.y) || 0;
-    const sx = origin.x + axx * nx + ayx * ny;
-    const sy = origin.y + axy * nx + ayy * ny;
+    const screen = graph.graph2ScreenCoords(Number(node.x) || 0, Number(node.y) || 0);
+    const sx = Number(screen.x) || 0;
+    const sy = Number(screen.y) || 0;
     const dx = sx - point.x;
     const dy = sy - point.y;
     const distSq = dx * dx + dy * dy;

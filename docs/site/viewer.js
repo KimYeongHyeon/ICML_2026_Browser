@@ -532,6 +532,17 @@ function mountReferencePanel(record) {
   });
 }
 
+function needsFullMetadata(record) {
+  return Boolean(
+    record
+      && state.dataManifest
+      && !state.dataShardsLoaded
+      && record.type === "paper"
+      && !record.abstract
+      && record.mapAvailable
+  );
+}
+
 export function renderViewer(record) {
   viewerDeps.destroyMiniGraph();
   destroyPdfViewer();
@@ -548,6 +559,20 @@ export function renderViewer(record) {
 
   els.viewerKind.textContent = viewerKindLabel(record);
   els.viewerTitle.textContent = plainMathTitle(record.title);
+  if (needsFullMetadata(record)) {
+    els.viewerActions.innerHTML = "";
+    els.viewerMeta.innerHTML = "";
+    els.viewerFrame.innerHTML = `
+      <div class="empty-state">
+        <strong>Loading full metadata</strong>
+        <span>Attaching abstract, semantic-map evidence, and study signals from the full paper shard.</span>
+      </div>
+    `;
+    viewerDeps.hydrateSelectedRecord?.(record.id);
+    queueMathTypeset(els.viewerFrame);
+    return;
+  }
+
   const primaryMeta = [
     ["Authors", record.authors || "Authors unavailable"],
     ["Session", uniqueChipValues([record.session, record.roomName, paperPresentationMode(record)]).join(" · ")],
