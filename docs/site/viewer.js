@@ -419,7 +419,7 @@ function renderViewerReferencePanel(payload = {}) {
   const hasOverlaps = overlaps.length > 0;
   const summary = referenceManifestSummary() || {};
   const covered = referenceSummaryCoveredCount(summary);
-  const total = Number(summary.recordCount || summary.matchedRecords || covered || 0);
+  const total = referenceSummaryCandidateCount(summary);
   const coverage = total ? `${Math.round((covered / total) * 100)}% coverage` : "coverage unknown";
   return `
     <section class="viewer-reference-panel">
@@ -467,10 +467,19 @@ function referenceSummaryCoveredCount(summary = {}) {
   return 0;
 }
 
+function referenceSummaryCandidateCount(summary = {}) {
+  const matched = Number(summary.matchedRecords || 0);
+  const unmatched = Number(summary.unmatchedRecords || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "pdfRecords")) return Number(summary.pdfRecords || 0);
+  if (Object.prototype.hasOwnProperty.call(summary, "matchedRecords") || Object.prototype.hasOwnProperty.call(summary, "unmatchedRecords")) return matched + unmatched;
+  if (Object.prototype.hasOwnProperty.call(summary, "recordCount")) return Number(summary.recordCount || 0);
+  return 0;
+}
+
 function renderReferenceUnavailablePanel(record) {
   const summary = referenceManifestSummary() || {};
   const coveredCount = referenceSummaryCoveredCount(summary);
-  const total = Number(summary.recordCount || summary.matchedRecords || coveredCount || 0);
+  const total = referenceSummaryCandidateCount(summary);
   const covered = coveredCount.toLocaleString();
   const coverage = total ? `${Math.round((coveredCount / total) * 100)}% coverage` : "coverage unknown";
   const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);

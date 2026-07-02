@@ -900,6 +900,9 @@ if (viewerReferenceExpectation.hasContext && !/Citation evidence/i.test(paperLat
 if (paperLatex.viewerReferenceText && !/coverage/i.test(paperLatex.viewerReferenceText)) {
   throw new Error(`viewer citation panel should expose collection coverage: ${JSON.stringify(paperLatex)}`);
 }
+if (paperLatex.viewerReferenceText && !paperLatex.viewerReferenceText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
+  throw new Error(`viewer citation coverage should use the same candidate-PDF denominator as References: ${JSON.stringify({ paperLatex, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
+}
 if (referenceRequestsBeforeReferencesTab <= 0) {
   throw new Error(`viewer reference context should lazy-load only after opening a record: ${JSON.stringify(referenceRequests)}`);
 }
