@@ -265,6 +265,7 @@ if (viewerReferenceExpectation.hasContext) {
 }
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
+  resultStudyFit: document.querySelector(".result-item .result-study-fit")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
@@ -858,6 +859,9 @@ if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
 }
 if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO"))) {
   throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
+}
+if (!paperLatex.hasPdfShell && !/\bPDF\b/.test(paperLatex.resultStudyFit)) {
+  throw new Error(`OpenReview PDF papers should include PDF in result-card study fit: ${JSON.stringify(paperLatex)}`);
 }
 if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);

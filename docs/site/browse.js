@@ -5,6 +5,7 @@ import {
   assetLabel,
   categoryTags,
   matchedField,
+  openReviewPdfUrl,
   presentationBadges,
   recordHaystack,
   resultDetails,
@@ -277,10 +278,11 @@ function resultOpenHint(record) {
 }
 
 function resultStudyFit(record) {
+  const hasPdfSignal = Boolean(record.hasPdf || record.pdfUrl || openReviewPdfUrl(record));
   const signals = [
     record.abstract ? "abstract" : "",
     record.mapAvailable ? "map" : "",
-    record.hasPdf || record.pdfUrl ? "PDF" : "",
+    hasPdfSignal ? "PDF" : "",
     (record.presentationLabels || []).includes("Spotlight") ? "spotlight" : "",
   ].filter(Boolean);
   const label = signals.length >= 3 ? "strong" : signals.length >= 2 ? "usable" : "thin";
