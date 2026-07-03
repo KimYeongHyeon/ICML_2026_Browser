@@ -633,20 +633,8 @@ export function renderViewer(record) {
     }
     els.viewerFrame.innerHTML = renderViewerStatusRow(record, title, message);
   }
-  els.viewerFrame.insertAdjacentHTML("beforeend", renderInformationQuality(record));
-  els.viewerFrame.insertAdjacentHTML("beforeend", renderRecordFacts(record));
-  els.viewerFrame.insertAdjacentHTML("beforeend", renderStudySignals(record));
-  els.viewerFrame.insertAdjacentHTML("beforeend", renderSourceIdentifiers(record));
-  const knownGaps = renderKnownGaps(record);
-  if (knownGaps) els.viewerFrame.insertAdjacentHTML("beforeend", knownGaps);
-  const readerBrief = renderReaderBrief(record);
-  if (readerBrief) els.viewerFrame.insertAdjacentHTML("beforeend", readerBrief);
   const abstractBlock = renderAbstractBlock(record);
   if (abstractBlock) els.viewerFrame.insertAdjacentHTML("beforeend", abstractBlock);
-  if (state.viewerReferenceRequested) {
-    els.viewerFrame.insertAdjacentHTML("beforeend", `<div data-viewer-reference-panel></div>`);
-    mountReferencePanel(record);
-  }
   els.viewerFrame.querySelector(".poster-zoom-toggle")?.addEventListener("click", (event) => {
     const button = event.currentTarget;
     const preview = button.closest(".poster-preview");

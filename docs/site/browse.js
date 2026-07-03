@@ -361,13 +361,6 @@ export function renderResults() {
           <span class="result-evidence" aria-label="Record evidence">
             ${evidenceBadges.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
           </span>
-          <span class="result-reason">${escapeHtml(resultReason(record, matched))}</span>
-          <span class="result-trace">${escapeHtml(resultTrace(record))}</span>
-          <span class="result-scope">${escapeHtml(resultScope(record))}</span>
-          <span class="result-map-context">${escapeHtml(resultMapContext(record))}</span>
-          <span class="result-read-hint">${escapeHtml(resultReadHint(record))}</span>
-          <span class="result-open-hint">${escapeHtml(resultOpenHint(record))}</span>
-          <span class="result-study-fit">${escapeHtml(resultStudyFit(record))}</span>
           ${details ? `<span class="result-details">${escapeHtml(details)}</span>` : ""}
         </button>
       `;
