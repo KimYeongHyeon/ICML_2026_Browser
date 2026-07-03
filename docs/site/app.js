@@ -473,7 +473,6 @@ async function renderReferences() {
           <p class="eyebrow">Bibliographic citations</p>
           <h2>Reference analysis</h2>
         </div>
-        <span>Lazy-loaded · not part of startup</span>
       </div>
       <div class="selection-stat-grid reference-stat-grid">
         ${referenceStat("matched records", summary.matchedRecords || summary.pdfRecords)}
