@@ -3,8 +3,6 @@ import { els } from "./dom.js";
 import {
   assetLabel,
   displayAvailabilityLabel,
-  icmlPresentationId,
-  openReviewForumId,
   openReviewPdfUrl,
   paperPresentationKind,
   paperPresentationMode,
@@ -14,7 +12,6 @@ import {
 } from "./records.js";
 import { state } from "./state.js";
 import { escapeHtml, plainMathTitle, queueMathTypeset } from "./utils.js";
-import { loadReferenceRecord, referenceManifestSummary } from "./references.js";
 import {
   destroyPdfViewer,
   isPdfAsset,
@@ -175,190 +172,11 @@ function renderAbstractBlock(record) {
   return `<div class="viewer-abstract"><h3>Abstract</h3><div class="viewer-abstract-body">${renderSafeTextBlocks(abstract)}</div></div>`;
 }
 
-function abstractSentences(record, limit = 2) {
-  return cleanAbstractLatex(record.abstract)
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 60)
-    .slice(0, limit);
-}
-
-function renderReaderBrief(record) {
-  const sentences = abstractSentences(record);
-  if (!sentences.length) return "";
-  const tags = uniqueChipValues([...(record.areaTags || []), ...(record.domainTags || [])]).slice(0, 4);
-  const cluster = record.embeddingClusterKeywords?.slice(0, 3).join(", ") || record.clusterLabel || "";
-  return `
-    <section class="viewer-brief">
-      <div class="viewer-section-head compact">
-        <div>
-          <p class="eyebrow">Reader brief</p>
-          <h3>What to notice first</h3>
-        </div>
-      </div>
-      <ul>
-        <li><b>Opening context</b><span>${escapeHtml(sentences[0])}</span></li>
-        ${sentences[1] ? `<li><b>Next abstract sentence</b><span>${escapeHtml(sentences[1])}</span></li>` : ""}
-        ${tags.length || cluster ? `<li><b>Study context</b><span>${escapeHtml([tags.join(", "), cluster && `cluster keywords: ${cluster}`].filter(Boolean).join(" · "))}</span></li>` : ""}
-      </ul>
-    </section>
-  `;
-}
-
 export function checkedAtLabel(value) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
-}
-
-function decisionLabel(record) {
-  return uniqueChipValues([
-    ...(record.presentationLabels || []),
-    record.decision,
-    record.status === "accepted_public" ? "accepted public" : statusLabel(record.status),
-  ]).slice(0, 2).join(", ");
-}
-
-function renderRecordFacts(record) {
-  const facts = [
-    ["Record", viewerKindLabel(record)],
-    ["Decision", decisionLabel(record)],
-    ["Area", (record.areaTags || record.categoryTags || ["Other"]).slice(0, 2).join(", ")],
-    ["Domain", (record.domainTags || ["General"]).slice(0, 2).join(", ")],
-    ["Map basis", record.embeddingTextQuality === "title_abstract" ? "title + abstract" : record.embeddingTextQuality || "title/topic"],
-    ["Checked", checkedAtLabel(record.sourceCheckedAt)],
-  ].filter(([, value]) => value);
-  return `
-    <section class="viewer-facts-panel">
-      <p class="eyebrow">At a glance</p>
-      <div class="viewer-source-grid">
-        ${facts.map(([label, value]) => `<span><em>${escapeHtml(label)}</em><b>${escapeHtml(String(value))}</b></span>`).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderStudySignals(record) {
-  const priority = (record.presentationLabels || []).includes("Spotlight")
-    ? "Spotlight"
-    : (record.presentationLabels || []).includes("Oral")
-    ? "Oral"
-    : record.type === "workshop"
-    ? "Workshop"
-    : "Regular";
-  const signals = uniqueChipValues([
-    record.abstract ? "abstract" : "",
-    record.mapAvailable ? "semantic map" : "",
-    record.localPdfPath || record.bestAssetKind === "pdf" ? "local PDF" : record.pdfUrl || openReviewPdfUrl(record) ? "PDF link" : "",
-    record.hasPoster ? "poster" : "",
-    record.hasSlide ? "slides" : "",
-  ]);
-  const suggestion = signals.includes("abstract") && signals.includes("semantic map")
-    ? "Good study candidate"
-    : "Skim metadata first";
-  const readPath = [
-    record.localPdfPath || record.bestAssetKind === "pdf" ? "PDF" : record.pdfUrl || openReviewPdfUrl(record) ? "PDF link" : "",
-    record.abstract ? "abstract" : "",
-    record.mapAvailable ? "semantic neighbors" : "",
-  ].filter(Boolean).join(" → ") || "metadata first";
-  return `
-    <section class="viewer-study-signals">
-      <p class="eyebrow">Study signals</p>
-      <div class="viewer-source-grid">
-        <span><em>Priority</em><b>${escapeHtml(priority)}</b></span>
-        <span><em>Suggestion</em><b>${escapeHtml(suggestion)}</b></span>
-        <span><em>Evidence</em><b>${escapeHtml(signals.join(", ") || "metadata only")}</b></span>
-        <span><em>Read path</em><b>${escapeHtml(readPath)}</b></span>
-      </div>
-    </section>
-  `;
-}
-
-function renderInformationQuality(record) {
-  const source = record.type === "paper"
-    ? "ICML paper page + OpenReview metadata"
-    : record.type === "workshop"
-    ? "OpenReview workshop metadata"
-    : "ICML presentation metadata";
-  const text = record.abstract
-    ? record.embeddingTextQuality === "title_abstract" ? "abstract-backed" : record.embeddingTextQuality || "abstract available"
-    : "title-only";
-  const map = record.mapAvailable ? "mapped in semantic space" : "not mapped";
-  const material = record.localPdfPath || record.bestAssetKind === "pdf"
-    ? "local PDF preview"
-    : record.pdfUrl
-    ? "external OpenReview PDF"
-    : openReviewPdfUrl(record)
-    ? "OpenReview link"
-    : displayAvailabilityLabel(record);
-  const checks = [
-    { label: "abstract", ok: Boolean(record.abstract) },
-    { label: "map", ok: Boolean(record.mapAvailable) },
-    { label: "material link", ok: Boolean(record.localPdfPath || record.bestAsset || record.pdfUrl || openReviewPdfUrl(record) || record.pageUrl) },
-    { label: "source status", ok: record.status === "accepted_public" || Boolean(record.decision) },
-  ];
-  const okCount = checks.filter((item) => item.ok).length;
-  const missing = checks.filter((item) => !item.ok).map((item) => item.label);
-  const confidence = okCount >= 4 ? "high" : okCount >= 2 ? "medium" : "low";
-  const nextAction = record.localPdfPath || record.bestAssetKind === "pdf"
-    ? "read local PDF"
-    : record.abstract && record.mapAvailable
-    ? "read abstract, then semantic neighbors"
-    : record.abstract
-    ? "read abstract first"
-    : "verify source before deep reading";
-  return `
-    <section class="viewer-trust-panel">
-      <p class="eyebrow">Information quality</p>
-      <div class="viewer-trust-grid">
-        <span><em>Source</em><b>${escapeHtml(source)}</b></span>
-        <span><em>Text</em><b>${escapeHtml(text)}</b></span>
-        <span><em>Map</em><b>${escapeHtml(map)}</b></span>
-        <span><em>Material</em><b>${escapeHtml(material)}</b></span>
-        <span><em>Next action</em><b>${escapeHtml(nextAction)}</b></span>
-      </div>
-      <div class="viewer-confidence">
-        <strong>${escapeHtml(confidence)} confidence</strong>
-        <span>${okCount}/${checks.length} evidence checks available: ${escapeHtml(checks.filter((item) => item.ok).map((item) => item.label).join(", ") || "metadata only")}</span>
-        <span>Missing: ${escapeHtml(missing.join(", ") || "none")}</span>
-      </div>
-    </section>
-  `;
-}
-
-function renderSourceIdentifiers(record) {
-  const items = [
-    ["ICML", icmlPresentationId(record)],
-    ["OpenReview", openReviewForumId(record)],
-    ["Map cluster", record.embeddingClusterLabel || record.clusterLabel],
-    ["Record id", record.id],
-  ].filter(([, value]) => value);
-  if (!items.length) return "";
-  return `
-    <section class="viewer-source-panel">
-      <p class="eyebrow">Source identifiers</p>
-      <div class="viewer-source-grid">
-        ${items.map(([label, value]) => `<span><em>${escapeHtml(label)}</em><b>${escapeHtml(String(value))}</b></span>`).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderKnownGaps(record) {
-  const gaps = [
-    !record.abstract ? "No abstract text collected; semantic placement may be title-only." : "",
-    !record.mapAvailable ? "No embedding map coordinates for this record." : "",
-    !(record.localPdfPath || record.pdfUrl || openReviewPdfUrl(record)) ? "No public PDF link known." : "",
-    !(record.hasPoster || record.hasSlide || record.hasPdf) ? "No downloaded local material in the archive." : "",
-  ].filter(Boolean);
-  if (!gaps.length) return "";
-  return `
-    <section class="viewer-gap-panel">
-      <p class="eyebrow">Known gaps</p>
-      <ul>${gaps.map((gap) => `<li>${escapeHtml(gap)}</li>`).join("")}</ul>
-    </section>
-  `;
 }
 
 function openStudyRecord(recordId) {
@@ -385,77 +203,6 @@ function mountStudyPanelActions(record) {
       renderViewer(record);
     });
   });
-}
-
-function referenceDisplayTitle(item = {}) {
-  return plainMathTitle(item.title || item.raw || item.key || "Untitled reference");
-}
-
-function overlapStrength(sharedCount, score) {
-  const shared = Number(sharedCount || 0);
-  const ratio = Number(score || 0);
-  if (shared >= 5 || ratio >= 0.12) return "strong";
-  if (shared >= 3 || ratio >= 0.06) return "moderate";
-  return "weak";
-}
-
-function openReferenceRecord(recordId) {
-  const selected = viewerDeps.findDisplayRecord(recordId);
-  if (!selected) return;
-  state.tab = selected.type === "workshop" ? "workshop" : "paper";
-  state.selectedId = recordId;
-  state.viewerMapRequested = true;
-  state.viewerReferenceRequested = true;
-  viewerDeps.renderResults();
-  viewerDeps.renderMap();
-  renderViewer(selected);
-}
-
-function renderViewerReferencePanel(payload = {}) {
-  const references = (payload.references || []).slice(0, 4);
-  const overlaps = (payload.overlaps || []).slice(0, 5);
-  if (!references.length && !overlaps.length) return "";
-  const topShared = Math.max(0, ...overlaps.map((item) => Number(item.sharedCount || 0)));
-  const hasOverlaps = overlaps.length > 0;
-  const summary = referenceManifestSummary() || {};
-  const coverage = referenceSummaryCoverageLabel(summary);
-  return `
-    <section class="viewer-reference-panel">
-      <div class="viewer-section-head">
-        <div>
-          <p class="eyebrow">Citation overlap</p>
-          <h3>${hasOverlaps ? "Strongest reference links" : "Extracted references"}</h3>
-        </div>
-        <span>${Number(payload.referenceCount || 0).toLocaleString()} extracted refs · ${escapeHtml(coverage)}</span>
-      </div>
-      <div class="selection-stat-grid viewer-reference-stats">
-        <span><b>${Number(payload.referenceCount || 0).toLocaleString()}</b><small>refs</small></span>
-        <span><b>${Number(overlaps.length || 0).toLocaleString()}</b><small>shown links</small></span>
-        <span><b>${Number(topShared || 0).toLocaleString()}</b><small>top shared refs</small></span>
-      </div>
-      <p class="viewer-reference-note">Citation evidence: references are extracted from collected PDFs or metadata. Links mean shared normalized references, not semantic similarity.</p>
-      ${hasOverlaps ? `
-        <div class="viewer-reference-links">
-          ${overlaps.map((item, index) => {
-            const linked = viewerDeps.findDisplayRecord(item.recordId);
-            const sharedTitles = (item.references || []).slice(0, 2).map(referenceDisplayTitle).filter(Boolean).join(" · ");
-            return `
-              <button class="viewer-reference-link" type="button" data-reference-id="${escapeHtml(item.recordId)}">
-                <span class="neighbor-rank">${index + 1}</span>
-                <span>
-                  <strong>${escapeHtml(plainMathTitle(linked?.title || item.title || item.recordId))}</strong>
-                  <small>${escapeHtml(overlapStrength(item.sharedCount, item.score))} link · ${Number(item.sharedCount || 0).toLocaleString()} shared refs · ${Number(item.score || 0).toFixed(2)} overlap${sharedTitles ? ` · ${escapeHtml(sharedTitles)}` : ""}</small>
-                </span>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      ` : "<p class=\"viewer-reference-empty\">References were extracted, but no strong shared-reference links were found yet.</p>"}
-      <div class="viewer-reference-samples">
-        ${references.map((item) => `<span>${escapeHtml(referenceDisplayTitle(item))}</span>`).join("")}
-      </div>
-    </section>
-  `;
 }
 
 function referenceSummaryCoveredCount(summary = {}) {
@@ -486,50 +233,6 @@ export function referenceSummaryCoverageLabel(summary = {}) {
   const total = referenceSummaryCandidateCount(summary);
   if (total) return `${Math.round((covered / total) * 100)}% coverage`;
   return referenceSummaryHasCandidateCount(summary) ? "0% coverage" : "coverage unknown";
-}
-
-function renderReferenceUnavailablePanel(record) {
-  const summary = referenceManifestSummary() || {};
-  const coveredCount = referenceSummaryCoveredCount(summary);
-  const covered = coveredCount.toLocaleString();
-  const coverage = referenceSummaryCoverageLabel(summary);
-  const hasCollectedPdf = Boolean(record.localPdfPath || record.pdfUrl);
-  const reason = hasCollectedPdf
-    ? "No reference shard has been matched to this record yet."
-    : "No downloadable PDF was available for reference extraction.";
-  return `
-    <section class="viewer-reference-panel is-empty">
-      <div class="viewer-section-head">
-        <div>
-          <p class="eyebrow">Citation evidence</p>
-          <h3>Not indexed for this record</h3>
-        </div>
-        <span>${covered} records covered · ${escapeHtml(coverage)}</span>
-      </div>
-      <p class="viewer-reference-note">${escapeHtml(reason)} Semantic neighbors above still come from title/abstract embeddings, not citations.</p>
-    </section>
-  `;
-}
-
-function mountReferencePanelActions() {
-  els.viewerFrame.querySelectorAll("[data-reference-id]").forEach((button) => {
-    button.addEventListener("click", () => openReferenceRecord(button.dataset.referenceId));
-  });
-}
-
-function mountReferencePanel(record) {
-  const marker = els.viewerFrame.querySelector("[data-viewer-reference-panel]");
-  if (!marker) return;
-  void loadReferenceRecord(record.id).then((payload) => {
-    if (state.selectedId !== record.id || !marker.isConnected) return;
-    const html = renderViewerReferencePanel(payload || {});
-    if (!html) {
-      marker.innerHTML = renderReferenceUnavailablePanel(record);
-      return;
-    }
-    marker.innerHTML = html;
-    mountReferencePanelActions();
-  });
 }
 
 function needsFullMetadata(record) {
