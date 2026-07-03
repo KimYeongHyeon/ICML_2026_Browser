@@ -5,7 +5,6 @@ import {
   assetLabel,
   categoryTags,
   matchedField,
-  openReviewPdfUrl,
   presentationBadges,
   recordHaystack,
   resultDetails,
@@ -218,75 +217,6 @@ function resultEvidenceBadges(record) {
     record.mapAvailable ? "Mapped" : "",
     record.hasPdf || record.pdfUrl ? "PDF link" : "",
   ]).slice(0, 4);
-}
-
-function resultReason(record, matched) {
-  const parts = [
-    matched ? `${MATCH_FIELD_LABEL[matched]} matched` : `${typeLabel(record.type)} tab`,
-    record.status === "accepted_public" ? "accepted public" : statusLabel(record.status),
-    (record.areaTags || categoryTags(record)).slice(0, 1)[0],
-  ].filter(Boolean);
-  return `Why shown: ${parts.join(" · ")}`;
-}
-
-function resultSource(record) {
-  if ((record.sourceType || "").startsWith("official_icml")) {
-    return record.openreviewUrl || record.openreviewForum || record.openreviewId ? "ICML + OpenReview" : "ICML";
-  }
-  if (record.type === "paper") {
-    return "ICML + OpenReview";
-  }
-  if (record.type === "poster") {
-    return "ICML";
-  }
-  if ((record.sourceType || "").includes("openreview") || record.openreviewUrl || record.pdfUrl) {
-    return "OpenReview";
-  }
-  return "Collected metadata";
-}
-
-export function resultTrace(record) {
-  const source = resultSource(record);
-  const text = record.abstract ? "title + abstract" : "title only";
-  const material = record.localPdfPath || record.localSlidePath || record.localPosterPath
-    ? "local asset"
-    : record.pdfUrl || record.pageUrl
-    ? "source link"
-    : "metadata only";
-  return `Source: ${source} · Text: ${text} · Material: ${material}`;
-}
-
-function resultScope(record) {
-  const area = (record.areaTags || categoryTags(record)).slice(0, 2).join(", ") || "Other";
-  const domain = (record.domainTags || ["General"]).slice(0, 2).join(", ") || "General";
-  return `Area: ${area} · Domain: ${domain}`;
-}
-
-function resultMapContext(record) {
-  const label = record.embeddingClusterLabel || record.clusterLabel || record.clusterId || "";
-  return record.mapAvailable ? `Map: ${label || "mapped"}` : "Map: not mapped";
-}
-
-function resultReadHint(record) {
-  return record.abstract ? "Read: abstract-backed" : "Read: title-only metadata";
-}
-
-function resultOpenHint(record) {
-  if (record.localPdfPath || record.localSlidePath || record.localPosterPath) return "Open: local preview";
-  if (record.pdfUrl || record.pageUrl || record.openreviewUrl) return "Open: source link";
-  return "Open: metadata only";
-}
-
-function resultStudyFit(record) {
-  const hasPdfSignal = Boolean(record.hasPdf || record.pdfUrl || openReviewPdfUrl(record));
-  const signals = [
-    record.abstract ? "abstract" : "",
-    record.mapAvailable ? "map" : "",
-    hasPdfSignal ? "PDF" : "",
-    (record.presentationLabels || []).includes("Spotlight") ? "spotlight" : "",
-  ].filter(Boolean);
-  const label = signals.length >= 3 ? "strong" : signals.length >= 2 ? "usable" : "thin";
-  return `Study fit: ${label} · ${signals.join(", ") || "metadata only"}`;
 }
 
 const ASSET_FILTER_LABELS = {

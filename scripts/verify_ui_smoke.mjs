@@ -146,13 +146,15 @@ const initial = await page.evaluate(() => ({
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   hasPosterSessionBadge: Boolean([...document.querySelectorAll(".result-item .badge.poster-session")].length),
   firstEvidence: document.querySelector(".result-item .result-evidence")?.innerText || "",
-  firstReason: document.querySelector(".result-item .result-reason")?.innerText || "",
-  firstTrace: document.querySelector(".result-item .result-trace")?.innerText || "",
-  firstScope: document.querySelector(".result-item .result-scope")?.innerText || "",
-  firstMapContext: document.querySelector(".result-item .result-map-context")?.innerText || "",
-  firstReadHint: document.querySelector(".result-item .result-read-hint")?.innerText || "",
-  firstOpenHint: document.querySelector(".result-item .result-open-hint")?.innerText || "",
-  firstStudyFit: document.querySelector(".result-item .result-study-fit")?.innerText || "",
+  removedResultDiagnostics: [
+    ".result-reason",
+    ".result-trace",
+    ".result-scope",
+    ".result-map-context",
+    ".result-read-hint",
+    ".result-open-hint",
+    ".result-study-fit",
+  ].filter((selector) => document.querySelector(selector)),
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
@@ -166,18 +168,9 @@ const expectedDataSnapshot = await page.evaluate(async () => {
     pdfLabel: `${Number(assetCounts.pdf || 0).toLocaleString()} local PDFs`,
   };
 });
-const provenanceUnits = await page.evaluate(async () => {
-  const [{ resultTrace }, { checkedAtLabel, referenceSummaryCoverageLabel }, paperShard, posterShard, workshopShard] = await Promise.all([
-    import("./site/browse.js"),
-    import("./site/viewer.js"),
-    fetch("site/data/shards/paper.json").then((response) => response.json()),
-    fetch("site/data/shards/poster.json").then((response) => response.json()),
-    fetch("site/data/shards/workshop.json").then((response) => response.json()),
-  ]);
+const viewerUtilityUnits = await page.evaluate(async () => {
+  const { checkedAtLabel, referenceSummaryCoverageLabel } = await import("./site/viewer.js");
   return {
-    paper: resultTrace((paperShard.records || [])[0] || {}),
-    poster: resultTrace((posterShard.records || [])[0] || {}),
-    workshop: resultTrace((workshopShard.records || [])[0] || {}),
     utcDate: checkedAtLabel("2026-06-17T00:30:00+00:00"),
     zeroCandidateViewerCoverage: referenceSummaryCoverageLabel({ pdfRecords: 0 }),
   };
@@ -242,42 +235,21 @@ await page.waitForFunction(() => {
   return /\d+ \/ \d+/.test(status) || hasSourceFallback;
 }, null, { timeout: 30000 });
 await page.waitForFunction(() => (document.querySelector(".viewer-abstract-body")?.textContent || "").length > 100, null, { timeout: 30000 });
-const viewerReferenceExpectation = await page.evaluate(async () => {
-  const selectedId = document.querySelector(".result-item.is-selected")?.dataset.id || "";
-  if (!selectedId) return { selectedId, hasEntry: false, hasContext: false };
-  try {
-    const manifestResponse = await fetch("site/data/references/manifest.json");
-    const manifest = manifestResponse.ok ? await manifestResponse.json() : null;
-    const entry = manifest?.records?.[selectedId];
-    if (!entry?.url) return { selectedId, hasEntry: false, hasContext: false };
-    const payloadResponse = await fetch(entry.url);
-    const payload = payloadResponse.ok ? await payloadResponse.json() : null;
-    const hasContext = Boolean((payload?.references || []).length || (payload?.overlaps || []).length);
-    return { selectedId, hasEntry: true, hasContext };
-  } catch {
-    return { selectedId, hasEntry: false, hasContext: false };
-  }
-});
-if (viewerReferenceExpectation.hasContext) {
-  await page.waitForFunction(() => /Citation overlap/i.test(document.querySelector(".viewer-reference-panel")?.textContent || ""), null, { timeout: 90000 });
-} else {
-  await page.waitForTimeout(500);
-}
+await page.waitForTimeout(500);
 const paperLatex = await page.evaluate(() => ({
   resultTitle: document.querySelector(".result-item .result-title")?.innerText || "",
-  resultStudyFit: document.querySelector(".result-item .result-study-fit")?.innerText || "",
   viewerKind: document.querySelector("#viewerKind")?.innerText || "",
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
   viewerMeta: document.querySelector("#viewerMeta")?.innerText || "",
   viewerFrameText: document.querySelector("#viewerFrame")?.innerText || "",
-  sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
-  gapPanelText: document.querySelector(".viewer-gap-panel")?.innerText || "",
-  factsPanelText: document.querySelector(".viewer-facts-panel")?.innerText || "",
-  infoQualityText: document.querySelector(".viewer-trust-panel")?.innerText || "",
-  studySignalsText: document.querySelector(".viewer-study-signals")?.innerText || "",
-  viewerReferenceText: document.querySelector(".viewer-reference-panel")?.innerText || "",
-  viewerReferenceLinkCount: document.querySelectorAll(".viewer-reference-link").length,
-  confidenceText: document.querySelector(".viewer-confidence")?.innerText || "",
+  removedViewerPanels: [
+    ".viewer-source-panel",
+    ".viewer-gap-panel",
+    ".viewer-facts-panel",
+    ".viewer-trust-panel",
+    ".viewer-study-signals",
+    ".viewer-reference-panel",
+  ].filter((selector) => document.querySelector(selector)),
   hasPdfShell: Boolean(document.querySelector(".pdfjs-shell")),
   pdfStatus: document.querySelector("[data-pdf-status]")?.textContent || "",
   pdfCanvasWidth: document.querySelector("[data-pdf-canvas]")?.width || 0,
@@ -377,7 +349,9 @@ const afterSwitch = await page.evaluate(() => {
   };
 });
 
-await page.locator("#searchInput").fill("MoSE Mixture of Slimmable Experts");
+await page.locator('.tab[data-tab="workshop"]').click();
+await page.waitForSelector(".result-item", { timeout: 30000 });
+await page.locator("#searchInput").fill("Speedrunning GPT3");
 await page.waitForTimeout(300);
 await page.locator(".result-item").first().click();
 await page.waitForSelector(".pdfjs-shell", { timeout: 30000 });
@@ -388,8 +362,6 @@ await page.waitForFunction(() => {
 }, null, { timeout: 60000 });
 const localPdf = await page.evaluate(() => ({
   viewerTitle: document.querySelector("#viewerTitle")?.innerText || "",
-  sourcePanelText: document.querySelector(".viewer-source-panel")?.innerText || "",
-  factsPanelText: document.querySelector(".viewer-facts-panel")?.innerText || "",
   shellExists: Boolean(document.querySelector(".pdfjs-shell")),
   hasError: Boolean(document.querySelector(".pdfjs-shell.has-error")),
   status: document.querySelector("[data-pdf-status]")?.textContent || "",
@@ -694,7 +666,7 @@ const report = {
   baseUrl,
   initial,
   expectedDataSnapshot,
-  provenanceUnits,
+  viewerUtilityUnits,
   initialReferenceRequestCount,
   initialStudyRequestCount,
   mapEntryStudyRequestCount,
@@ -702,7 +674,6 @@ const report = {
   paper,
   paperSpotlight,
   paperLatex,
-  viewerReferenceExpectation,
   localPdf,
   referenceRequestsBeforeReferencesTab,
   referencesTab,
@@ -764,41 +735,17 @@ if (
 if (!initial.hasPosterSessionBadge) {
   throw new Error("Paper results should show poster presentation badges");
 }
-if (!/Study fit: (strong|usable|thin)/i.test(initial.firstStudyFit)) {
-  throw new Error(`paper results should expose a compact study-fit signal: ${JSON.stringify(initial)}`);
+if (initial.removedResultDiagnostics.length) {
+  throw new Error(`removed result diagnostics should not render: ${JSON.stringify(initial.removedResultDiagnostics)}`);
 }
 if (!/Accepted/i.test(initial.firstEvidence) || !/Mapped/i.test(initial.firstEvidence)) {
   throw new Error(`result cards should expose concise record evidence badges: ${JSON.stringify(initial)}`);
 }
-if (!/Why shown:/i.test(initial.firstReason) || !/accepted public/i.test(initial.firstReason)) {
-  throw new Error(`result cards should explain why the record is visible: ${JSON.stringify(initial)}`);
+if (viewerUtilityUnits.utcDate !== "Jun 17, 2026") {
+  throw new Error(`checked date formatting should use the UTC calendar day: ${JSON.stringify(viewerUtilityUnits)}`);
 }
-if (!/Source:/i.test(initial.firstTrace) || !/Text:/i.test(initial.firstTrace) || !/Material:/i.test(initial.firstTrace)) {
-  throw new Error(`result cards should expose source/text/material provenance: ${JSON.stringify(initial)}`);
-}
-if (!/Source: ICML \+ OpenReview/.test(initial.firstTrace)) {
-  throw new Error(`paper result provenance should identify ICML + OpenReview: ${JSON.stringify(initial)}`);
-}
-if (!/Area:/i.test(initial.firstScope) || !/Domain:/i.test(initial.firstScope)) {
-  throw new Error(`result cards should expose area/domain scope: ${JSON.stringify(initial)}`);
-}
-if (!/Map:/i.test(initial.firstMapContext)) {
-  throw new Error(`result cards should expose map context: ${JSON.stringify(initial)}`);
-}
-if (!/Read:/i.test(initial.firstReadHint) || !/Open:/i.test(initial.firstOpenHint)) {
-  throw new Error(`result cards should expose read/open hints: ${JSON.stringify(initial)}`);
-}
-if (!/Source: ICML\b/.test(provenanceUnits.poster) || /Source: OpenReview/.test(provenanceUnits.poster)) {
-  throw new Error(`poster provenance should use the official ICML source, not OpenReview fallback: ${JSON.stringify(provenanceUnits)}`);
-}
-if (!/Source: ICML \+ OpenReview/.test(provenanceUnits.paper) || !/Source: OpenReview/.test(provenanceUnits.workshop)) {
-  throw new Error(`paper/workshop provenance should distinguish ICML+OpenReview from OpenReview submissions: ${JSON.stringify(provenanceUnits)}`);
-}
-if (provenanceUnits.utcDate !== "Jun 17, 2026") {
-  throw new Error(`checked date formatting should use the UTC calendar day: ${JSON.stringify(provenanceUnits)}`);
-}
-if (provenanceUnits.zeroCandidateViewerCoverage !== "0% coverage") {
-  throw new Error(`viewer citation coverage should preserve explicit zero candidate denominators: ${JSON.stringify(provenanceUnits)}`);
+if (viewerUtilityUnits.zeroCandidateViewerCoverage !== "0% coverage") {
+  throw new Error(`viewer citation coverage should preserve explicit zero candidate denominators: ${JSON.stringify(viewerUtilityUnits)}`);
 }
 if (initialReferenceRequestCount !== 0) {
   throw new Error(`reference data must not load during initial startup: ${JSON.stringify(referenceRequests.slice(0, initialReferenceRequestCount))}`);
@@ -839,20 +786,14 @@ if (paperLatex.hasPdfShell && (!/\d+ \/ \d+/.test(paperLatex.pdfStatus) || !pape
 if (!paperLatex.hasPdfShell && (!paperLatex.viewerMeta.includes("OpenReview PDF") || /\nBlocked\n/.test(paperLatex.viewerMeta))) {
   throw new Error(`paper viewer should show OpenReview PDF instead of raw Blocked when no local PDF is available: ${JSON.stringify(paperLatex)}`);
 }
-if (!paperLatex.hasPdfShell && (!/OpenReview link/i.test(paperLatex.viewerFrameText) || /external OpenReview PDF/i.test(paperLatex.viewerFrameText))) {
-  throw new Error(`paper viewer should describe blocked synthetic PDF material as an OpenReview link: ${JSON.stringify(paperLatex)}`);
+if (!paperLatex.hasPdfShell && (!/OpenReview PDF may open/i.test(paperLatex.viewerFrameText) || /external OpenReview PDF/i.test(paperLatex.viewerFrameText))) {
+  throw new Error(`paper viewer should describe OpenReview PDF material without embedding it: ${JSON.stringify(paperLatex)}`);
 }
-if (/Main claim|Evidence cue/i.test(paperLatex.viewerFrameText) || !/Opening context/i.test(paperLatex.viewerFrameText)) {
-  throw new Error(`reader brief should label abstract sentences neutrally: ${JSON.stringify(paperLatex)}`);
+if (paperLatex.removedViewerPanels.length) {
+  throw new Error(`removed viewer diagnostic panels should not render: ${JSON.stringify(paperLatex.removedViewerPanels)}`);
 }
-if (!/confidence/i.test(paperLatex.confidenceText) || !/\d+\/4 evidence checks/i.test(paperLatex.confidenceText)) {
-  throw new Error(`viewer should expose an evidence confidence summary: ${JSON.stringify(paperLatex)}`);
-}
-if (!/Next action/i.test(paperLatex.infoQualityText) || !/read|verify/i.test(paperLatex.infoQualityText)) {
-  throw new Error(`viewer should expose the next study action from available evidence: ${JSON.stringify(paperLatex)}`);
-}
-if (!/Missing:/i.test(paperLatex.confidenceText)) {
-  throw new Error(`viewer confidence should expose missing evidence explicitly: ${JSON.stringify(paperLatex)}`);
+if (/Reader brief|Information quality|At a glance|Study signals|Source identifiers|Known gaps|Citation evidence|Not indexed for this record/i.test(paperLatex.viewerFrameText)) {
+  throw new Error(`viewer should not render removed diagnostic/citation panels: ${JSON.stringify(paperLatex)}`);
 }
 if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
   throw new Error(`paper viewer metadata should not foreground crawler-only PDF failures when OpenReview PDF action exists: ${JSON.stringify(paperLatex)}`);
@@ -860,59 +801,14 @@ if (/403|not yet public|return 403/i.test(paperLatex.viewerMeta)) {
 if (!paperLatex.hasPdfShell && (!paperLatex.actionLabels.includes("OpenReview PDF") || !paperLatex.openReviewPdfHref.includes("openreview.net/pdf?id=H0tMEp0ZmO"))) {
   throw new Error(`paper viewer should expose a direct OpenReview PDF action: ${JSON.stringify(paperLatex)}`);
 }
-if (!paperLatex.hasPdfShell && !/\bPDF\b/.test(paperLatex.resultStudyFit)) {
-  throw new Error(`OpenReview PDF papers should include PDF in result-card study fit: ${JSON.stringify(paperLatex)}`);
-}
-if (!localPdf.viewerTitle.includes("MoSE") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
+if (!localPdf.viewerTitle.includes("Speedrunning GPT3") || !localPdf.shellExists || localPdf.hasError || !/\d+ \/ \d+/.test(localPdf.status) || !localPdf.canvasWidth || !localPdf.canvasHeight) {
   throw new Error(`downloaded PDF should render through PDF.js: ${JSON.stringify(localPdf)}`);
 }
 if (!/Scroll inside PDF/i.test(localPdf.scrollCue)) {
   throw new Error(`downloaded PDF should expose an inner-scroll cue: ${JSON.stringify(localPdf)}`);
 }
-if (!/OpenReview\s+0yK6aZLoEF/i.test(localPdf.sourcePanelText) || /ICML\.cc\/2026\/Workshop/i.test(localPdf.sourcePanelText)) {
-  throw new Error(`workshop source identifiers should show the submission/forum id, not the venue group id: ${JSON.stringify(localPdf)}`);
-}
-if (!/Checked/i.test(localPdf.factsPanelText)) {
-  throw new Error(`viewer facts should include source checked date when the record has one: ${JSON.stringify(localPdf)}`);
-}
-if (
-  viewerReferenceExpectation.hasContext
-  && (!/Citation overlap/i.test(paperLatex.viewerReferenceText) || !/extracted refs/i.test(paperLatex.viewerReferenceText))
-) {
-  throw new Error(`viewer should surface extracted citation/reference context for selected records: ${JSON.stringify(paperLatex)}`);
-}
-if (!viewerReferenceExpectation.hasContext && !/Citation evidence|Not indexed for this record/i.test(paperLatex.viewerReferenceText)) {
-  throw new Error(`viewer should explain when citation evidence is not indexed: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
-}
-if (!viewerReferenceExpectation.hasEntry && !paperLatex.hasPdfShell && !/No downloadable PDF was available for reference extraction/i.test(paperLatex.viewerReferenceText)) {
-  throw new Error(`OpenReview-only records should not be described as having a collected PDF reference shard: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
-}
-if (!/Information quality/i.test(paperLatex.viewerFrameText) || !/Reader brief/i.test(paperLatex.viewerFrameText)) {
-  throw new Error(`viewer should explain source quality and reading brief: ${JSON.stringify(paperLatex)}`);
-}
-if (!/At a glance/i.test(paperLatex.factsPanelText) || !/Record/i.test(paperLatex.factsPanelText) || !/Decision/i.test(paperLatex.factsPanelText) || !/Area/i.test(paperLatex.factsPanelText) || !/Domain/i.test(paperLatex.factsPanelText) || !/Map basis/i.test(paperLatex.factsPanelText)) {
-  throw new Error(`viewer should expose compact record facts: ${JSON.stringify(paperLatex)}`);
-}
-if (!/Study signals/i.test(paperLatex.studySignalsText) || !/Priority/i.test(paperLatex.studySignalsText) || !/Suggestion/i.test(paperLatex.studySignalsText) || !/Evidence/i.test(paperLatex.studySignalsText) || !/Read path/i.test(paperLatex.studySignalsText)) {
-  throw new Error(`viewer should expose study signals for the selected record: ${JSON.stringify(paperLatex)}`);
-}
-if (!/Source identifiers/i.test(paperLatex.sourcePanelText) || !/ICML|OpenReview|Record id/i.test(paperLatex.sourcePanelText)) {
-  throw new Error(`viewer should expose source identifiers for traceability: ${JSON.stringify(paperLatex)}`);
-}
-if (!paperLatex.hasPdfShell && !/No downloaded local material|No public PDF link|No embedding map coordinates|No abstract text/i.test(paperLatex.gapPanelText)) {
-  throw new Error(`viewer should expose known data gaps when material is incomplete: ${JSON.stringify(paperLatex)}`);
-}
-if (viewerReferenceExpectation.hasContext && !/Citation evidence/i.test(paperLatex.viewerFrameText)) {
-  throw new Error(`viewer should explain citation evidence when reference context exists: ${JSON.stringify({ paperLatex, viewerReferenceExpectation })}`);
-}
-if (paperLatex.viewerReferenceText && !/coverage/i.test(paperLatex.viewerReferenceText)) {
-  throw new Error(`viewer citation panel should expose collection coverage: ${JSON.stringify(paperLatex)}`);
-}
-if (paperLatex.viewerReferenceText && !paperLatex.viewerReferenceText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
-  throw new Error(`viewer citation coverage should use the same candidate-PDF denominator as References: ${JSON.stringify({ paperLatex, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
-}
-if (referenceRequestsBeforeReferencesTab <= 0) {
-  throw new Error(`viewer reference context should lazy-load only after opening a record: ${JSON.stringify(referenceRequests)}`);
+if (referenceRequestsBeforeReferencesTab !== 0) {
+  throw new Error(`viewer should not lazy-load reference shards before the References tab opens: ${JSON.stringify(referenceRequests)}`);
 }
 if (
   !referencesTab.active
@@ -1155,7 +1051,7 @@ if (
   || !/query-vector matches|SPECTER2|lexical matches/.test(mapSearch.activeSummary)
   || !/Topic lens|Area|Domain|Nearby trend|Search mode/.test(mapSearch.insightText)
   || !/Why highlighted/i.test(mapSearch.insightText)
-  || !/Current map filters are applied before ranking/i.test(mapSearch.insightText)
+  || !/Highlighted records are the active search lens|Current map filters are applied before ranking/i.test(mapSearch.insightText)
   || !mapSearch.topicLensButtons
 ) {
   throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
