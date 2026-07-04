@@ -657,8 +657,8 @@ function openTrendRepresentative(recordId) {
   if (els.mapSearch) els.mapSearch.value = "";
   state.category = "all";
   state.group = "all";
-  state.asset = "all";
-  els.asset.value = "all";
+  state.presentation = "all";
+  if (els.presentation) els.presentation.value = "all";
   clearMapSelection();
   renderAll();
 }
@@ -796,7 +796,7 @@ async function init() {
       }
       state.category = "all";
       state.group = "all";
-      state.asset = "all";
+      state.presentation = "all";
       state.mapFilterValue = "";
       if (nextTab === "map") {
         state.selectedId = "";
@@ -806,7 +806,7 @@ async function init() {
         state.selectedId = "";
       }
       clearMapSelection();
-      els.asset.value = "all";
+      if (els.presentation) els.presentation.value = "all";
       resetResultWindow();
       renderAll();
       window.scrollTo(0, 0);
@@ -835,8 +835,8 @@ async function init() {
     state.group = event.target.value;
     applyFilterChange();
   });
-  els.asset.addEventListener("change", (event) => {
-    state.asset = event.target.value;
+  els.presentation?.addEventListener("change", (event) => {
+    state.presentation = event.target.value;
     applyFilterChange();
   });
   els.mapColor.addEventListener("change", (event) => {

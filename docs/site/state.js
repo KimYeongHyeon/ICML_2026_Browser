@@ -5,7 +5,7 @@ export const state = {
   query: "",
   category: "all",
   group: "all",
-  asset: "all",
+  presentation: "all",
   selectedId: "",
   viewerMapRequested: false,
   viewerReferenceRequested: false,

@@ -217,6 +217,9 @@ await page.waitForTimeout(300);
 
 const paper = await page.evaluate(() => ({
   resultCount: document.querySelector("#resultCount")?.innerText || "",
+  assetSelectCount: document.querySelectorAll("#assetSelect").length,
+  assetPillCount: document.querySelectorAll("#assetPills .filter-pill").length,
+  presentationOptions: [...document.querySelectorAll("#presentationSelect option")].map((option) => option.value),
 }));
 
 await page.locator("#searchInput").fill("spotlight");
@@ -226,9 +229,25 @@ const paperSpotlight = await page.evaluate(() => ({
   hasSpotlightBadge: Boolean([...document.querySelectorAll(".result-item .badge.spotlight")].length),
 }));
 
-await page.locator("#searchInput").fill("Hierarchical Multi-Agent");
+await page.locator("#searchInput").fill("");
+await page.locator("#presentationSelect").selectOption("Spotlight");
 await page.waitForTimeout(300);
-await page.locator(".result-item").first().click();
+const paperPresentationFilter = await page.evaluate(() => ({
+  resultCount: document.querySelector("#resultCount")?.innerText || "",
+  activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+  hasSpotlightBadge: Boolean([...document.querySelectorAll(".result-item .badge.spotlight")].length),
+}));
+
+await page.locator("#presentationSelect").selectOption("all");
+await page.locator("#searchInput").fill("erarchical Multi-Ag");
+await page.waitForTimeout(300);
+const paperPartialSearch = await page.evaluate(() => ({
+  resultCount: document.querySelector("#resultCount")?.innerText || "",
+  matchedTitle: [...document.querySelectorAll(".result-item .result-title")]
+    .map((node) => node.innerText || "")
+    .find((title) => /Hierarchical Multi-Agent/i.test(title)) || "",
+}));
+await page.locator(".result-item", { hasText: /Hierarchical Multi-Agent/i }).first().click();
 await page.waitForFunction(() => {
   const status = document.querySelector("[data-pdf-status]")?.textContent || "";
   const hasSourceFallback = /Official paper presentation page/i.test(document.querySelector("#viewerFrame")?.innerText || "");
@@ -673,6 +692,8 @@ const report = {
   embeddingLookupCompleteness,
   paper,
   paperSpotlight,
+  paperPresentationFilter,
+  paperPartialSearch,
   paperLatex,
   localPdf,
   referenceRequestsBeforeReferencesTab,
@@ -765,8 +786,20 @@ if (embeddingLookupCompleteness.clusterCount <= 0 || embeddingLookupCompleteness
 if (!/^6,343 results/.test(paper.resultCount)) {
   throw new Error(`unexpected paper count: ${paper.resultCount}`);
 }
+if (paper.assetSelectCount !== 0 || paper.assetPillCount !== 0) {
+  throw new Error(`asset filter UI should be removed from the browse filters: ${JSON.stringify(paper)}`);
+}
+if (!paper.presentationOptions.includes("Spotlight") || !paper.presentationOptions.includes("Oral")) {
+  throw new Error(`presentation filter should expose Spotlight and Oral options: ${JSON.stringify(paper)}`);
+}
 if (!paperSpotlight.hasSpotlightBadge || /^0 results/.test(paperSpotlight.resultCount)) {
   throw new Error(`Paper tab should expose searchable Spotlight badges: ${JSON.stringify(paperSpotlight)}`);
+}
+if (!paperPresentationFilter.hasSpotlightBadge || !paperPresentationFilter.activeSummary.includes("Spotlight") || /^0 results/.test(paperPresentationFilter.resultCount)) {
+  throw new Error(`Presentation filter should show Spotlight papers: ${JSON.stringify(paperPresentationFilter)}`);
+}
+if (!/Hierarchical Multi-Agent/i.test(paperPartialSearch.matchedTitle) || /^0 results/.test(paperPartialSearch.resultCount)) {
+  throw new Error(`Partial substring search should find mid-word title fragments: ${JSON.stringify(paperPartialSearch)}`);
 }
 if (paperLatex.viewerKind.includes("Paper · Poster")) {
   throw new Error(`regular poster presentation leaked into paper identity: ${JSON.stringify(paperLatex)}`);
@@ -1031,8 +1064,8 @@ if (
 if (clusterLabelSearch.query !== "cluster 01" || clusterLabelSearch.parsedCount <= 0) {
   throw new Error(`embedding cluster labels should remain searchable without per-record generated labels: ${JSON.stringify(clusterLabelSearch)}`);
 }
-if (/FedRGL/i.test(paperBoundarySearch.firstTitle)) {
-  throw new Error(`paper search should not match punctuation-normalized query from inside another token: ${JSON.stringify(paperBoundarySearch)}`);
+if (paperBoundarySearch.query !== "GL(r)" || !paperBoundarySearch.parsedCount || !/FedRGL/i.test(paperBoundarySearch.firstTitle)) {
+  throw new Error(`paper search should support partial punctuation-normalized title fragments: ${JSON.stringify(paperBoundarySearch)}`);
 }
 if (symbolSearch.query !== "++" || !symbolSearch.parsedCount || !/\+\+/.test(symbolSearch.firstTitle)) {
   throw new Error(`symbol-bearing search terms should be preserved: ${JSON.stringify(symbolSearch)}`);
@@ -1056,8 +1089,8 @@ if (
 ) {
   throw new Error(`map semantic search should highlight cosine-ranked matches: ${JSON.stringify(mapSearch)}`);
 }
-if (mapBoundarySearch.query !== "O(3)" || !mapBoundarySearch.parsedCount || mapBoundarySearch.parsedCount > 20) {
-  throw new Error(`map punctuation-normalized fallback should stay boundary-aware: ${JSON.stringify(mapBoundarySearch)}`);
+if (mapBoundarySearch.query !== "O(3)" || !mapBoundarySearch.parsedCount || !/keyword|semantic|lexical/i.test(mapBoundarySearch.activeSummary)) {
+  throw new Error(`map punctuation-normalized fallback should support broad partial matching: ${JSON.stringify(mapBoundarySearch)}`);
 }
 if (!Number.isFinite(map.forceZoomBeforeWheel) || !Number.isFinite(map.forceZoomAfterWheel) || map.forceZoomAfterWheel <= map.forceZoomBeforeWheel) {
   throw new Error(`ForceGraph wheel zoom did not increase zoom: ${JSON.stringify(map)}`);

@@ -96,13 +96,7 @@ export function queueWorkerSearch() {
 function passesActiveFilters(record, ignoreMapFilter) {
   if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
   if (state.group !== "all" && record.group !== state.group) return false;
-  if (state.asset === "local" && !(record.hasPdf || record.hasPoster || record.hasSlide)) return false;
-  if (state.asset === "pdf" && !record.hasPdf) return false;
-  if (state.asset === "poster" && !record.hasPoster) return false;
-  if (state.asset === "slide" && !record.hasSlide) return false;
-  if (state.asset === "blocked" && record.availabilityStatus !== "blocked") return false;
-  if (state.asset === "metadata" && record.availabilityStatus !== "metadata") return false;
-  if (state.asset === "unavailable" && record.availabilityStatus !== "unavailable") return false;
+  if (state.presentation !== "all" && !(record.presentationLabels || []).includes(state.presentation)) return false;
   if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
   return true;
 }
@@ -151,63 +145,17 @@ function option(value, label) {
   return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
 }
 
-function assetOption(value, label, count, disabled = false) {
-  const suffix = value !== "all" && disabled ? " (0)" : "";
-  return `<option value="${escapeHtml(value)}"${disabled ? " disabled" : ""}>${escapeHtml(`${label}${suffix}`)}</option>`;
-}
-
-function updateAssetOptions(recordsForTab) {
-  const counts = {
-    all: recordsForTab.length,
-    local: recordsForTab.filter((record) => record.hasPdf || record.hasPoster || record.hasSlide).length,
-    pdf: recordsForTab.filter((record) => record.hasPdf).length,
-    poster: recordsForTab.filter((record) => record.hasPoster).length,
-    slide: recordsForTab.filter((record) => record.hasSlide).length,
-    blocked: recordsForTab.filter((record) => record.availabilityStatus === "blocked").length,
-    metadata: recordsForTab.filter((record) => record.availabilityStatus === "metadata").length,
-    unavailable: recordsForTab.filter((record) => record.availabilityStatus === "unavailable").length,
-  };
-  const options = [
-    ["all", "All records"],
-    ["local", "Downloaded locally"],
-    ["pdf", "Has PDF"],
-    ["poster", "Has poster image"],
-    ["slide", "Has slide deck"],
-    ["blocked", recordsForTab.every((record) => record.type === "paper") ? "OpenReview PDF" : "OpenReview PDF / blocked"],
-    ["metadata", "Metadata only"],
-    ["unavailable", "Unavailable / skipped"],
-  ];
-  els.asset.innerHTML = options
-    .map(([value, label]) => assetOption(value, label, counts[value] || 0, value !== "all" && !counts[value]))
-    .join("");
-  if (!counts[state.asset] && state.asset !== "all") state.asset = "all";
-  els.asset.value = state.asset;
-  renderAssetPills(counts);
-}
-
-function renderAssetPills(counts = {}) {
-  if (!els.assetPills) return;
-  const pills = [
-    ["all", "All records"],
-    ["pdf", "Has PDF"],
-    ["poster", "Has poster"],
-    ["local", "Downloaded"],
-    ["blocked", "OpenReview PDF"],
-  ];
-  els.assetPills.innerHTML = `
-    ${pills.map(([value, label]) => {
-      const disabled = value !== "all" && !counts[value];
-      const active = state.asset === value;
-      return `<button class="filter-pill${active ? " is-active" : ""}" type="button" data-asset="${escapeHtml(value)}"${disabled ? " disabled" : ""}>${escapeHtml(label)}</button>`;
-    }).join("")}
-  `;
-  els.assetPills.querySelectorAll(".filter-pill").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.asset = button.dataset.asset || "all";
-      els.asset.value = state.asset;
-      browseDeps.applyFilterChange?.();
+function updatePresentationOptions(recordsForTab) {
+  if (!els.presentation) return;
+  const labels = [...new Set(recordsForTab.flatMap((record) => record.presentationLabels || []))]
+    .filter(Boolean)
+    .sort((left, right) => {
+      const priority = { Spotlight: 0, Oral: 1 };
+      return (priority[left] ?? 10) - (priority[right] ?? 10) || left.localeCompare(right);
     });
-  });
+  els.presentation.innerHTML = option("all", "All presentations") + labels.map((label) => option(label, label)).join("");
+  if (state.presentation !== "all" && !labels.includes(state.presentation)) state.presentation = "all";
+  els.presentation.value = state.presentation;
 }
 
 function resultEvidenceBadges(record) {
@@ -219,21 +167,10 @@ function resultEvidenceBadges(record) {
   ]).slice(0, 4);
 }
 
-const ASSET_FILTER_LABELS = {
-  all: "all assets",
-  local: "downloaded locally",
-  pdf: "has PDF",
-  poster: "has poster image",
-  slide: "has slide deck",
-  blocked: "OpenReview PDF / blocked",
-  metadata: "metadata only",
-  unavailable: "unavailable / skipped",
-};
-
 export function activeFilterSummary(baseLabel, extraParts = []) {
   const parts = [baseLabel, state.category === "all" ? "all fields" : state.category];
   if (state.group !== "all") parts.push(state.group);
-  if (state.asset !== "all") parts.push(ASSET_FILTER_LABELS[state.asset] || state.asset);
+  if (state.presentation !== "all") parts.push(state.presentation);
   if (state.query.trim()) {
     const query = state.query.trim();
     parts.push(`search: ${query.length > 32 ? query.slice(0, 31) + "..." : query}`);
@@ -252,7 +189,7 @@ export function updateSelects() {
   els.group.value = groups.includes(state.group) ? state.group : "all";
   state.category = els.category.value;
   state.group = els.group.value;
-  updateAssetOptions(recordsForTab);
+  updatePresentationOptions(recordsForTab);
 }
 
 export function renderResults() {
