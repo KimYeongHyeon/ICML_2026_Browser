@@ -6,6 +6,7 @@ export const els = {
   category: document.querySelector("#categorySelect"),
   group: document.querySelector("#groupSelect"),
   presentation: document.querySelector("#presentationSelect"),
+  presentationPills: document.querySelector("#presentationPills"),
   dataNote: document.querySelector("#dataNote"),
   resultCount: document.querySelector("#resultCount"),
   activeSummary: document.querySelector("#activeSummary"),
