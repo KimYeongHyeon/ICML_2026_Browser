@@ -156,6 +156,23 @@ function updatePresentationOptions(recordsForTab) {
   els.presentation.innerHTML = option("all", "All presentations") + labels.map((label) => option(label, label)).join("");
   if (state.presentation !== "all" && !labels.includes(state.presentation)) state.presentation = "all";
   els.presentation.value = state.presentation;
+  renderPresentationPills(labels);
+}
+
+function renderPresentationPills(labels) {
+  if (!els.presentationPills) return;
+  const pills = [["all", "All"], ...labels.map((label) => [label, label])];
+  els.presentationPills.innerHTML = pills.map(([value, label]) => `
+    <button class="filter-pill${state.presentation === value ? " is-active" : ""}" type="button" data-presentation="${escapeHtml(value)}">${escapeHtml(label)}</button>
+  `).join("");
+  els.presentationPills.querySelectorAll("[data-presentation]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.presentation = button.dataset.presentation || "all";
+      els.presentation.value = state.presentation;
+      renderPresentationPills(labels);
+      browseDeps.applyFilterChange?.();
+    });
+  });
 }
 
 function resultEvidenceBadges(record) {

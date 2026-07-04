@@ -220,6 +220,7 @@ const paper = await page.evaluate(() => ({
   assetSelectCount: document.querySelectorAll("#assetSelect").length,
   assetPillCount: document.querySelectorAll("#assetPills .filter-pill").length,
   presentationOptions: [...document.querySelectorAll("#presentationSelect option")].map((option) => option.value),
+  presentationButtons: [...document.querySelectorAll("#presentationPills .filter-pill")].map((button) => button.textContent.trim()),
 }));
 
 await page.locator("#searchInput").fill("spotlight");
@@ -230,11 +231,13 @@ const paperSpotlight = await page.evaluate(() => ({
 }));
 
 await page.locator("#searchInput").fill("");
-await page.locator("#presentationSelect").selectOption("Spotlight");
+await page.locator('#presentationPills [data-presentation="Spotlight"]').click();
 await page.waitForTimeout(300);
 const paperPresentationFilter = await page.evaluate(() => ({
   resultCount: document.querySelector("#resultCount")?.innerText || "",
   activeSummary: document.querySelector("#activeSummary")?.innerText || "",
+  selectedPresentation: document.querySelector("#presentationSelect")?.value || "",
+  activeButtons: [...document.querySelectorAll("#presentationPills .filter-pill.is-active")].map((button) => button.textContent.trim()),
   hasSpotlightBadge: Boolean([...document.querySelectorAll(".result-item .badge.spotlight")].length),
 }));
 
@@ -792,10 +795,19 @@ if (paper.assetSelectCount !== 0 || paper.assetPillCount !== 0) {
 if (!paper.presentationOptions.includes("Spotlight") || !paper.presentationOptions.includes("Oral")) {
   throw new Error(`presentation filter should expose Spotlight and Oral options: ${JSON.stringify(paper)}`);
 }
+if (!paper.presentationButtons.includes("Spotlight") || !paper.presentationButtons.includes("Oral")) {
+  throw new Error(`presentation filter should expose visible Spotlight and Oral buttons: ${JSON.stringify(paper)}`);
+}
 if (!paperSpotlight.hasSpotlightBadge || /^0 results/.test(paperSpotlight.resultCount)) {
   throw new Error(`Paper tab should expose searchable Spotlight badges: ${JSON.stringify(paperSpotlight)}`);
 }
-if (!paperPresentationFilter.hasSpotlightBadge || !paperPresentationFilter.activeSummary.includes("Spotlight") || /^0 results/.test(paperPresentationFilter.resultCount)) {
+if (
+  !paperPresentationFilter.hasSpotlightBadge
+  || !paperPresentationFilter.activeSummary.includes("Spotlight")
+  || paperPresentationFilter.selectedPresentation !== "Spotlight"
+  || !paperPresentationFilter.activeButtons.includes("Spotlight")
+  || /^0 results/.test(paperPresentationFilter.resultCount)
+) {
   throw new Error(`Presentation filter should show Spotlight papers: ${JSON.stringify(paperPresentationFilter)}`);
 }
 if (!/Hierarchical Multi-Agent/i.test(paperPartialSearch.matchedTitle) || /^0 results/.test(paperPartialSearch.resultCount)) {
