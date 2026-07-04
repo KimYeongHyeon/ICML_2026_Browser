@@ -204,8 +204,8 @@ export function renderMapDetail(record) {
     state.tab = record.type;
     state.category = "all";
     state.group = "all";
-    state.asset = "all";
-    els.asset.value = "all";
+    state.presentation = "all";
+    if (els.presentation) els.presentation.value = "all";
     detailDeps.renderAll?.();
     state.selectedId = record.id;
     detailDeps.renderResults?.();
