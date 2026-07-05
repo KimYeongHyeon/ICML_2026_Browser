@@ -1,0 +1,3860 @@
+{
+  "bridgePairs": [
+    {
+      "areaTags": [
+        "Evaluation",
+        "LLMs",
+        "Theory"
+      ],
+      "domainTags": [
+        "General"
+      ],
+      "id": "8HeM93bcCq--s66nL9PEw1",
+      "leftRecordId": "8HeM93bcCq",
+      "rightRecordId": "s66nL9PEw1",
+      "score": 0.561,
+      "sharedCount": 23,
+      "sharedReferences": [
+        {
+          "key": "scaling llm test time compute optimally can be more effective than scaling model parameters",
+          "title": "Scaling llm test-time compute optimally can be more effective than scaling model parameters, 2024"
+        },
+        {
+          "key": "attention is all you need",
+          "title": "attention is all you need"
+        },
+        {
+          "key": "attention is not all you need pure attention 24 renee ge qianli liao and tomaso a",
+          "title": "Attention is not all you need: pure attention [24] Renee Ge, Qianli Liao, and Tomaso A"
+        },
+        {
+          "key": "bhavya kailkhura abhinav bhatele and tom goldpmlr",
+          "title": "Bhavya Kailkhura, Abhinav Bhatele, and Tom GoldPMLR, 2021"
+        },
+        {
+          "key": "bronstein and xiaowen dong",
+          "title": "Bronstein, and Xiaowen Dong"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Optimization",
+        "Systems",
+        "LLMs"
+      ],
+      "domainTags": [
+        "General",
+        "Scientific Discovery"
+      ],
+      "id": "EeagsbjdRY--bYiOucINlv",
+      "leftRecordId": "EeagsbjdRY",
+      "rightRecordId": "bYiOucINlv",
+      "score": 0.102,
+      "sharedCount": 5,
+      "sharedReferences": [
+        {
+          "key": "decoupled weight decay regularization",
+          "title": "Decoupled weight decay regularization"
+        },
+        {
+          "key": "muon an optimizer for hidden layers in neural networks",
+          "title": "Muon: An optimizer for hidden layers in neural networks, 2024"
+        },
+        {
+          "key": "optimizing neural networks with kronecker factored approximate curvature",
+          "title": "Optimizing neural networks with kronecker-factored approximate curvature"
+        },
+        {
+          "key": "shampoo preconditioned stochastic tensor optimization",
+          "title": "Shampoo: Preconditioned stochastic tensor optimization"
+        },
+        {
+          "key": "the fineweb datasets decanting the web for the finest text data at scale",
+          "title": "The fineweb datasets: Decanting the web for the finest text data at scale"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Optimization",
+        "Systems",
+        "Reinforcement Learning",
+        "Theory"
+      ],
+      "domainTags": [
+        "Biology",
+        "General"
+      ],
+      "id": "EeagsbjdRY--Nu8P86ml5b",
+      "leftRecordId": "EeagsbjdRY",
+      "rightRecordId": "Nu8P86ml5b",
+      "score": 0.1739,
+      "sharedCount": 4,
+      "sharedReferences": [
+        {
+          "key": "adam a method for stochastic optimization",
+          "title": "Adam: A method for stochastic optimization"
+        },
+        {
+          "key": "decoupled weight decay regularization",
+          "title": "Decoupled weight decay regularization"
+        },
+        {
+          "key": "muon an optimizer for hidden layers in neural networks",
+          "title": "Muon: An optimizer for hidden layers in neural networks, 2024"
+        },
+        {
+          "key": "optimizing neural networks with kronecker factored approximate curvature",
+          "title": "Optimizing neural networks with kronecker-factored approximate curvature"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Reinforcement Learning",
+        "Evaluation",
+        "Optimization"
+      ],
+      "domainTags": [
+        "General",
+        "Social Science"
+      ],
+      "id": "td0DHVAe7c--yJNdh2tYBn",
+      "leftRecordId": "td0DHVAe7c",
+      "rightRecordId": "yJNdh2tYBn",
+      "score": 0.1739,
+      "sharedCount": 4,
+      "sharedReferences": [
+        {
+          "key": "scaling laws for neural language models",
+          "title": "Scaling laws for neural language models"
+        },
+        {
+          "key": "training compute optimal large language models",
+          "title": "Training compute-optimal large language models"
+        },
+        {
+          "key": "dgm a deep learning algorithm for solving partial differential equations",
+          "title": "DGM: A deep learning algorithm for solving partial differential equations"
+        },
+        {
+          "key": "solving high dimensional partial differential equations using deep learning",
+          "title": "Solving high-dimensional partial differential equations using deep learning"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Agents",
+        "Evaluation",
+        "LLMs",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Scientific Discovery"
+      ],
+      "id": "1CjuJgwTqF--ZR9ieOo0J1",
+      "leftRecordId": "1CjuJgwTqF",
+      "rightRecordId": "ZR9ieOo0J1",
+      "score": 1.0,
+      "sharedCount": 3,
+      "sharedReferences": [
+        {
+          "key": "hotpotqa a 374 dataset for diverse explainable multi hop question an375 swering",
+          "title": "HotpotQA: A 374 dataset for diverse, explainable multi-hop question an375 swering"
+        },
+        {
+          "key": "neural turing 346 machines",
+          "title": "Neural turing 346 machines"
+        },
+        {
+          "key": "training verifiers to solve 334 math word problems",
+          "title": "Training verifiers to solve 334 math word problems"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Systems",
+        "LLMs",
+        "Optimization"
+      ],
+      "domainTags": [
+        "Biology"
+      ],
+      "id": "KkN6enKAlU--llfDaQar98",
+      "leftRecordId": "KkN6enKAlU",
+      "rightRecordId": "llfDaQar98",
+      "score": 0.1071,
+      "sharedCount": 3,
+      "sharedReferences": [
+        {
+          "key": "parallelizing linear transformers with the delta rule over sequence length",
+          "title": "Parallelizing Linear Transformers with the Delta Rule over Sequence Length"
+        },
+        {
+          "key": "gated delta networks improving mamba2 with delta rule",
+          "title": "Gated Delta Networks: Improving Mamba2 with Delta Rule"
+        },
+        {
+          "key": "gated linear attention transformers with hardware efficient training",
+          "title": "Gated Linear Attention Transformers with Hardware-Efficient Training"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Optimization",
+        "Systems",
+        "LLMs",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "id": "Nu8P86ml5b--bYiOucINlv",
+      "leftRecordId": "Nu8P86ml5b",
+      "rightRecordId": "bYiOucINlv",
+      "score": 0.075,
+      "sharedCount": 3,
+      "sharedReferences": [
+        {
+          "key": "decoupled weight decay regularization",
+          "title": "Decoupled weight decay regularization"
+        },
+        {
+          "key": "muon an optimizer for hidden layers in neural networks",
+          "title": "Muon: An optimizer for hidden layers in neural networks, 2024"
+        },
+        {
+          "key": "optimizing neural networks with kronecker factored approximate curvature",
+          "title": "Optimizing neural networks with kronecker-factored approximate curvature"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "Generative Models",
+        "Vision",
+        "LLMs"
+      ],
+      "domainTags": [
+        "Biology",
+        "Education",
+        "Scientific Discovery"
+      ],
+      "id": "Fgf9xVpXBS--uO2H9pyvZS",
+      "leftRecordId": "Fgf9xVpXBS",
+      "rightRecordId": "uO2H9pyvZS",
+      "score": 0.0612,
+      "sharedCount": 3,
+      "sharedReferences": [
+        {
+          "key": "denoising diffusion probabilistic models",
+          "title": "Denoising diffusion probabilistic models"
+        },
+        {
+          "key": "high resolution image synthesis with latent diffusion models",
+          "title": "High-resolution image synthesis with latent diffusion models"
+        },
+        {
+          "key": "denoising diffusion implicit models",
+          "title": "denoising diffusion implicit models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "Evaluation",
+        "LLMs",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery"
+      ],
+      "id": "Fgf9xVpXBS--hXuxsz6KqY",
+      "leftRecordId": "Fgf9xVpXBS",
+      "rightRecordId": "hXuxsz6KqY",
+      "score": 0.0469,
+      "sharedCount": 3,
+      "sharedReferences": [
+        {
+          "key": "denoising diffusion probabilistic models",
+          "title": "Denoising diffusion probabilistic models"
+        },
+        {
+          "key": "high resolution image synthesis with latent diffusion models",
+          "title": "High-resolution image synthesis with latent diffusion models"
+        },
+        {
+          "key": "a style based generator architecture for generative adversarial networks",
+          "title": "A style-based generator architecture for generative adversarial networks"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Theory",
+        "Evaluation",
+        "Optimization",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "id": "52YzhAEU24--x1PXM6FjVo",
+      "leftRecordId": "52YzhAEU24",
+      "rightRecordId": "x1PXM6FjVo",
+      "score": 0.0385,
+      "sharedCount": 3,
+      "sharedReferences": [
+        {
+          "key": "neural tangent kernel convergence and generalization in neural networks",
+          "title": "neural tangent kernel convergence and generalization in neural networks"
+        },
+        {
+          "key": "high dimensional statistics a non asymptotic viewpoint",
+          "title": "high dimensional statistics a non asymptotic viewpoint"
+        },
+        {
+          "key": "tensor programs iv feature learning in infinite width neural networks",
+          "title": "tensor programs iv feature learning in infinite width neural networks"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "Agents",
+        "Generative Models",
+        "LLMs"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "Social Science"
+      ],
+      "id": "manXhfpRH3--whl40fLEnM",
+      "leftRecordId": "manXhfpRH3",
+      "rightRecordId": "whl40fLEnM",
+      "score": 0.2,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "qwen3 technical report",
+          "title": "Qwen3 technical report"
+        },
+        {
+          "key": "training verifiers to solve math word problems",
+          "title": "Training verifiers to solve math word problems"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Optimization"
+      ],
+      "domainTags": [
+        "Medical",
+        "Scientific Discovery"
+      ],
+      "id": "Xyrii4O2nw--hKvffID66N",
+      "leftRecordId": "Xyrii4O2nw",
+      "rightRecordId": "hKvffID66N",
+      "score": 0.1111,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "exploring the limits of transfer learning with a unified text to text transformer",
+          "title": "Exploring the limits of transfer learning with a unified text-to-text transformer"
+        },
+        {
+          "key": "pointer sentinel mixture models",
+          "title": "Pointer sentinel mixture models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "LLMs",
+        "Theory",
+        "Evaluation"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "id": "LebIhWA5R2--QBKmOvyh8w",
+      "leftRecordId": "LebIhWA5R2",
+      "rightRecordId": "QBKmOvyh8w",
+      "score": 0.1053,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "qwen3 technical report",
+          "title": "Qwen3 technical report"
+        },
+        {
+          "key": "the llama 3 herd of models",
+          "title": "The llama 3 herd of models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Generative Models",
+        "Systems"
+      ],
+      "domainTags": [
+        "Scientific Discovery",
+        "Biology"
+      ],
+      "id": "QBKmOvyh8w--nV7k7G5k5l",
+      "leftRecordId": "QBKmOvyh8w",
+      "rightRecordId": "nV7k7G5k5l",
+      "score": 0.0833,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "qwen3 technical report",
+          "title": "Qwen3 technical report"
+        },
+        {
+          "key": "the llama 3 herd of models",
+          "title": "The llama 3 herd of models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "LLMs",
+        "Evaluation",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Biology",
+        "General"
+      ],
+      "id": "5MSxa85tWH--Bew2D82sWR",
+      "leftRecordId": "5MSxa85tWH",
+      "rightRecordId": "Bew2D82sWR",
+      "score": 0.0625,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "dream 7b diffusion large language models",
+          "title": "Dream 7b: Diffusion large language models, 2025a"
+        },
+        {
+          "key": "d1 scaling reasoning in diffusion large language models via reinforcement learning",
+          "title": "d1 scaling reasoning in diffusion large language models via reinforcement learning"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "LLMs",
+        "Systems",
+        "Generative Models"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "id": "LebIhWA5R2--nV7k7G5k5l",
+      "leftRecordId": "LebIhWA5R2",
+      "rightRecordId": "nV7k7G5k5l",
+      "score": 0.0571,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "qwen3 technical report",
+          "title": "Qwen3 technical report"
+        },
+        {
+          "key": "the llama 3 herd of models",
+          "title": "The llama 3 herd of models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Systems",
+        "Optimization"
+      ],
+      "domainTags": [
+        "Biology",
+        "General"
+      ],
+      "id": "EeagsbjdRY--KkN6enKAlU",
+      "leftRecordId": "EeagsbjdRY",
+      "rightRecordId": "KkN6enKAlU",
+      "score": 0.0556,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "parallelizing linear transformers with the delta rule over sequence length",
+          "title": "Parallelizing Linear Transformers with the Delta Rule over Sequence Length"
+        },
+        {
+          "key": "linear transformers are secretly fast weight programmers",
+          "title": "Linear Transformers Are Secretly Fast Weight Programmers"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Agents",
+        "Evaluation"
+      ],
+      "domainTags": [
+        "Biology"
+      ],
+      "id": "46SiHbmU1f--LebIhWA5R2",
+      "leftRecordId": "46SiHbmU1f",
+      "rightRecordId": "LebIhWA5R2",
+      "score": 0.0526,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "gpt 4 technical report",
+          "title": "Gpt-4 technical report, 2023"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Agents",
+        "Evaluation",
+        "Generative Models"
+      ],
+      "domainTags": [
+        "Biology"
+      ],
+      "id": "46SiHbmU1f--uXQyCxN7r9",
+      "leftRecordId": "46SiHbmU1f",
+      "rightRecordId": "uXQyCxN7r9",
+      "score": 0.0526,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "language models are few shot learners",
+          "title": "Language models are few-shot learners"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Systems",
+        "Evaluation",
+        "LLMs",
+        "Vision"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "id": "KkN6enKAlU--nV7k7G5k5l",
+      "leftRecordId": "KkN6enKAlU",
+      "rightRecordId": "nV7k7G5k5l",
+      "score": 0.0526,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "asvd activation aware singular value decomposition for compressing large language models",
+          "title": "Asvd: Activation-aware singular value decomposition for compressing large language models"
+        },
+        {
+          "key": "quarot outlier free 4 bit inference in rotated llms",
+          "title": "Quarot: Outlier-Free 4-bit Inference in Rotated LLMs"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Generative Models",
+        "Safety"
+      ],
+      "domainTags": [
+        "Biology",
+        "Materials"
+      ],
+      "id": "ivMU0MTfPe--wyrtuBoMkt",
+      "leftRecordId": "ivMU0MTfPe",
+      "rightRecordId": "wyrtuBoMkt",
+      "score": 0.0476,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "the llama 3 herd of models",
+          "title": "The llama 3 herd of models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "Evaluation",
+        "Systems",
+        "Vision"
+      ],
+      "domainTags": [
+        "Biology",
+        "Education",
+        "General"
+      ],
+      "id": "hXuxsz6KqY--uO2H9pyvZS",
+      "leftRecordId": "hXuxsz6KqY",
+      "rightRecordId": "uO2H9pyvZS",
+      "score": 0.0408,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "denoising diffusion probabilistic models",
+          "title": "Denoising diffusion probabilistic models"
+        },
+        {
+          "key": "high resolution image synthesis with latent diffusion models",
+          "title": "High-resolution image synthesis with latent diffusion models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "Generative Models",
+        "LLMs",
+        "Optimization"
+      ],
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery"
+      ],
+      "id": "52YzhAEU24--TzA1wJpzHB",
+      "leftRecordId": "52YzhAEU24",
+      "rightRecordId": "TzA1wJpzHB",
+      "score": 0.0303,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "flow matching for generative modeling",
+          "title": "Flow matching for generative modeling"
+        },
+        {
+          "key": "score based generative modeling through stochastic differential equations",
+          "title": "Score-based generative modeling through stochastic differential equations"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Reinforcement Learning",
+        "Systems",
+        "Theory"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "id": "kbEG8qC4R7--x1PXM6FjVo",
+      "leftRecordId": "kbEG8qC4R7",
+      "rightRecordId": "x1PXM6FjVo",
+      "score": 0.0299,
+      "sharedCount": 2,
+      "sharedReferences": [
+        {
+          "key": "neural tangent kernel convergence and generalization in neural networks",
+          "title": "neural tangent kernel convergence and generalization in neural networks"
+        },
+        {
+          "key": "on lazy training in differentiable programming",
+          "title": "On lazy training in differentiable programming"
+        }
+      ]
+    }
+  ],
+  "communities": [
+    {
+      "areaTags": [
+        "Systems",
+        "LLMs",
+        "Optimization",
+        "Evaluation"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "General"
+      ],
+      "edgeCount": 11,
+      "id": "community-01",
+      "label": "Decoupled weight decay regularization / Muon: An optimizer for hidden layers in neural networks, 2024",
+      "maxSharedCount": 5,
+      "recordIds": [
+        "46SiHbmU1f",
+        "EeagsbjdRY",
+        "KkN6enKAlU",
+        "LebIhWA5R2",
+        "Nu8P86ml5b",
+        "QBKmOvyh8w",
+        "bYiOucINlv",
+        "llfDaQar98",
+        "nV7k7G5k5l",
+        "uXQyCxN7r9"
+      ],
+      "representativeRecordIds": [
+        "nV7k7G5k5l",
+        "EeagsbjdRY",
+        "KkN6enKAlU",
+        "LebIhWA5R2",
+        "bYiOucINlv",
+        "46SiHbmU1f",
+        "Nu8P86ml5b",
+        "QBKmOvyh8w"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 3,
+          "key": "decoupled weight decay regularization",
+          "title": "Decoupled weight decay regularization"
+        },
+        {
+          "count": 3,
+          "key": "muon an optimizer for hidden layers in neural networks",
+          "title": "Muon: An optimizer for hidden layers in neural networks, 2024"
+        },
+        {
+          "count": 3,
+          "key": "optimizing neural networks with kronecker factored approximate curvature",
+          "title": "Optimizing neural networks with kronecker-factored approximate curvature"
+        },
+        {
+          "count": 3,
+          "key": "qwen3 technical report",
+          "title": "Qwen3 technical report"
+        },
+        {
+          "count": 3,
+          "key": "the llama 3 herd of models",
+          "title": "The llama 3 herd of models"
+        },
+        {
+          "count": 2,
+          "key": "parallelizing linear transformers with the delta rule over sequence length",
+          "title": "Parallelizing Linear Transformers with the Delta Rule over Sequence Length"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "Theory",
+        "Generative Models",
+        "LLMs"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "General"
+      ],
+      "edgeCount": 4,
+      "id": "community-02",
+      "label": "neural tangent kernel convergence and generalization in neural networks / Flow matching for generative modeling",
+      "maxSharedCount": 3,
+      "recordIds": [
+        "52YzhAEU24",
+        "TzA1wJpzHB",
+        "kbEG8qC4R7",
+        "x1PXM6FjVo"
+      ],
+      "representativeRecordIds": [
+        "52YzhAEU24",
+        "kbEG8qC4R7",
+        "x1PXM6FjVo",
+        "TzA1wJpzHB"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 3,
+          "key": "neural tangent kernel convergence and generalization in neural networks",
+          "title": "neural tangent kernel convergence and generalization in neural networks"
+        },
+        {
+          "count": 1,
+          "key": "flow matching for generative modeling",
+          "title": "Flow matching for generative modeling"
+        },
+        {
+          "count": 1,
+          "key": "generalization bounds of stochastic gradient descent for wide and deep neural networks",
+          "title": "Generalization bounds of stochastic gradient descent for wide and deep neural networks"
+        },
+        {
+          "count": 1,
+          "key": "on lazy training in differentiable programming",
+          "title": "On lazy training in differentiable programming"
+        },
+        {
+          "count": 1,
+          "key": "score based generative modeling through stochastic differential equations",
+          "title": "Score-based generative modeling through stochastic differential equations"
+        },
+        {
+          "count": 1,
+          "key": "high dimensional statistics a non asymptotic viewpoint",
+          "title": "high dimensional statistics a non asymptotic viewpoint"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "Evaluation",
+        "Vision",
+        "LLMs"
+      ],
+      "domainTags": [
+        "Biology",
+        "Education",
+        "General",
+        "Scientific Discovery"
+      ],
+      "edgeCount": 3,
+      "id": "community-03",
+      "label": "Denoising diffusion probabilistic models / High-resolution image synthesis with latent diffusion models",
+      "maxSharedCount": 3,
+      "recordIds": [
+        "Fgf9xVpXBS",
+        "hXuxsz6KqY",
+        "uO2H9pyvZS"
+      ],
+      "representativeRecordIds": [
+        "Fgf9xVpXBS",
+        "hXuxsz6KqY",
+        "uO2H9pyvZS"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 3,
+          "key": "denoising diffusion probabilistic models",
+          "title": "Denoising diffusion probabilistic models"
+        },
+        {
+          "count": 3,
+          "key": "high resolution image synthesis with latent diffusion models",
+          "title": "High-resolution image synthesis with latent diffusion models"
+        },
+        {
+          "count": 1,
+          "key": "a style based generator architecture for generative adversarial networks",
+          "title": "A style-based generator architecture for generative adversarial networks"
+        },
+        {
+          "count": 1,
+          "key": "denoising diffusion implicit models",
+          "title": "denoising diffusion implicit models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Agents",
+        "Evaluation",
+        "LLMs",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Scientific Discovery"
+      ],
+      "edgeCount": 1,
+      "id": "community-04",
+      "label": "HotpotQA: A 374 dataset for diverse, explainable multi-hop question an375 swering / Neural turing 346 machines",
+      "maxSharedCount": 3,
+      "recordIds": [
+        "1CjuJgwTqF",
+        "ZR9ieOo0J1"
+      ],
+      "representativeRecordIds": [
+        "1CjuJgwTqF",
+        "ZR9ieOo0J1"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "hotpotqa a 374 dataset for diverse explainable multi hop question an375 swering",
+          "title": "HotpotQA: A 374 dataset for diverse, explainable multi-hop question an375 swering"
+        },
+        {
+          "count": 1,
+          "key": "neural turing 346 machines",
+          "title": "Neural turing 346 machines"
+        },
+        {
+          "count": 1,
+          "key": "training verifiers to solve 334 math word problems",
+          "title": "Training verifiers to solve 334 math word problems"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "LLMs",
+        "Evaluation",
+        "Reinforcement Learning"
+      ],
+      "domainTags": [
+        "Biology",
+        "General"
+      ],
+      "edgeCount": 1,
+      "id": "community-05",
+      "label": "Dream 7b: Diffusion large language models, 2025a / d1 scaling reasoning in diffusion large language models via reinforcement learning",
+      "maxSharedCount": 2,
+      "recordIds": [
+        "5MSxa85tWH",
+        "Bew2D82sWR"
+      ],
+      "representativeRecordIds": [
+        "5MSxa85tWH",
+        "Bew2D82sWR"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "dream 7b diffusion large language models",
+          "title": "Dream 7b: Diffusion large language models, 2025a"
+        },
+        {
+          "count": 1,
+          "key": "d1 scaling reasoning in diffusion large language models via reinforcement learning",
+          "title": "d1 scaling reasoning in diffusion large language models via reinforcement learning"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "LLMs",
+        "Theory"
+      ],
+      "domainTags": [
+        "General"
+      ],
+      "edgeCount": 1,
+      "id": "community-06",
+      "label": "Attention is not all you need: pure attention [24] Renee Ge, Qianli Liao, and Tomaso A / Bhavya Kailkhura, Abhinav Bhatele, and Tom GoldPMLR, 2021",
+      "maxSharedCount": 23,
+      "recordIds": [
+        "8HeM93bcCq",
+        "s66nL9PEw1"
+      ],
+      "representativeRecordIds": [
+        "8HeM93bcCq",
+        "s66nL9PEw1"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "attention is not all you need pure attention 24 renee ge qianli liao and tomaso a",
+          "title": "Attention is not all you need: pure attention [24] Renee Ge, Qianli Liao, and Tomaso A"
+        },
+        {
+          "count": 1,
+          "key": "bhavya kailkhura abhinav bhatele and tom goldpmlr",
+          "title": "Bhavya Kailkhura, Abhinav Bhatele, and Tom GoldPMLR, 2021"
+        },
+        {
+          "count": 1,
+          "key": "bronstein and xiaowen dong",
+          "title": "Bronstein, and Xiaowen Dong"
+        },
+        {
+          "count": 1,
+          "key": "scaling llm test time compute optimally can be more effective than scaling model parameters",
+          "title": "Scaling llm test-time compute optimally can be more effective than scaling model parameters, 2024"
+        },
+        {
+          "count": 1,
+          "key": "attention is all you need",
+          "title": "attention is all you need"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Optimization"
+      ],
+      "domainTags": [
+        "Medical",
+        "Scientific Discovery"
+      ],
+      "edgeCount": 1,
+      "id": "community-07",
+      "label": "Exploring the limits of transfer learning with a unified text-to-text transformer / Pointer sentinel mixture models",
+      "maxSharedCount": 2,
+      "recordIds": [
+        "Xyrii4O2nw",
+        "hKvffID66N"
+      ],
+      "representativeRecordIds": [
+        "hKvffID66N",
+        "Xyrii4O2nw"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "exploring the limits of transfer learning with a unified text to text transformer",
+          "title": "Exploring the limits of transfer learning with a unified text-to-text transformer"
+        },
+        {
+          "count": 1,
+          "key": "pointer sentinel mixture models",
+          "title": "Pointer sentinel mixture models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Generative Models",
+        "Safety"
+      ],
+      "domainTags": [
+        "Biology",
+        "Materials"
+      ],
+      "edgeCount": 1,
+      "id": "community-08",
+      "label": "The llama 3 herd of models",
+      "maxSharedCount": 2,
+      "recordIds": [
+        "ivMU0MTfPe",
+        "wyrtuBoMkt"
+      ],
+      "representativeRecordIds": [
+        "wyrtuBoMkt",
+        "ivMU0MTfPe"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "the llama 3 herd of models",
+          "title": "The llama 3 herd of models"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "Agents",
+        "Generative Models",
+        "LLMs"
+      ],
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "Social Science"
+      ],
+      "edgeCount": 1,
+      "id": "community-09",
+      "label": "Qwen3 technical report / Training verifiers to solve math word problems",
+      "maxSharedCount": 2,
+      "recordIds": [
+        "manXhfpRH3",
+        "whl40fLEnM"
+      ],
+      "representativeRecordIds": [
+        "manXhfpRH3",
+        "whl40fLEnM"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "qwen3 technical report",
+          "title": "Qwen3 technical report"
+        },
+        {
+          "count": 1,
+          "key": "training verifiers to solve math word problems",
+          "title": "Training verifiers to solve math word problems"
+        }
+      ]
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Reinforcement Learning",
+        "Evaluation",
+        "Optimization"
+      ],
+      "domainTags": [
+        "General",
+        "Social Science"
+      ],
+      "edgeCount": 1,
+      "id": "community-10",
+      "label": "DGM: A deep learning algorithm for solving partial differential equations / Scaling laws for neural language models",
+      "maxSharedCount": 4,
+      "recordIds": [
+        "td0DHVAe7c",
+        "yJNdh2tYBn"
+      ],
+      "representativeRecordIds": [
+        "td0DHVAe7c",
+        "yJNdh2tYBn"
+      ],
+      "topSharedReferences": [
+        {
+          "count": 1,
+          "key": "dgm a deep learning algorithm for solving partial differential equations",
+          "title": "DGM: A deep learning algorithm for solving partial differential equations"
+        },
+        {
+          "count": 1,
+          "key": "scaling laws for neural language models",
+          "title": "Scaling laws for neural language models"
+        },
+        {
+          "count": 1,
+          "key": "solving high dimensional partial differential equations using deep learning",
+          "title": "Solving high-dimensional partial differential equations using deep learning"
+        },
+        {
+          "count": 1,
+          "key": "training compute optimal large language models",
+          "title": "Training compute-optimal large language models"
+        }
+      ]
+    }
+  ],
+  "generatedAt": "2026-07-04T23:07:30.259163+00:00",
+  "recordIndex": {
+    "0096qmIqBx": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "07e99XvHxF": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": []
+    },
+    "0DBUa6xKUD": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "0XVoLXts8F": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 31,
+      "sharedFoundationKeys": []
+    },
+    "0stDFvtMGN": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models"
+      ]
+    },
+    "0uL5u1Lywf": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": [
+        "the role of permutation invariance in linear mode connectivity of neural networks"
+      ]
+    },
+    "0yK6aZLoEF": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "1CjuJgwTqF": {
+      "bridgePairIds": [
+        "1CjuJgwTqF--ZR9ieOo0J1"
+      ],
+      "communityIds": [
+        "community-04"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "1TzWIuYoHM": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": []
+    },
+    "1inovdFo6Z": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 25,
+      "sharedFoundationKeys": [
+        "let s verify step by step"
+      ]
+    },
+    "1rqKSX6g63": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "2EEt1RGFF1": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "2J7NFtQY1l": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "3DXy8WrQBw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "3NN3ehMKxW": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 19,
+      "sharedFoundationKeys": []
+    },
+    "46SiHbmU1f": {
+      "bridgePairIds": [
+        "46SiHbmU1f--LebIhWA5R2",
+        "46SiHbmU1f--uXQyCxN7r9"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 24,
+      "sharedFoundationKeys": [
+        "language models are few shot learners",
+        "adam a method for stochastic optimization",
+        "gpt 4 technical report"
+      ]
+    },
+    "4dnRxUOPv8": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": [
+        "imagenet a large scale hierarchical image database"
+      ]
+    },
+    "4eEzQDjorF": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": [
+        "gpt 4 technical report"
+      ]
+    },
+    "4ictK3BeHy": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "4o4fmg7hPJ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "4oNRpt9T8s": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 17,
+      "sharedFoundationKeys": []
+    },
+    "4pqGfgZ2e6": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": [
+        "language models are few shot learners",
+        "denoising diffusion probabilistic models"
+      ]
+    },
+    "4u3jAFaabQ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": []
+    },
+    "52YzhAEU24": {
+      "bridgePairIds": [
+        "52YzhAEU24--x1PXM6FjVo",
+        "52YzhAEU24--TzA1wJpzHB"
+      ],
+      "communityIds": [
+        "community-02"
+      ],
+      "overlapCount": 3,
+      "referenceCount": 57,
+      "sharedFoundationKeys": []
+    },
+    "5HFUrdVJUB": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "5IsDyRzKks": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "5MSxa85tWH": {
+      "bridgePairIds": [
+        "5MSxa85tWH--Bew2D82sWR"
+      ],
+      "communityIds": [
+        "community-05"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 18,
+      "sharedFoundationKeys": []
+    },
+    "5bHHy81McV": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    },
+    "5f4giKbVOo": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "61lWd2AwK6": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "6F2RAzarNu": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "6HWPQVqio1": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "6J25xPearK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "6JGbm48VoG": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": [
+        "llama open and efficient foundation language models"
+      ]
+    },
+    "6RE3ehQV0a": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "6ijbFHrAbY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 12,
+      "sharedFoundationKeys": []
+    },
+    "6puwjcINEq": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 17,
+      "sharedFoundationKeys": []
+    },
+    "7DvYeitu6I": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "7tSGTe2rIX": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "7vPmnHdAPl": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "832bPjCDO2": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "8EOiVFhzZS": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 20,
+      "sharedFoundationKeys": []
+    },
+    "8HeM93bcCq": {
+      "bridgePairIds": [
+        "8HeM93bcCq--s66nL9PEw1"
+      ],
+      "communityIds": [
+        "community-06"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 32,
+      "sharedFoundationKeys": [
+        "attention is not all you need pure attention 24 renee ge qianli liao and tomaso a",
+        "bhavya kailkhura abhinav bhatele and tom goldpmlr",
+        "bronstein and xiaowen dong"
+      ]
+    },
+    "8Myvm7z5Ca": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "8rId8lL5zY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    },
+    "8sCCiit00K": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "9DE8ISZNak": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": [
+        "llama open and efficient foundation language models"
+      ]
+    },
+    "9Ljgbk6H3O": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "9OrRendasa": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "9VqvhSZwN6": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "AqtQc7KO77": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "BC10Dk7nv2": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "adam a method for stochastic optimization"
+      ]
+    },
+    "Bew2D82sWR": {
+      "bridgePairIds": [
+        "5MSxa85tWH--Bew2D82sWR"
+      ],
+      "communityIds": [
+        "community-05"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 16,
+      "sharedFoundationKeys": []
+    },
+    "BqKhzrtkGe": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 16,
+      "sharedFoundationKeys": []
+    },
+    "C8MlQkr4bw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 15,
+      "sharedFoundationKeys": []
+    },
+    "CBtx52vftl": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "CMTvyKf7lW": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 18,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "CMpE5w5W8N": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "CUpqGH72hv": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": []
+    },
+    "Cc4fa11JSz": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": []
+    },
+    "DPrS5jDoR3": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": []
+    },
+    "DR4nLvRCoe": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "exploring the limits of transfer learning with a unified text to text transformer",
+        "outrageously large neural networks the sparsely gated mixture of experts layer"
+      ]
+    },
+    "DSXfEnYCbK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "DcqP1vxuqe": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "ET3T10FKn3": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 12,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models",
+        "pointer sentinel mixture models"
+      ]
+    },
+    "EV9wwDLFGj": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "Ee1Lde3Gyc": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "EeagsbjdRY": {
+      "bridgePairIds": [
+        "EeagsbjdRY--bYiOucINlv",
+        "EeagsbjdRY--Nu8P86ml5b",
+        "EeagsbjdRY--KkN6enKAlU"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 3,
+      "referenceCount": 19,
+      "sharedFoundationKeys": [
+        "adam a method for stochastic optimization",
+        "muon an optimizer for hidden layers in neural networks"
+      ]
+    },
+    "ErMUPz2NaF": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "EvqGp86jSU": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "FFFiBxjUYs": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 19,
+      "sharedFoundationKeys": []
+    },
+    "FZsFCo7kGz": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": [
+        "let s verify step by step"
+      ]
+    },
+    "Fgf9xVpXBS": {
+      "bridgePairIds": [
+        "Fgf9xVpXBS--uO2H9pyvZS",
+        "Fgf9xVpXBS--hXuxsz6KqY"
+      ],
+      "communityIds": [
+        "community-03"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 34,
+      "sharedFoundationKeys": [
+        "adam a method for stochastic optimization",
+        "denoising diffusion probabilistic models"
+      ]
+    },
+    "Fk2cK5nF47": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "G05mb0EfIc": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "G8G97TSBt7": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "GhUK6VGW67": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "GxjVGa6QeF": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "H0NoX02erJ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": []
+    },
+    "H1RaTRCSwC": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "Hle1jgzG0f": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "IZ1jSNabMs": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 12,
+      "sharedFoundationKeys": []
+    },
+    "IlZw7vZhG0": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "JP7NNuHG8O": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "Jm2dzZotw7": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    },
+    "K41rNB0F8j": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": []
+    },
+    "KC1vYb9W3q": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "KKNaCDURpP": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "KVAdINcwe5": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "training verifiers to solve math word problems",
+        "evaluating large language models trained on code"
+      ]
+    },
+    "KhSsCaMAGm": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "KkN6enKAlU": {
+      "bridgePairIds": [
+        "KkN6enKAlU--llfDaQar98",
+        "EeagsbjdRY--KkN6enKAlU",
+        "KkN6enKAlU--nV7k7G5k5l"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 3,
+      "referenceCount": 19,
+      "sharedFoundationKeys": []
+    },
+    "KvUnIAPEg7": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "Kz72yDqjAa": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "LTccdiCJ5A": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "LYSTj2Cnuu": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "LZGvXkyxfb": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "LebIhWA5R2": {
+      "bridgePairIds": [
+        "LebIhWA5R2--QBKmOvyh8w",
+        "LebIhWA5R2--nV7k7G5k5l",
+        "46SiHbmU1f--LebIhWA5R2"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 3,
+      "referenceCount": 16,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models",
+        "gpt 4 technical report"
+      ]
+    },
+    "LsrmZrp7tW": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "LyK98q1ard": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "MQ99lol4LC": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "N6duB6Lqom": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "N835H9OajI": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "NG4RPdcNKG": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "NIO72rHhKj": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "NPhEUvT1jH": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 21,
+      "sharedFoundationKeys": []
+    },
+    "NiWI3Hrnd5": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": [
+        "language models are unsupervised multitask learners"
+      ]
+    },
+    "NkgEKRCiyZ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "Nu8P86ml5b": {
+      "bridgePairIds": [
+        "EeagsbjdRY--Nu8P86ml5b",
+        "Nu8P86ml5b--bYiOucINlv"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "adam a method for stochastic optimization",
+        "muon an optimizer for hidden layers in neural networks"
+      ]
+    },
+    "OE7r3gucrj": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "OG1jOy6WXU": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "Ov0gA7umIw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 25,
+      "sharedFoundationKeys": []
+    },
+    "P57RE6xZVh": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "PG9V0MvEGG": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "PMBgWcrYfh": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": []
+    },
+    "PXJSgLXgEr": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": []
+    },
+    "Pech3Gfc9D": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "Pl9Qg3s0VQ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 23,
+      "sharedFoundationKeys": []
+    },
+    "Ptldsu5fQY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "adam a method for stochastic optimization"
+      ]
+    },
+    "PvnR2LDCOs": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "QBKmOvyh8w": {
+      "bridgePairIds": [
+        "LebIhWA5R2--QBKmOvyh8w",
+        "QBKmOvyh8w--nV7k7G5k5l"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "qwen3 technical report",
+        "the llama 3 herd of models"
+      ]
+    },
+    "QL5zUwojjK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "QSv1lTk06x": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "QTjESU5HXy": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "Qt2X2QxdjT": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "QuWWYol2nP": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "R2OO6uURqh": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "RzLGgyuv0C": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": [
+        "qwen3 technical report"
+      ]
+    },
+    "RzsvMA4pyG": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 15,
+      "sharedFoundationKeys": [
+        "imagenet a large scale hierarchical image database"
+      ]
+    },
+    "SKZjII9dqa": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models",
+        "on the measure of intelligence"
+      ]
+    },
+    "ShvjLjCOGB": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": [
+        "gpt 4 technical report"
+      ]
+    },
+    "SliNacpKqc": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "SsOPyPR8iW": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "TKFQdSqb6M": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "TZkP3oHo8c": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": []
+    },
+    "TuHltnpNUo": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "TzA1wJpzHB": {
+      "bridgePairIds": [
+        "52YzhAEU24--TzA1wJpzHB"
+      ],
+      "communityIds": [
+        "community-02"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 11,
+      "sharedFoundationKeys": [
+        "language models are unsupervised multitask learners"
+      ]
+    },
+    "U27ZfUx7JE": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "U37zxXMEE0": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "UDOQMDnqQd": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "UELnN26zPQ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "UJdeo8SM7F": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "UZ5V7ub8mi": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "UgbjqumIWe": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "UmTQ21h8HC": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "VKD70LJaDy": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 15,
+      "sharedFoundationKeys": [
+        "let s verify step by step"
+      ]
+    },
+    "Vqh0p9hEaP": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": []
+    },
+    "WeGTDABSsf": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "WhqkJOqkHN": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "WklS2q5SD9": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 12,
+      "sharedFoundationKeys": [
+        "qwen3 technical report"
+      ]
+    },
+    "WryKB50aG7": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "Wyhqwjl51A": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "qwen3 technical report",
+        "outrageously large neural networks the sparsely gated mixture of experts layer"
+      ]
+    },
+    "XVOMFslJOK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "Xe8pKZ1Xdk": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 15,
+      "sharedFoundationKeys": []
+    },
+    "XjTNbRWp3S": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 20,
+      "sharedFoundationKeys": []
+    },
+    "XrqcUo6B6L": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models",
+        "training verifiers to solve math word problems"
+      ]
+    },
+    "XvcxneQwGI": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "on the measure of intelligence"
+      ]
+    },
+    "Xyrii4O2nw": {
+      "bridgePairIds": [
+        "Xyrii4O2nw--hKvffID66N"
+      ],
+      "communityIds": [
+        "community-07"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "exploring the limits of transfer learning with a unified text to text transformer",
+        "pointer sentinel mixture models"
+      ]
+    },
+    "YDiYDq5u2Y": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "YGMXm4g0fI": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "YGtz4ywf4V": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "YKMnLFmkiv": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "YMsbYXDtqw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "YwVm1lnbzX": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "Yxu0uQuyzY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 22,
+      "sharedFoundationKeys": []
+    },
+    "ZR9ieOo0J1": {
+      "bridgePairIds": [
+        "1CjuJgwTqF--ZR9ieOo0J1"
+      ],
+      "communityIds": [
+        "community-04"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "Zfgv1Sa7Ot": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "gpt 4 technical report",
+        "let s verify step by step"
+      ]
+    },
+    "ZjKZ7iHmEV": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "ZqB0Ab4juk": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "ZqRh99OQEK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "glu variants improve transformer",
+        "outrageously large neural networks the sparsely gated mixture of experts layer"
+      ]
+    },
+    "aQIOppFWrT": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": [
+        "evaluating large language models trained on code"
+      ]
+    },
+    "aglWTNcLzq": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "as9uoUepox": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "bDKvdZJVgK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "bYiOucINlv": {
+      "bridgePairIds": [
+        "EeagsbjdRY--bYiOucINlv",
+        "Nu8P86ml5b--bYiOucINlv"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 35,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models",
+        "muon an optimizer for hidden layers in neural networks"
+      ]
+    },
+    "be5NM4kwAp": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "bos49zQH16": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "bx6bofyZo1": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "by78wl9D1X": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "ccRl8ClcU1": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": [
+        "let s verify step by step"
+      ]
+    },
+    "cg1wTCJjjk": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 17,
+      "sharedFoundationKeys": []
+    },
+    "cmQJrMIXW8": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "e2CpbE7fES": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": [
+        "qwen3 technical report"
+      ]
+    },
+    "eKqSYd9IdW": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 12,
+      "sharedFoundationKeys": [
+        "on the measure of intelligence"
+      ]
+    },
+    "efjdyf2duB": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 17,
+      "sharedFoundationKeys": []
+    },
+    "fEeBgr6nlZ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 9,
+      "sharedFoundationKeys": []
+    },
+    "gNzVckw3Hs": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 13,
+      "sharedFoundationKeys": []
+    },
+    "h4y6IIKNzV": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "hKvffID66N": {
+      "bridgePairIds": [
+        "Xyrii4O2nw--hKvffID66N"
+      ],
+      "communityIds": [
+        "community-07"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 15,
+      "sharedFoundationKeys": [
+        "glu variants improve transformer",
+        "exploring the limits of transfer learning with a unified text to text transformer",
+        "pointer sentinel mixture models",
+        "training compute optimal large language models"
+      ]
+    },
+    "hLFRcxXKxY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 16,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "hXuxsz6KqY": {
+      "bridgePairIds": [
+        "Fgf9xVpXBS--hXuxsz6KqY",
+        "hXuxsz6KqY--uO2H9pyvZS"
+      ],
+      "communityIds": [
+        "community-03"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 33,
+      "sharedFoundationKeys": [
+        "imagenet a large scale hierarchical image database"
+      ]
+    },
+    "hpyVULfQjb": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "hyrEIxwlSK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": [
+        "training verifiers to solve math word problems"
+      ]
+    },
+    "i2IDDWcoEw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "i8xUhdvDkd": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "iAM1LQf5dF": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 15,
+      "sharedFoundationKeys": []
+    },
+    "ijTq79ete6": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "ivMU0MTfPe": {
+      "bridgePairIds": [
+        "ivMU0MTfPe--wyrtuBoMkt"
+      ],
+      "communityIds": [
+        "community-08"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 22,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "jC7nGjmgQ0": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": [
+        "the role of permutation invariance in linear mode connectivity of neural networks"
+      ]
+    },
+    "k4bz0CMaO3": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "kALCcAhJa1": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "kbEG8qC4R7": {
+      "bridgePairIds": [
+        "kbEG8qC4R7--x1PXM6FjVo"
+      ],
+      "communityIds": [
+        "community-02"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 45,
+      "sharedFoundationKeys": []
+    },
+    "kcev86c3WJ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "kdZbHVOjd6": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": [
+        "glu variants improve transformer"
+      ]
+    },
+    "kmJuMuHe4j": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "ko9TZgPP6M": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "l4bLv71FaG": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 19,
+      "sharedFoundationKeys": []
+    },
+    "lXTPf5HDHy": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "llfDaQar98": {
+      "bridgePairIds": [
+        "KkN6enKAlU--llfDaQar98"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 12,
+      "sharedFoundationKeys": []
+    },
+    "mG9tp027lG": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "manXhfpRH3": {
+      "bridgePairIds": [
+        "manXhfpRH3--whl40fLEnM"
+      ],
+      "communityIds": [
+        "community-09"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 7,
+      "sharedFoundationKeys": [
+        "qwen3 technical report",
+        "training verifiers to solve math word problems"
+      ]
+    },
+    "n2eFNO41Qa": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    },
+    "nFPzRayY1Z": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 25,
+      "sharedFoundationKeys": []
+    },
+    "nV7k7G5k5l": {
+      "bridgePairIds": [
+        "QBKmOvyh8w--nV7k7G5k5l",
+        "LebIhWA5R2--nV7k7G5k5l",
+        "KkN6enKAlU--nV7k7G5k5l"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 3,
+      "referenceCount": 21,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "nYQVHA4prY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "nb9fVwdBVI": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "nsIOhilpBE": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 15,
+      "sharedFoundationKeys": []
+    },
+    "o7iEUpHeoe": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "oYiauQToKN": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "ofq7HnlZjs": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 21,
+      "sharedFoundationKeys": []
+    },
+    "ohagh74v0a": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "okBlyVRPDY": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": []
+    },
+    "osIDf4tt67": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": []
+    },
+    "p6MoyF2fiq": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": [
+        "qwen3 technical report",
+        "glu variants improve transformer"
+      ]
+    },
+    "pKajdnNBN8": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": []
+    },
+    "qGDH71Uanr": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 14,
+      "sharedFoundationKeys": [
+        "evaluating large language models trained on code",
+        "language models are unsupervised multitask learners"
+      ]
+    },
+    "qPAZaGHBFx": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "qsUHxSRYqd": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "rOuUpMXyvH": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "rR0OLTGE9j": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 8,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models",
+        "llama open and efficient foundation language models"
+      ]
+    },
+    "rkfeiWSZvy": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "s66nL9PEw1": {
+      "bridgePairIds": [
+        "8HeM93bcCq--s66nL9PEw1"
+      ],
+      "communityIds": [
+        "community-06"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 32,
+      "sharedFoundationKeys": [
+        "attention is not all you need pure attention 24 renee ge qianli liao and tomaso a",
+        "bhavya kailkhura abhinav bhatele and tom goldpmlr",
+        "bronstein and xiaowen dong"
+      ]
+    },
+    "s80e8otSxP": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "sRdWDNWenw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "sn6pO7YmYw": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 7,
+      "sharedFoundationKeys": [
+        "let s verify step by step"
+      ]
+    },
+    "t2jfdgUnQZ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "tLOl7SicWz": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "tO2dUpPh5p": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "td0DHVAe7c": {
+      "bridgePairIds": [
+        "td0DHVAe7c--yJNdh2tYBn"
+      ],
+      "communityIds": [
+        "community-10"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 18,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models",
+        "training compute optimal large language models"
+      ]
+    },
+    "trIVjEAKaz": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "u2eGmesIXs": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": []
+    },
+    "uO2H9pyvZS": {
+      "bridgePairIds": [
+        "Fgf9xVpXBS--uO2H9pyvZS",
+        "hXuxsz6KqY--uO2H9pyvZS"
+      ],
+      "communityIds": [
+        "community-03"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 18,
+      "sharedFoundationKeys": [
+        "denoising diffusion probabilistic models"
+      ]
+    },
+    "uXQyCxN7r9": {
+      "bridgePairIds": [
+        "46SiHbmU1f--uXQyCxN7r9"
+      ],
+      "communityIds": [
+        "community-01"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 16,
+      "sharedFoundationKeys": [
+        "language models are few shot learners"
+      ]
+    },
+    "uaupoLIw6J": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 2,
+      "sharedFoundationKeys": [
+        "gpt 4 technical report"
+      ]
+    },
+    "uqeOxztSIS": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": []
+    },
+    "vl4iv7siTg": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": [
+        "the role of permutation invariance in linear mode connectivity of neural networks"
+      ]
+    },
+    "vmpP5SzOFK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    },
+    "whl40fLEnM": {
+      "bridgePairIds": [
+        "manXhfpRH3--whl40fLEnM"
+      ],
+      "communityIds": [
+        "community-09"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "qwen3 technical report",
+        "training verifiers to solve math word problems"
+      ]
+    },
+    "wxKn35RAhW": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 3,
+      "sharedFoundationKeys": []
+    },
+    "wyrtuBoMkt": {
+      "bridgePairIds": [
+        "ivMU0MTfPe--wyrtuBoMkt"
+      ],
+      "communityIds": [
+        "community-08"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 22,
+      "sharedFoundationKeys": [
+        "the llama 3 herd of models"
+      ]
+    },
+    "x1PXM6FjVo": {
+      "bridgePairIds": [
+        "52YzhAEU24--x1PXM6FjVo",
+        "kbEG8qC4R7--x1PXM6FjVo"
+      ],
+      "communityIds": [
+        "community-02"
+      ],
+      "overlapCount": 2,
+      "referenceCount": 26,
+      "sharedFoundationKeys": []
+    },
+    "x9MbM7QmQN": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 1,
+      "sharedFoundationKeys": []
+    },
+    "xIoWLMIAiV": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "xq9yZki2uy": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": []
+    },
+    "y2sY80Q3fh": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": [
+        "qwen3 technical report"
+      ]
+    },
+    "yJNdh2tYBn": {
+      "bridgePairIds": [
+        "td0DHVAe7c--yJNdh2tYBn"
+      ],
+      "communityIds": [
+        "community-10"
+      ],
+      "overlapCount": 1,
+      "referenceCount": 9,
+      "sharedFoundationKeys": [
+        "scaling laws for neural language models",
+        "training compute optimal large language models"
+      ]
+    },
+    "yQOYQRwmFI": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 4,
+      "sharedFoundationKeys": []
+    },
+    "ydAdMQ1ovJ": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 11,
+      "sharedFoundationKeys": []
+    },
+    "ymiSLNQlkK": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    },
+    "yv7Ie3UzlA": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 6,
+      "sharedFoundationKeys": []
+    },
+    "yxoylbLB7k": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 5,
+      "sharedFoundationKeys": [
+        "qwen3 technical report"
+      ]
+    },
+    "zEJ6juNLZi": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 22,
+      "sharedFoundationKeys": []
+    },
+    "zKhi6pqma9": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 16,
+      "sharedFoundationKeys": []
+    },
+    "zdfed8pwuk": {
+      "bridgePairIds": [],
+      "communityIds": [],
+      "overlapCount": 0,
+      "referenceCount": 10,
+      "sharedFoundationKeys": []
+    }
+  },
+  "sharedFoundations": [
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Generative Models",
+        "Theory"
+      ],
+      "citingRecordIds": [
+        "QBKmOvyh8w",
+        "RzLGgyuv0C",
+        "WklS2q5SD9",
+        "Wyhqwjl51A",
+        "e2CpbE7fES",
+        "manXhfpRH3",
+        "p6MoyF2fiq",
+        "whl40fLEnM",
+        "y2sY80Q3fh",
+        "yxoylbLB7k"
+      ],
+      "count": 10,
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "Social Science",
+        "General"
+      ],
+      "key": "qwen3 technical report",
+      "title": "Qwen3 technical report, 2025"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Generative Models",
+        "Systems"
+      ],
+      "citingRecordIds": [
+        "6J25xPearK",
+        "CMTvyKf7lW",
+        "LebIhWA5R2",
+        "QBKmOvyh8w",
+        "XrqcUo6B6L",
+        "hLFRcxXKxY",
+        "ivMU0MTfPe",
+        "nV7k7G5k5l",
+        "nYQVHA4prY",
+        "wyrtuBoMkt"
+      ],
+      "count": 10,
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "General",
+        "Materials"
+      ],
+      "key": "the llama 3 herd of models",
+      "title": "The Llama 3 herd of models, 2024"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Evaluation",
+        "Optimization"
+      ],
+      "citingRecordIds": [
+        "46SiHbmU1f",
+        "4pqGfgZ2e6",
+        "7vPmnHdAPl",
+        "9VqvhSZwN6",
+        "GxjVGa6QeF",
+        "QL5zUwojjK",
+        "SsOPyPR8iW",
+        "YDiYDq5u2Y",
+        "uXQyCxN7r9"
+      ],
+      "count": 9,
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "General"
+      ],
+      "key": "language models are few shot learners",
+      "title": "Language models are few-shot learners"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Optimization",
+        "Systems",
+        "Evaluation"
+      ],
+      "citingRecordIds": [
+        "0stDFvtMGN",
+        "ET3T10FKn3",
+        "SKZjII9dqa",
+        "bYiOucINlv",
+        "rR0OLTGE9j",
+        "td0DHVAe7c",
+        "yJNdh2tYBn"
+      ],
+      "count": 7,
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery",
+        "Social Science"
+      ],
+      "key": "scaling laws for neural language models",
+      "title": "Scaling laws for neural language models"
+    },
+    {
+      "areaTags": [
+        "Optimization",
+        "Reinforcement Learning",
+        "LLMs",
+        "Systems"
+      ],
+      "citingRecordIds": [
+        "46SiHbmU1f",
+        "BC10Dk7nv2",
+        "EeagsbjdRY",
+        "Fgf9xVpXBS",
+        "Nu8P86ml5b",
+        "Ptldsu5fQY"
+      ],
+      "count": 6,
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery"
+      ],
+      "key": "adam a method for stochastic optimization",
+      "title": "Adam: A method for stochastic optimization"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Reinforcement Learning",
+        "Vision"
+      ],
+      "citingRecordIds": [
+        "46SiHbmU1f",
+        "4eEzQDjorF",
+        "LebIhWA5R2",
+        "ShvjLjCOGB",
+        "Zfgv1Sa7Ot",
+        "uaupoLIw6J"
+      ],
+      "count": 6,
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery"
+      ],
+      "key": "gpt 4 technical report",
+      "title": "Gpt-4 technical report"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Generative Models",
+        "Optimization",
+        "Reinforcement Learning"
+      ],
+      "citingRecordIds": [
+        "1inovdFo6Z",
+        "FZsFCo7kGz",
+        "VKD70LJaDy",
+        "Zfgv1Sa7Ot",
+        "ccRl8ClcU1",
+        "sn6pO7YmYw"
+      ],
+      "count": 6,
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "Social Science",
+        "Climate"
+      ],
+      "key": "let s verify step by step",
+      "title": "Let’s verify step by step"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Generative Models",
+        "Systems"
+      ],
+      "citingRecordIds": [
+        "KVAdINcwe5",
+        "XrqcUo6B6L",
+        "hyrEIxwlSK",
+        "manXhfpRH3",
+        "whl40fLEnM"
+      ],
+      "count": 5,
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "General",
+        "Social Science"
+      ],
+      "key": "training verifiers to solve math word problems",
+      "title": "Training verifiers to solve math word problems"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Optimization",
+        "Evaluation"
+      ],
+      "citingRecordIds": [
+        "ZqRh99OQEK",
+        "hKvffID66N",
+        "kdZbHVOjd6",
+        "p6MoyF2fiq"
+      ],
+      "count": 4,
+      "domainTags": [
+        "General",
+        "Scientific Discovery"
+      ],
+      "key": "glu variants improve transformer",
+      "title": "GLU variants improve transformer"
+    },
+    {
+      "areaTags": [
+        "Generative Models",
+        "Evaluation",
+        "LLMs",
+        "Systems"
+      ],
+      "citingRecordIds": [
+        "4pqGfgZ2e6",
+        "Fgf9xVpXBS",
+        "uO2H9pyvZS"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Biology",
+        "Education",
+        "Scientific Discovery"
+      ],
+      "key": "denoising diffusion probabilistic models",
+      "title": "Denoising diffusion probabilistic models"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Safety",
+        "Systems"
+      ],
+      "citingRecordIds": [
+        "KVAdINcwe5",
+        "aQIOppFWrT",
+        "qGDH71Uanr"
+      ],
+      "count": 3,
+      "domainTags": [
+        "General",
+        "Biology"
+      ],
+      "key": "evaluating large language models trained on code",
+      "title": "Evaluating large language models trained on code"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Optimization",
+        "Other"
+      ],
+      "citingRecordIds": [
+        "DR4nLvRCoe",
+        "Xyrii4O2nw",
+        "hKvffID66N"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Scientific Discovery",
+        "Biology",
+        "Medical"
+      ],
+      "key": "exploring the limits of transfer learning with a unified text to text transformer",
+      "title": "Exploring the limits of transfer learning with a unified text-to-text transformer"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Vision",
+        "Evaluation"
+      ],
+      "citingRecordIds": [
+        "4dnRxUOPv8",
+        "RzsvMA4pyG",
+        "hXuxsz6KqY"
+      ],
+      "count": 3,
+      "domainTags": [
+        "General",
+        "Biology"
+      ],
+      "key": "imagenet a large scale hierarchical image database",
+      "title": "Imagenet: A large-scale hierarchical image database"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Vision",
+        "Evaluation",
+        "Generative Models"
+      ],
+      "citingRecordIds": [
+        "NiWI3Hrnd5",
+        "TzA1wJpzHB",
+        "qGDH71Uanr"
+      ],
+      "count": 3,
+      "domainTags": [
+        "General",
+        "Biology"
+      ],
+      "key": "language models are unsupervised multitask learners",
+      "title": "Language models are unsupervised multitask learners"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Optimization",
+        "Evaluation",
+        "Safety"
+      ],
+      "citingRecordIds": [
+        "6JGbm48VoG",
+        "9DE8ISZNak",
+        "rR0OLTGE9j"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Biology",
+        "Scientific Discovery",
+        "Chemistry"
+      ],
+      "key": "llama open and efficient foundation language models",
+      "title": "Llama: Open and efficient foundation language models"
+    },
+    {
+      "areaTags": [
+        "Optimization",
+        "Systems",
+        "LLMs",
+        "Reinforcement Learning"
+      ],
+      "citingRecordIds": [
+        "EeagsbjdRY",
+        "Nu8P86ml5b",
+        "bYiOucINlv"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery"
+      ],
+      "key": "muon an optimizer for hidden layers in neural networks",
+      "title": "Muon: An optimizer for hidden layers in neural networks, 2024"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Agents",
+        "Evaluation",
+        "Optimization"
+      ],
+      "citingRecordIds": [
+        "SKZjII9dqa",
+        "XvcxneQwGI",
+        "eKqSYd9IdW"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Biology",
+        "Social Science",
+        "General",
+        "Scientific Discovery"
+      ],
+      "key": "on the measure of intelligence",
+      "title": "On the measure of intelligence"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Systems",
+        "Other",
+        "Reinforcement Learning"
+      ],
+      "citingRecordIds": [
+        "DR4nLvRCoe",
+        "Wyhqwjl51A",
+        "ZqRh99OQEK"
+      ],
+      "count": 3,
+      "domainTags": [
+        "General",
+        "Biology",
+        "Scientific Discovery"
+      ],
+      "key": "outrageously large neural networks the sparsely gated mixture of experts layer",
+      "title": "Outrageously large neural networks: The sparsely-gated mixture-of-experts layer"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Optimization",
+        "Systems"
+      ],
+      "citingRecordIds": [
+        "ET3T10FKn3",
+        "Xyrii4O2nw",
+        "hKvffID66N"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Biology",
+        "Medical",
+        "Scientific Discovery"
+      ],
+      "key": "pointer sentinel mixture models",
+      "title": "Pointer sentinel mixture models"
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "Theory",
+        "LLMs",
+        "Optimization"
+      ],
+      "citingRecordIds": [
+        "0uL5u1Lywf",
+        "jC7nGjmgQ0",
+        "vl4iv7siTg"
+      ],
+      "count": 3,
+      "domainTags": [
+        "Biology",
+        "General",
+        "Scientific Discovery"
+      ],
+      "key": "the role of permutation invariance in linear mode connectivity of neural networks",
+      "title": "The role of permutation invariance in linear mode connectivity of neural networks"
+    },
+    {
+      "areaTags": [
+        "LLMs",
+        "Evaluation",
+        "Optimization",
+        "Reinforcement Learning"
+      ],
+      "citingRecordIds": [
+        "hKvffID66N",
+        "td0DHVAe7c",
+        "yJNdh2tYBn"
+      ],
+      "count": 3,
+      "domainTags": [
+        "General",
+        "Scientific Discovery",
+        "Social Science"
+      ],
+      "key": "training compute optimal large language models",
+      "title": "Training compute-optimal large language models"
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "LLMs",
+        "Theory"
+      ],
+      "citingRecordIds": [
+        "8HeM93bcCq",
+        "s66nL9PEw1"
+      ],
+      "count": 2,
+      "domainTags": [
+        "General"
+      ],
+      "key": "attention is not all you need pure attention 24 renee ge qianli liao and tomaso a",
+      "title": "Attention is not all you need: pure attention [24] Renee Ge, Qianli Liao, and Tomaso A"
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "LLMs",
+        "Theory"
+      ],
+      "citingRecordIds": [
+        "8HeM93bcCq",
+        "s66nL9PEw1"
+      ],
+      "count": 2,
+      "domainTags": [
+        "General"
+      ],
+      "key": "bhavya kailkhura abhinav bhatele and tom goldpmlr",
+      "title": "Bhavya Kailkhura, Abhinav Bhatele, and Tom GoldPMLR, 2021"
+    },
+    {
+      "areaTags": [
+        "Evaluation",
+        "LLMs",
+        "Theory"
+      ],
+      "citingRecordIds": [
+        "8HeM93bcCq",
+        "s66nL9PEw1"
+      ],
+      "count": 2,
+      "domainTags": [
+        "General"
+      ],
+      "key": "bronstein and xiaowen dong",
+      "title": "Bronstein, and Xiaowen Dong"
+    }
+  ],
+  "sourceManifestGeneratedAt": "2026-07-04T23:07:30.259163+00:00",
+  "summary": {
+    "communityCount": 10,
+    "coverageLabel": "263 / 328 candidate PDFs",
+    "edgeCount": 25,
+    "recordCount": 263,
+    "recordsWithOverlaps": 31,
+    "recordsWithReferences": 263,
+    "uniqueReferenceKeys": 2078
+  }
+}

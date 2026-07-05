@@ -92,6 +92,8 @@ jobs:
             --out-root docs/site/data/references \
             --publish
           python3 scripts/build_icml_references.py --validate docs/site/data/references/manifest.json
+          python3 scripts/build_reference_insights.py
+          python3 scripts/verify_reference_insights.py docs/site/data/references/insights.json
       - name: Commit references
         id: commit-references
         run: |

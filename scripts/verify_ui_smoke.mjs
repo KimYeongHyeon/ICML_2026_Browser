@@ -638,6 +638,25 @@ const workshopBoundarySearch = await page.evaluate(() => {
 await page.locator('.tab[data-tab="references"]').click();
 await page.waitForSelector(".reference-dashboard", { timeout: 30000 });
 await page.waitForSelector(".reference-selected .reference-overlap-list", { timeout: 30000 });
+await page.waitForSelector(".reference-community-card", { timeout: 30000 });
+await page.locator(".reference-community-card").first().click();
+await page.waitForTimeout(120);
+const referenceCommunityFocus = await page.evaluate(() => ({
+  text: document.querySelector("#referenceInsightFocus")?.textContent || "",
+  recordCount: document.querySelectorAll("#referenceInsightFocus .reference-record-item").length,
+}));
+await page.locator(".reference-bridge-pair").first().click();
+await page.waitForTimeout(120);
+const referenceBridgeFocus = await page.evaluate(() => ({
+  text: document.querySelector("#referenceInsightFocus")?.textContent || "",
+  recordCount: document.querySelectorAll("#referenceInsightFocus .reference-record-item").length,
+}));
+await page.locator(".reference-foundation-item").first().click();
+await page.waitForTimeout(120);
+const referenceFoundationFocus = await page.evaluate(() => ({
+  text: document.querySelector("#referenceInsightFocus")?.textContent || "",
+  recordCount: document.querySelectorAll("#referenceInsightFocus .reference-record-item").length,
+}));
 const referencesTab = await page.evaluate(() => ({
   active: document.querySelector('.tab[data-tab="references"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".reference-dashboard h2")?.textContent || "",
@@ -648,14 +667,18 @@ const referencesTab = await page.evaluate(() => ({
   healthNote: document.querySelector(".reference-health-note")?.textContent || "",
   coverageExplainText: document.querySelector(".reference-coverage-explain")?.textContent || "",
   sortNote: document.querySelector(".reference-sort-note")?.textContent || "",
-  topReferenceNote: document.querySelector(".reference-list-note")?.textContent || "",
+  communityNote: document.querySelector(".reference-community-list")?.closest(".reference-panel-block")?.querySelector(".reference-list-note")?.textContent || "",
+  foundationNote: document.querySelector(".reference-foundation-list")?.closest(".reference-panel-block")?.querySelector(".reference-list-note")?.textContent || "",
   concentrationLabels: [...document.querySelectorAll(".reference-chip-label")].map((item) => item.textContent || ""),
-  topReferenceCount: document.querySelectorAll(".reference-panel-block .reference-sample-list span").length,
-  topReferenceText: [...document.querySelectorAll(".reference-top-list span")].map((item) => item.textContent || "").join("\n"),
+  communityCount: document.querySelectorAll(".reference-community-card").length,
+  bridgePairCount: document.querySelectorAll(".reference-bridge-pair").length,
+  foundationCount: document.querySelectorAll(".reference-foundation-item").length,
+  foundationText: [...document.querySelectorAll(".reference-foundation-item")].map((item) => item.textContent || "").join("\n"),
+  sparseNote: document.querySelector(".reference-sparse-note")?.textContent || "",
   recordCount: document.querySelectorAll(".reference-record-item").length,
   selectedText: document.querySelector(".reference-selected")?.textContent || "",
-  selectedHeadText: document.querySelector(".reference-selected-head")?.textContent || "",
-  selectedNote: document.querySelector(".reference-selected-note")?.textContent || "",
+  selectedHeadText: document.querySelector(".reference-selected .reference-selected-head")?.textContent || "",
+  selectedNote: document.querySelector(".reference-selected .reference-selected-note")?.textContent || "",
   graphText: document.querySelector(".reference-overlap-graph")?.textContent || "",
   selectedSampleNote: document.querySelector(".reference-selected .reference-list-note")?.textContent || "",
   selectedSampleCount: document.querySelectorAll(".reference-selected-samples span").length,
@@ -701,6 +724,9 @@ const report = {
   localPdf,
   referenceRequestsBeforeReferencesTab,
   referencesTab,
+  referenceCommunityFocus,
+  referenceBridgeFocus,
+  referenceFoundationFocus,
   referenceManifestCoverage: referenceManifestExpectedCoverage,
   zeroCoverageFallbackCase,
   zeroCandidateFallbackCase,
@@ -860,16 +886,23 @@ if (
   || referencesTab.title !== "Reference analysis"
   || !/reference records/.test(referencesTab.resultCount)
   || !/reference coverage/i.test(referencesTab.healthText)
-  || !/Sorted by overlap count/i.test(referencesTab.sortNote)
-  || !referencesTab.topReferenceCount
+  || !/Unique paper pairs sorted/i.test(referencesTab.sortNote)
+  || !referencesTab.communityCount
+  || !referencesTab.bridgePairCount
+  || !referencesTab.foundationCount
   || !referencesTab.recordCount
   || referencesTab.viewOverflowY !== "auto"
   || referencesTab.recordListOverflowY !== "auto"
   || !referencesTab.viewerHidden
   || !referenceRequests.some((url) => /\/site\/data\/references\/manifest\.json/.test(url))
+  || !referenceRequests.some((url) => /\/site\/data\/references\/insights\.json/.test(url))
   || !referenceRequests.some((url) => /\/site\/data\/references\/records\//.test(url))
 ) {
-  throw new Error(`References tab should lazy-load reference analysis and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
+  throw new Error(`References tab should lazy-load citation insights and one selected shard: ${JSON.stringify({ referencesTab, referenceRequests })}`);
+}
+const referenceShardRequests = referenceRequests.filter((url) => /\/site\/data\/references\/records\//.test(url));
+if (referenceShardRequests.length > 1) {
+  throw new Error(`References tab should not fetch every reference shard: ${JSON.stringify(referenceRequests)}`);
 }
 if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expectedPercent)) {
   throw new Error(`References coverage should use all candidate PDFs as denominator: ${JSON.stringify({ referencesTab, referenceManifestCoverage: referenceManifestExpectedCoverage })}`);
@@ -877,8 +910,20 @@ if (!referencesTab.healthText.includes(referenceManifestExpectedCoverage.expecte
 if (!/shared normalized references/i.test(referencesTab.selectedNote) || !/separate from semantic-map similarity/i.test(referencesTab.selectedNote)) {
   throw new Error(`References selected record should explain citation-overlap interpretation: ${JSON.stringify(referencesTab)}`);
 }
-if (!/Normalized citation titles/i.test(referencesTab.topReferenceNote) || !/excluded/i.test(referencesTab.topReferenceNote)) {
-  throw new Error(`References top list should explain title normalization and excluded fragments: ${JSON.stringify(referencesTab)}`);
+if (!/Connected components/i.test(referencesTab.communityNote) || !/Singleton records/i.test(referencesTab.communityNote)) {
+  throw new Error(`References communities should explain connected components and singleton handling: ${JSON.stringify(referencesTab)}`);
+}
+if (!/Cleaned citation titles/i.test(referencesTab.foundationNote) || !/excluded/i.test(referencesTab.foundationNote)) {
+  throw new Error(`References foundations should explain cleaned citation titles and excluded fragments: ${JSON.stringify(referencesTab)}`);
+}
+if (!/Citation community/i.test(referenceCommunityFocus.text) || referenceCommunityFocus.recordCount < 1) {
+  throw new Error(`Clicking a citation community should show member papers: ${JSON.stringify(referenceCommunityFocus)}`);
+}
+if (!/Strong citation bridge/i.test(referenceBridgeFocus.text) || referenceBridgeFocus.recordCount !== 2) {
+  throw new Error(`Clicking a citation bridge should show its pair: ${JSON.stringify(referenceBridgeFocus)}`);
+}
+if (!/Shared foundation/i.test(referenceFoundationFocus.text) || referenceFoundationFocus.recordCount < 2) {
+  throw new Error(`Clicking a shared foundation should show citing papers: ${JSON.stringify(referenceFoundationFocus)}`);
 }
 if (!referencesTab.concentrationLabels.includes("Areas") || !referencesTab.concentrationLabels.includes("Domains")) {
   throw new Error(`References concentration should label area/domain chip groups: ${JSON.stringify(referencesTab)}`);
@@ -908,8 +953,8 @@ if (zeroCoverageFallbackCase.covered !== 0 || zeroCoverageFallbackCase.expectedP
 if (zeroCandidateFallbackCase.totalCandidates !== 0 || zeroCandidateFallbackCase.expectedPercent !== "0%") {
   throw new Error(`References coverage should preserve explicit zero candidate denominators: ${JSON.stringify(zeroCandidateFallbackCase)}`);
 }
-if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.topReferenceText)) {
-  throw new Error(`References top list should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);
+if (/^(URL|and |arXiv preprint|OpenReview\.net|[A-Za-z]{1,3},\s*[A-Z]\.)/im.test(referencesTab.foundationText)) {
+  throw new Error(`References shared foundations should hide citation extraction fragments: ${JSON.stringify(referencesTab)}`);
 }
 if (!referencesTab.selectedSampleCount || !/extracted refs/i.test(referencesTab.selectedText)) {
   throw new Error(`References selected record should show extracted reference samples: ${JSON.stringify(referencesTab)}`);

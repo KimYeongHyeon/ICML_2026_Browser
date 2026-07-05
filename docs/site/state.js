@@ -22,6 +22,8 @@ export const state = {
   studyCompareTargetId: "",
   referencesManifest: null,
   referencesManifestLoaded: false,
+  referenceInsights: null,
+  referenceInsightsLoaded: false,
   referenceRecords: new Map(),
   semanticHealth: null,
   searchWorker: null,
