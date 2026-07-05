@@ -5,6 +5,7 @@ import {
 import {
   loadIndexData,
   loadShardRecords,
+  versionedUrl,
 } from "./data-loader.js";
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
@@ -539,9 +540,10 @@ async function renderReferenceSelection(recordId) {
   const target = els.referencesView.querySelector("#referenceSelected");
   if (!target) return;
   const record = findDisplayRecord(recordId);
+  target.dataset.recordId = recordId;
   target.innerHTML = `<div class="empty-state compact"><strong>Loading overlap</strong><span>Reading one record shard.</span></div>`;
   const payload = await loadReferenceRecord(recordId);
-  if (state.tab !== "references" || !target.isConnected) return;
+  if (state.tab !== "references" || !target.isConnected || target.dataset.recordId !== recordId) return;
   const references = referenceCitationItems(payload?.references || [], 5);
   const overlaps = (payload?.overlaps || []).slice(0, 10);
   target.innerHTML = `
@@ -666,7 +668,7 @@ function openTrendRepresentative(recordId) {
 function loadSearchEmbeddingsInBackground() {
   if (searchEmbeddingsStarted) return;
   searchEmbeddingsStarted = true;
-  void loadSearchEmbeddings(SEARCH_EMBEDDINGS_URL)
+  void loadSearchEmbeddings(versionedUrl(SEARCH_EMBEDDINGS_URL, state.dataManifest?.version))
     .finally(rerenderActiveMapQuery);
 }
 
@@ -687,9 +689,10 @@ function updateClusterLevelVisibility() {
 async function ensureMapData() {
   if (state.mapData?.records?.length) return state.mapData;
   if (!mapDataPromise) {
-    mapDataPromise = fetch(MAP_URL)
+    const mapUrl = versionedUrl(MAP_URL, state.dataManifest?.version);
+    mapDataPromise = fetch(mapUrl, { cache: "reload" })
       .then((response) => {
-        if (!response.ok) throw new Error(`Failed to load ${MAP_URL} (${response.status})`);
+        if (!response.ok) throw new Error(`Failed to load ${mapUrl} (${response.status})`);
         return response.json();
       })
       .then((payload) => {

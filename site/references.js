@@ -1,4 +1,5 @@
 import { REFERENCES_MANIFEST_URL } from "./config.js";
+import { versionedUrl } from "./data-loader.js";
 import { state } from "./state.js";
 
 let manifestPromise = null;
@@ -8,7 +9,7 @@ async function loadManifest() {
   if (!manifestPromise) {
     manifestPromise = (async () => {
       try {
-        const response = await fetch(REFERENCES_MANIFEST_URL);
+        const response = await fetch(versionedUrl(REFERENCES_MANIFEST_URL, state.dataManifest?.version), { cache: "reload" });
         state.referencesManifest = response.ok ? await response.json() : null;
       } catch {
         state.referencesManifest = null;
@@ -35,7 +36,7 @@ export async function loadReferenceRecord(recordId) {
     return null;
   }
   try {
-    const response = await fetch(entry.url);
+    const response = await fetch(versionedUrl(entry.url, manifest.generatedAt || state.dataManifest?.version), { cache: "reload" });
     const payload = response.ok ? await response.json() : null;
     state.referenceRecords.set(recordId, payload);
     return payload;

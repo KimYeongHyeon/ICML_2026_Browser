@@ -1,11 +1,12 @@
 import { STUDY_FEATURES_URL } from "./config.js";
+import { versionedUrl } from "./data-loader.js";
 import { state } from "./state.js";
 
 export async function loadStudyFeatures() {
   if (state.studyFeaturesLoaded) return state.studyFeatures;
   state.studyFeaturesLoaded = true;
   try {
-    const response = await fetch(STUDY_FEATURES_URL);
+    const response = await fetch(versionedUrl(STUDY_FEATURES_URL, state.dataManifest?.version), { cache: "reload" });
     state.studyFeatures = response.ok ? await response.json() : null;
   } catch {
     state.studyFeatures = null;
