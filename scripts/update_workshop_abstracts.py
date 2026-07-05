@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.abstract_quality import normalize_space, usable_abstract  # noqa: E402
+
 try:
     import requests
 except Exception:  # noqa: BLE001 - optional when running PDF-only fallback.
@@ -52,12 +55,6 @@ def content_value(content: dict[str, Any], key: str, default: Any = "") -> Any:
     if isinstance(raw, dict) and "value" in raw:
         return raw["value"]
     return raw
-
-
-def normalize_space(value: str) -> str:
-    value = re.sub(r"-\s+", "", value)
-    value = re.sub(r"\s+", " ", value)
-    return value.strip()
 
 
 def abstract_key(row: dict[str, Any]) -> str:
@@ -129,9 +126,10 @@ def fetch_openreview_abstract(openreview_id: str, *, delay: float) -> str:
 
 
 def left_column(line: str) -> str:
+    line = re.sub(r"^\s*\d{3}", "   ", line.rstrip(), count=1)
     if len(line) - len(line.lstrip(" ")) > 20:
         return ""
-    parts = [part.strip() for part in re.split(r"\s{3,}", line.rstrip()) if part.strip()]
+    parts = [part.strip() for part in re.split(r"\s{3,}", line) if part.strip()]
     return parts[0] if parts else ""
 
 
@@ -165,7 +163,7 @@ def extract_abstract_from_layout_text(text: str) -> str:
         if len(" ".join(chunks)) > 2600:
             break
     abstract = normalize_space(" ".join(chunks))
-    return abstract if len(abstract) >= 80 else ""
+    return abstract if usable_abstract(abstract) else ""
 
 
 def extract_abstract_from_plain_text(text: str) -> str:
@@ -178,7 +176,7 @@ def extract_abstract_from_plain_text(text: str) -> str:
     if not match:
         return ""
     abstract = normalize_space(match.group("body"))
-    return abstract if len(abstract) >= 80 else ""
+    return abstract if usable_abstract(abstract) else ""
 
 
 def extract_pdf_abstract(pdf_path: Path) -> str:
@@ -213,7 +211,7 @@ def main() -> int:
     use_api = args.api
     use_pdf = args.pdf or not args.api
     rows = read_jsonl(ABSTRACTS_PATH)
-    existing = {abstract_key(row): row for row in rows if len(str(row.get("abstract") or "")) >= 40}
+    existing = {abstract_key(row): row for row in rows if usable_abstract(str(row.get("abstract") or ""))}
     additions: list[dict[str, Any]] = []
     counters = {
         "accepted_workshop_records": 0,
@@ -237,35 +235,50 @@ def main() -> int:
 
         abstract = normalize_space(str(source.get("abstract") or ""))
         source_kind = "workshop_manifest"
-        if abstract:
+        if usable_abstract(abstract):
             counters["from_manifest"] += 1
-        if not abstract and use_api:
+        if not usable_abstract(abstract) and use_api:
             abstract = fetch_openreview_abstract(str(source.get("openreview_id") or ""), delay=args.delay)
             source_kind = "openreview_api"
-            if abstract:
+            if usable_abstract(abstract):
                 counters["from_openreview_api"] += 1
-        if not abstract and use_pdf:
+        if not usable_abstract(abstract) and use_pdf:
             pdf_path = ROOT / str(source.get("local_pdf_path") or "")
             abstract = extract_pdf_abstract(pdf_path)
             source_kind = "workshop_pdf_text"
-            if abstract:
+            if usable_abstract(abstract):
                 counters["from_pdf"] += 1
 
-        if len(abstract) >= 80:
+        if usable_abstract(abstract):
             entry = row_to_abstract_entry(source, abstract, source_kind)
             existing[abstract_key(entry)] = entry
             additions.append(entry)
         else:
             counters["missing"] += 1
 
-    if args.write and additions:
-        write_jsonl(ABSTRACTS_PATH, rows + additions)
+    replacement_keys = {abstract_key(entry) for entry in additions}
+    kept_rows: list[dict[str, Any]] = []
+    seen_keys: set[str] = set()
+    removed_invalid = 0
+    for row in rows:
+        key = abstract_key(row)
+        if key in replacement_keys or key in seen_keys:
+            continue
+        if not usable_abstract(str(row.get("abstract") or "")):
+            removed_invalid += 1
+            continue
+        kept_rows.append(row)
+        seen_keys.add(key)
+    wrote = bool(args.write and (additions or removed_invalid))
+    if wrote:
+        write_jsonl(ABSTRACTS_PATH, kept_rows + additions)
 
     print(json.dumps({
         **counters,
         "new_abstracts": len(additions),
+        "removed_invalid": removed_invalid,
         "abstracts_path": str(ABSTRACTS_PATH),
-        "wrote": bool(args.write and additions),
+        "wrote": wrote,
     }, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

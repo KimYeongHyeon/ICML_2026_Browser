@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts.icml_embedding_contract import embedding_fingerprint
+from scripts.abstract_quality import normalize_space, usable_abstract  # noqa: E402
+from scripts.icml_embedding_contract import embedding_fingerprint  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 MATERIALS = ROOT / "icml_2026_materials"
@@ -308,8 +309,8 @@ def read_abstracts() -> dict[str, str]:
     """
     abstracts: dict[str, str] = {}
     for row in read_jsonl(MATERIALS / "abstracts.jsonl"):
-        text = " ".join(str(row.get("abstract") or "").split())
-        if len(text) < 40:
+        text = normalize_space(str(row.get("abstract") or ""))
+        if not usable_abstract(text):
             continue
         icml_id = str(row.get("id") or "")
         if icml_id:
