@@ -372,6 +372,23 @@ function referenceBadge(value) {
   return value ? `<b>${escapeHtml(String(value))}</b>` : "";
 }
 
+function referenceMiniTags(values = [], limit = 3) {
+  return values.slice(0, limit).map((value) => `<i>${escapeHtml(value)}</i>`).join("");
+}
+
+function sharedReferenceLabels(references = [], limit = 4) {
+  const seen = new Set();
+  return references
+    .map(referenceDisplayText)
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (!value || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
 function overlapStrength(sharedCount, score) {
   const shared = Number(sharedCount || 0);
   const ratio = Number(score || 0);
@@ -462,6 +479,7 @@ async function renderReferences() {
     .sort((left, right) => (right.overlapCount - left.overlapCount) || (right.referenceCount - left.referenceCount))
     .slice(0, 16);
   const topReferences = referenceCitationItems(manifest.analysis?.topReferences || [], 12);
+  const bridgeRecords = records.slice(0, 6);
   els.resultCount.textContent = `${Number(summary.recordCount || 0).toLocaleString()} reference records`;
   els.activeSummary.textContent = activeFilterSummary("References", [
     `${Number(summary.recordsWithReferences || 0).toLocaleString()} reference sets`,
@@ -496,22 +514,52 @@ async function renderReferences() {
       </div>
       <div class="reference-analysis-grid">
         <article class="reference-panel-block">
-          <h3>Most cited reference titles</h3>
+          <h3>Shared foundations</h3>
           <p class="reference-list-note">Normalized citation titles are merged before counting; URL-only and generic fragments are excluded.</p>
           <div class="reference-sample-list reference-top-list">
-            ${topReferences.map((item) => `<span>${escapeHtml(item.displayText)}<b>${Number(item.count || 0).toLocaleString()}</b></span>`).join("") || "<small>No clean citation titles available yet.</small>"}
+            ${topReferences.map((item) => `
+              <span>
+                <strong>${escapeHtml(item.displayText)}</strong>
+                <small>${escapeHtml((item.authors || []).slice(0, 4).join(", ") || "shared reference")}</small>
+                <b>${Number(item.count || 0).toLocaleString()} papers</b>
+              </span>
+            `).join("") || "<small>No clean citation titles available yet.</small>"}
           </div>
         </article>
         <article class="reference-panel-block">
-          <h3>Reference concentration</h3>
-          <p class="reference-chip-label">Areas</p>
-          <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byArea || [])}</div>
-          <p class="reference-chip-label">Domains</p>
-          <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byDomain || [])}</div>
+          <h3>Best citation bridges</h3>
+          <p class="reference-sort-note">Sorted by overlap count first, then extracted reference count.</p>
+          <div class="reference-bridge-list">
+            ${bridgeRecords.map((item, index) => `
+              <button class="reference-record-item reference-bridge-item" type="button" data-id="${escapeHtml(item.id)}">
+                <span class="neighbor-rank">${index + 1}</span>
+                <span>
+                  <strong>${escapeHtml(plainMathTitle(item.record.title))}</strong>
+                  <small>${Number(item.referenceCount || 0).toLocaleString()} refs · ${Number(item.overlapCount || 0).toLocaleString()} citation neighbors</small>
+                  <span class="reference-mini-tags">
+                    ${referenceMiniTags([...(item.areaTags || []), ...(item.domainTags || [])])}
+                  </span>
+                </span>
+              </button>
+            `).join("") || "<small>No citation bridge papers yet.</small>"}
+          </div>
         </article>
       </div>
       <article class="reference-panel-block">
-        <h3>Records with citation overlap</h3>
+        <h3>Reference concentration</h3>
+        <div class="reference-concentration-grid">
+          <div>
+          <p class="reference-chip-label">Areas</p>
+          <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byArea || [])}</div>
+          </div>
+          <div>
+          <p class="reference-chip-label">Domains</p>
+          <div class="reference-chip-list">${referenceCountChips(manifest.analysis?.referenceCounts?.byDomain || [])}</div>
+          </div>
+        </div>
+      </article>
+      <article class="reference-panel-block">
+        <h3>Explore one paper's citation neighbors</h3>
         <p class="reference-sort-note">Sorted by overlap count first, then extracted reference count.</p>
         <div class="reference-record-list">
           ${records.map((item, index) => `
@@ -560,12 +608,14 @@ async function renderReferenceSelection(recordId) {
     <div class="reference-overlap-list">
       ${overlaps.map((item, index) => {
         const overlapRecord = findDisplayRecord(item.recordId);
+        const sharedRefs = sharedReferenceLabels(item.references || []);
         return `
           <button class="reference-overlap-item" type="button" data-id="${escapeHtml(item.recordId)}">
             <span class="neighbor-rank">${index + 1}</span>
             <span>
               <strong>${escapeHtml(plainMathTitle(overlapRecord?.title || item.title || item.recordId))}</strong>
-              <small>${escapeHtml(overlapStrength(item.sharedCount, item.score))} link · ${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap${(item.references || []).length ? ` · ${escapeHtml((item.references || []).slice(0, 2).map(referenceDisplayText).filter(Boolean).join(" / "))}` : ""}</small>
+              <small>${escapeHtml(overlapStrength(item.sharedCount, item.score))} link · ${Number(item.sharedCount || 0).toLocaleString()} shared references · ${Number(item.score || 0).toFixed(2)} overlap</small>
+              ${sharedRefs.length ? `<em class="reference-shared-refs">Shared: ${sharedRefs.map(escapeHtml).join(" · ")}</em>` : ""}
             </span>
           </button>
         `;
