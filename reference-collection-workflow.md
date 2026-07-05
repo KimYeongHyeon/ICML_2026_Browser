@@ -57,6 +57,8 @@ python3 scripts/build_icml_references.py \
   --out-root /tmp/icml_refs_merged
 
 python3 scripts/build_icml_references.py --validate /tmp/icml_refs_merged/manifest.json
+python3 scripts/build_reference_insights.py --root /tmp/icml_refs_merged
+python3 scripts/verify_reference_insights.py /tmp/icml_refs_merged/insights.json
 scripts/verify_site_contract.sh docs/site/data/icml2026_index.json
 ```
 
@@ -72,6 +74,17 @@ Check the merged summary:
 
 The PDF extraction is intentionally conservative. It drops short titles, author-only fragments, page ranges, URL-only fragments, and other broken `pdftotext` artifacts before writing shards. This can reduce the raw count, but it keeps the overlap graph from being driven by extraction noise. Remote PDFs are streamed to a temporary file for extraction and are not committed by this workflow.
 
+## Reference Insights
+
+After the manifest and record shards exist, `scripts/build_reference_insights.py` derives the browser-facing insight artifact:
+
+- citation communities: connected components of papers sharing extracted references,
+- bridge pairs: strongest unique paper pairs by shared reference count,
+- shared foundations: cleaned citation titles with citing paper ids,
+- record index: the lookup used by the static UI without loading every shard.
+
+`docs/site/data/references/insights.json` is lazy-loaded only when the References tab opens. It is citation evidence for the extracted-reference subset, not a claim that every ICML record has parsed references.
+
 ## Publish
 
 Only publish after the merged manifest validates and the summary improves the current checked-in artifact.
@@ -81,10 +94,13 @@ rm -rf docs/site/data/references.next
 cp -R /tmp/icml_refs_merged docs/site/data/references.next
 
 python3 scripts/build_icml_references.py --validate docs/site/data/references.next/manifest.json
+python3 scripts/build_reference_insights.py --root docs/site/data/references.next
+python3 scripts/verify_reference_insights.py docs/site/data/references.next/insights.json
 rsync -a --delete docs/site/data/references.next/ docs/site/data/references/
 rm -rf docs/site/data/references.next
 
 python3 scripts/build_icml_references.py --validate docs/site/data/references/manifest.json
+python3 scripts/verify_reference_insights.py docs/site/data/references/insights.json
 scripts/verify_site_contract.sh docs/site/data/icml2026_index.json
 ```
 
