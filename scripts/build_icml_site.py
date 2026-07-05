@@ -460,7 +460,11 @@ def compact_record(source: dict[str, Any], item_type: str, group: str, semantic:
             title=title,
         )
     else:
-        abstract = lookup_abstract(abstracts, title=title)
+        abstract = lookup_abstract(
+            abstracts,
+            openreview_id=str(source.get("openreview_id") or "") or extract_openreview_id(source.get("paper_url")),
+            title=title,
+        )
 
     has_pdf = bool(local_pdf)
     has_poster = bool(local_poster)

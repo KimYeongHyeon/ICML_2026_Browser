@@ -209,7 +209,7 @@ def main() -> int:
     args = parser.parse_args()
 
     use_api = args.api
-    use_pdf = args.pdf or not args.api
+    use_pdf = True
     rows = read_jsonl(ABSTRACTS_PATH)
     existing = {abstract_key(row): row for row in rows if usable_abstract(str(row.get("abstract") or ""))}
     additions: list[dict[str, Any]] = []
@@ -256,22 +256,30 @@ def main() -> int:
         else:
             counters["missing"] += 1
 
-    replacement_keys = {abstract_key(entry) for entry in additions}
+    replacement_by_key = {abstract_key(entry): entry for entry in additions}
     kept_rows: list[dict[str, Any]] = []
     seen_keys: set[str] = set()
     removed_invalid = 0
     for row in rows:
         key = abstract_key(row)
-        if key in replacement_keys or key in seen_keys:
-            continue
-        if not usable_abstract(str(row.get("abstract") or "")):
+        is_usable = usable_abstract(str(row.get("abstract") or ""))
+        if not is_usable:
             removed_invalid += 1
+        if key in seen_keys:
+            continue
+        replacement = replacement_by_key.pop(key, None)
+        if replacement:
+            kept_rows.append(replacement)
+            seen_keys.add(key)
+            continue
+        if not is_usable:
             continue
         kept_rows.append(row)
         seen_keys.add(key)
+    kept_rows.extend(replacement_by_key.values())
     wrote = bool(args.write and (additions or removed_invalid))
     if wrote:
-        write_jsonl(ABSTRACTS_PATH, kept_rows + additions)
+        write_jsonl(ABSTRACTS_PATH, kept_rows)
 
     print(json.dumps({
         **counters,

@@ -32,14 +32,29 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Reject obviously contaminated abstract text in site artifacts.")
     parser.add_argument("paths", nargs="*", type=Path, default=DEFAULT_PATHS)
     parser.add_argument("--max-examples", type=int, default=20)
+    parser.add_argument("--max-empty-workshops", type=int, default=0)
     args = parser.parse_args()
 
     failures: list[dict[str, Any]] = []
+    empty_workshops: dict[str, dict[str, Any]] = {}
+    skipped_empty_unavailable: dict[str, dict[str, Any]] = {}
     scanned = 0
     for path in args.paths:
         for record in read_records(path):
             abstract = str(record.get("abstract") or "")
             if not abstract:
+                if record.get("type") == "workshop":
+                    empty_record = {
+                        "file": str(path.relative_to(ROOT)),
+                        "id": record.get("id"),
+                        "title": record.get("title"),
+                    }
+                    has_material = bool(record.get("hasPdf") or record.get("localPdfPath") or record.get("pdfUrl"))
+                    is_blocked = record.get("availabilityStatus") == "blocked"
+                    if has_material or not is_blocked:
+                        empty_workshops[str(record.get("id") or record.get("title"))] = empty_record
+                    else:
+                        skipped_empty_unavailable[str(record.get("id") or record.get("title"))] = empty_record
                 continue
             scanned += 1
             flags = [flag for flag in abstract_quality_flags(abstract) if flag != "empty"]
@@ -53,6 +68,17 @@ def main() -> int:
                     "abstract": abstract[:220],
                 })
 
+    empty_workshop_values = list(empty_workshops.values())
+    if len(empty_workshop_values) > args.max_empty_workshops:
+        failures.append({
+            "file": "workshop abstracts",
+            "id": "empty_workshop_abstracts",
+            "type": "workshop",
+            "title": f"{len(empty_workshop_values)} workshop records have no abstract",
+            "flags": ["empty_workshop_abstract"],
+            "abstract": json.dumps(empty_workshop_values[: args.max_examples], ensure_ascii=False),
+        })
+
     if failures:
         print(json.dumps({
             "status": "failed",
@@ -62,7 +88,12 @@ def main() -> int:
         }, ensure_ascii=False, indent=2))
         return 1
 
-    print(json.dumps({"status": "passed", "scanned": scanned, "failureCount": 0}, indent=2))
+    print(json.dumps({
+        "status": "passed",
+        "scanned": scanned,
+        "failureCount": 0,
+        "skippedEmptyUnavailable": len(skipped_empty_unavailable),
+    }, indent=2))
     return 0
 
 

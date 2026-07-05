@@ -348,7 +348,9 @@ export function renderViewer(record) {
   });
   if (state.viewerMapRequested && record.mapAvailable && !state.mapData?.records?.length && viewerDeps.ensureMapData) {
     void viewerDeps.ensureMapData().then((payload) => {
-      if (payload?.records?.length && state.selectedId === record.id) renderViewer(record);
+      if (payload?.records?.length && state.selectedId === record.id) {
+        renderViewer(viewerDeps.findDisplayRecord(record.id) || record);
+      }
     });
   }
   const miniMap = viewerDeps.renderMiniMap(record);
@@ -375,7 +377,7 @@ export function renderViewer(record) {
   }
   if (record.mapAvailable && state.viewerMapRequested && !state.studyFeaturesLoaded && viewerDeps.ensureStudyFeatures) {
     void viewerDeps.ensureStudyFeatures().then(() => {
-      if (state.selectedId === record.id) renderViewer(record);
+      if (state.selectedId === record.id) renderViewer(viewerDeps.findDisplayRecord(record.id) || record);
     });
   }
   const studyPanel = renderStudyPanel(record, recordStudy(record.id), viewerDeps.findDisplayRecord);

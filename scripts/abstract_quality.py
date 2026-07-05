@@ -4,7 +4,7 @@ import re
 
 
 def normalize_space(value: str) -> str:
-    value = re.sub(r"-\s+", "", value)
+    value = re.sub(r"(?<=\w)-\s+(?!(?:and|or)\b)(?=\w)", "", value, flags=re.I)
     value = re.sub(r"\s+", " ", value)
     value = re.sub(r"^Abstract:?\s+", "", value, flags=re.I)
     return value.strip()

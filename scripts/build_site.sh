@@ -33,6 +33,7 @@ if [[ "${ICML_BUILD_REFERENCES:-1}" == "1" ]]; then
   python3 scripts/build_icml_references.py --source pdf
 fi
 scripts/verify_site_contract.sh "$INDEX_PATH"
+python3 scripts/verify_abstract_quality.py
 
 python3 - "$INDEX_PATH" <<'PY'
 import json
