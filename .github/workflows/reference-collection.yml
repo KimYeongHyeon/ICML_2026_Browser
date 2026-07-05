@@ -11,8 +11,6 @@ on:
         options:
           - pdf
           - openreview-pdf
-  schedule:
-    - cron: "41 19 * * *"
 
 permissions:
   contents: write
