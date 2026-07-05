@@ -1013,6 +1013,10 @@ a:focus-visible {
   gap: 18px;
 }
 
+.reference-analysis-grid-primary {
+  align-items: start;
+}
+
 .reference-panel-block {
   display: grid;
   gap: 12px;
@@ -1071,12 +1075,29 @@ a:focus-visible {
   scrollbar-gutter: stable;
 }
 
+.reference-record-list.compact {
+  max-height: min(28vh, 260px);
+}
+
 .reference-bridge-list {
   display: grid;
   gap: 10px;
 }
 
-.reference-record-item {
+.reference-community-list,
+.reference-foundation-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(38vh, 420px);
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.reference-record-item,
+.reference-community-card,
+.reference-bridge-pair,
+.reference-foundation-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
@@ -1089,15 +1110,50 @@ a:focus-visible {
   cursor: pointer;
 }
 
-.reference-record-item strong {
+.reference-foundation-item {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.reference-record-item strong,
+.reference-community-card strong,
+.reference-bridge-pair strong,
+.reference-foundation-item strong {
   display: block;
   overflow-wrap: anywhere;
 }
 
-.reference-record-item small {
+.reference-record-item small,
+.reference-community-card small,
+.reference-bridge-pair small,
+.reference-foundation-item small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 750;
+}
+
+.reference-community-card:hover strong,
+.reference-bridge-pair:hover strong,
+.reference-foundation-item:hover strong,
+.reference-record-item:hover strong {
+  color: var(--accent-strong);
+}
+
+.reference-sparse-note {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px dashed rgb(106 165 147 / 0.4);
+  border-radius: 14px;
+  background: #f7faf9;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.reference-sparse-note strong {
+  color: var(--text);
+  font-size: 13px;
 }
 
 .reference-mini-tags {

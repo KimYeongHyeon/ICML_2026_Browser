@@ -70,6 +70,7 @@ import { loadSearchEmbeddings } from "./semantic-search.js";
 import { loadStudyFeatures } from "./study-features.js";
 import { loadTrends } from "./trends.js";
 import {
+  loadReferenceInsights,
   loadReferenceRecord,
   loadReferencesManifest,
 } from "./references.js";
@@ -455,10 +456,112 @@ function renderReferencesLoading() {
   els.referencesView.innerHTML = `<div class="empty-state"><strong>Loading references</strong><span>Reading the citation overlap index.</span></div>`;
 }
 
+function referenceRecordTitle(recordId) {
+  return plainMathTitle(findDisplayRecord(recordId)?.title || recordId);
+}
+
+function renderReferenceCommunities(insights) {
+  const communities = insights?.communities || [];
+  return communities.map((community, index) => `
+    <button class="reference-community-card" type="button" data-community-id="${escapeHtml(community.id)}">
+      <span class="neighbor-rank">${index + 1}</span>
+      <span>
+        <strong>${escapeHtml(plainMathTitle(community.label || community.id))}</strong>
+        <small>${Number((community.recordIds || []).length).toLocaleString()} papers · ${Number(community.edgeCount || 0).toLocaleString()} citation edges · max ${Number(community.maxSharedCount || 0).toLocaleString()} shared refs</small>
+        <span class="reference-mini-tags">${referenceMiniTags([...(community.areaTags || []), ...(community.domainTags || [])], 5)}</span>
+      </span>
+    </button>
+  `).join("") || "<small>No citation communities yet.</small>";
+}
+
+function renderReferenceBridgePairs(insights) {
+  return (insights?.bridgePairs || []).slice(0, 8).map((bridge, index) => `
+    <button class="reference-bridge-pair" type="button" data-bridge-id="${escapeHtml(bridge.id)}">
+      <span class="neighbor-rank">${index + 1}</span>
+      <span>
+        <strong>${escapeHtml(referenceRecordTitle(bridge.leftRecordId))}</strong>
+        <strong>${escapeHtml(referenceRecordTitle(bridge.rightRecordId))}</strong>
+        <small>${Number(bridge.sharedCount || 0).toLocaleString()} shared references · ${Number(bridge.score || 0).toFixed(2)} overlap</small>
+        <em class="reference-shared-refs">Shared: ${(bridge.sharedReferences || []).slice(0, 3).map((item) => escapeHtml(plainMathTitle(item.title || item.key || ""))).join(" · ")}</em>
+      </span>
+    </button>
+  `).join("") || "<small>No citation bridge pairs yet.</small>";
+}
+
+function renderReferenceFoundations(insights) {
+  return (insights?.sharedFoundations || []).slice(0, 12).map((foundation) => `
+    <button class="reference-foundation-item" type="button" data-foundation-key="${escapeHtml(foundation.key)}">
+      <span>
+        <strong>${escapeHtml(plainMathTitle(foundation.title || foundation.key))}</strong>
+        <small>${Number(foundation.count || 0).toLocaleString()} citing papers</small>
+        <span class="reference-mini-tags">${referenceMiniTags([...(foundation.areaTags || []), ...(foundation.domainTags || [])], 4)}</span>
+      </span>
+    </button>
+  `).join("") || "<small>No clean shared foundations yet.</small>";
+}
+
+function renderReferenceFocusList(title, note, recordIds = []) {
+  return `
+    <div class="reference-selected-head">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${Number(recordIds.length || 0).toLocaleString()} papers</span>
+    </div>
+    <p class="reference-selected-note">${escapeHtml(note)}</p>
+    <div class="reference-record-list compact">
+      ${recordIds.map((recordId, index) => `
+        <button class="reference-record-item" type="button" data-id="${escapeHtml(recordId)}">
+          <span class="neighbor-rank">${index + 1}</span>
+          <span>
+            <strong>${escapeHtml(referenceRecordTitle(recordId))}</strong>
+            <small>Open citation neighborhood</small>
+          </span>
+        </button>
+      `).join("") || "<small>No papers in this citation slice.</small>"}
+    </div>
+  `;
+}
+
+function renderReferenceInsightFocus(kind, id, insights) {
+  const target = els.referencesView.querySelector("#referenceInsightFocus");
+  if (!target || !insights) return;
+  if (kind === "community") {
+    const community = (insights.communities || []).find((item) => item.id === id);
+    if (!community) return;
+    target.innerHTML = renderReferenceFocusList(
+      `Citation community · ${plainMathTitle(community.label || community.id)}`,
+      "These papers form a connected component through shared extracted references.",
+      community.representativeRecordIds || community.recordIds || [],
+    );
+  } else if (kind === "bridge") {
+    const bridge = (insights.bridgePairs || []).find((item) => item.id === id);
+    if (!bridge) return;
+    target.innerHTML = renderReferenceFocusList(
+      "Strong citation bridge",
+      `${Number(bridge.sharedCount || 0).toLocaleString()} shared references connect this pair.`,
+      [bridge.leftRecordId, bridge.rightRecordId],
+    );
+  } else if (kind === "foundation") {
+    const foundation = (insights.sharedFoundations || []).find((item) => item.key === id);
+    if (!foundation) return;
+    target.innerHTML = renderReferenceFocusList(
+      `Shared foundation · ${plainMathTitle(foundation.title || foundation.key)}`,
+      "These papers cite the same cleaned bibliography item.",
+      foundation.citingRecordIds || [],
+    );
+  }
+  target.querySelectorAll(".reference-record-item").forEach((button) => {
+    button.addEventListener("click", () => {
+      void renderReferenceSelection(button.dataset.id);
+    });
+  });
+  target.scrollIntoView({ block: "nearest" });
+}
+
 async function renderReferences() {
   if (state.tab !== "references") return;
   if (!state.referencesManifestLoaded) renderReferencesLoading();
   const manifest = await loadReferencesManifest();
+  const insights = await loadReferenceInsights();
   if (state.tab !== "references") return;
   if (!manifest) {
     els.referencesView.innerHTML = `<div class="empty-state"><strong>No reference index</strong><span>Run the reference builder.</span></div>`;
@@ -473,13 +576,12 @@ async function renderReferences() {
   const blockedRemote = optionalSummaryNumber(manifest, "remotePdfBlockedRecords");
   const extractionErrors = Number(summary.extractionErrors || summary.errors || 0);
   const remoteHealthUnknown = remoteAttempted === null || blockedRemote === null;
+  const sparseInsights = !insights || (Number((insights.communities || []).length) < 2 || Number((insights.bridgePairs || []).length) < 3);
   const records = Object.entries(manifest.records || {})
     .map(([id, entry]) => ({ id, ...entry, record: findDisplayRecord(id) }))
     .filter((item) => item.record)
     .sort((left, right) => (right.overlapCount - left.overlapCount) || (right.referenceCount - left.referenceCount))
     .slice(0, 16);
-  const topReferences = referenceCitationItems(manifest.analysis?.topReferences || [], 12);
-  const bridgeRecords = records.slice(0, 6);
   els.resultCount.textContent = `${Number(summary.recordCount || 0).toLocaleString()} reference records`;
   els.activeSummary.textContent = activeFilterSummary("References", [
     `${Number(summary.recordsWithReferences || 0).toLocaleString()} reference sets`,
@@ -496,7 +598,7 @@ async function renderReferences() {
       <div class="selection-stat-grid reference-stat-grid">
         ${referenceStat("matched records", summary.matchedRecords || summary.pdfRecords)}
         ${referenceStat("reference sets", coveredReferences)}
-        ${referenceStat("overlap groups", summary.recordsWithOverlaps)}
+        ${referenceStat("citation edges", insights?.summary?.edgeCount ?? summary.recordsWithOverlaps)}
         ${referenceStat("unique references", summary.uniqueReferenceKeys)}
       </div>
       <div class="reference-health-grid">
@@ -512,39 +614,42 @@ async function renderReferences() {
         <span><b>What does not count</b>Semantic map/search still works for records without extracted references.</span>
         <span><b>Coverage gap</b>${withoutExtractedReferences.toLocaleString()} candidate PDFs currently have no extracted bibliography.</span>
       </div>
-      <div class="reference-analysis-grid">
+      ${sparseInsights ? `
+        <div class="reference-sparse-note">
+          <strong>Citation coverage is still sparse.</strong>
+          <span>References below use only the extracted-reference subset. Semantic map/search still covers the larger title and abstract corpus.</span>
+        </div>
+      ` : ""}
+      <div class="reference-analysis-grid reference-analysis-grid-primary">
         <article class="reference-panel-block">
-          <h3>Shared foundations</h3>
-          <p class="reference-list-note">Normalized citation titles are merged before counting; URL-only and generic fragments are excluded.</p>
-          <div class="reference-sample-list reference-top-list">
-            ${topReferences.map((item) => `
-              <span>
-                <strong>${escapeHtml(item.displayText)}</strong>
-                <small>${escapeHtml((item.authors || []).slice(0, 4).join(", ") || "shared reference")}</small>
-                <b>${Number(item.count || 0).toLocaleString()} papers</b>
-              </span>
-            `).join("") || "<small>No clean citation titles available yet.</small>"}
+          <h3>Citation communities</h3>
+          <p class="reference-list-note">Connected components from papers that share extracted references. Singleton records are counted in coverage, not shown as communities.</p>
+          <div class="reference-community-list">
+            ${renderReferenceCommunities(insights)}
           </div>
         </article>
         <article class="reference-panel-block">
-          <h3>Best citation bridges</h3>
-          <p class="reference-sort-note">Sorted by overlap count first, then extracted reference count.</p>
+          <h3>Strongest citation bridges</h3>
+          <p class="reference-sort-note">Unique paper pairs sorted by shared references, then normalized overlap.</p>
           <div class="reference-bridge-list">
-            ${bridgeRecords.map((item, index) => `
-              <button class="reference-record-item reference-bridge-item" type="button" data-id="${escapeHtml(item.id)}">
-                <span class="neighbor-rank">${index + 1}</span>
-                <span>
-                  <strong>${escapeHtml(plainMathTitle(item.record.title))}</strong>
-                  <small>${Number(item.referenceCount || 0).toLocaleString()} refs · ${Number(item.overlapCount || 0).toLocaleString()} citation neighbors</small>
-                  <span class="reference-mini-tags">
-                    ${referenceMiniTags([...(item.areaTags || []), ...(item.domainTags || [])])}
-                  </span>
-                </span>
-              </button>
-            `).join("") || "<small>No citation bridge papers yet.</small>"}
+            ${renderReferenceBridgePairs(insights)}
           </div>
         </article>
       </div>
+      <article class="reference-panel-block">
+        <h3>Shared foundations</h3>
+        <p class="reference-list-note">Cleaned citation titles are merged before counting; URL-only, generic, and author-only fragments are excluded in the build artifact.</p>
+        <div class="reference-foundation-list">
+          ${renderReferenceFoundations(insights)}
+        </div>
+      </article>
+      <article class="reference-panel-block reference-insight-focus" id="referenceInsightFocus">
+        <div class="reference-selected-head">
+          <strong>Choose a community, bridge, or foundation</strong>
+          <span>citation evidence</span>
+        </div>
+        <p class="reference-selected-note">Click an insight above to see its member papers without loading every reference shard.</p>
+      </article>
       <article class="reference-panel-block">
         <h3>Reference concentration</h3>
         <div class="reference-concentration-grid">
@@ -559,7 +664,7 @@ async function renderReferences() {
         </div>
       </article>
       <article class="reference-panel-block">
-        <h3>Explore one paper's citation neighbors</h3>
+        <h3>Selected paper citation neighborhood</h3>
         <p class="reference-sort-note">Sorted by overlap count first, then extracted reference count.</p>
         <div class="reference-record-list">
           ${records.map((item, index) => `
@@ -580,6 +685,15 @@ async function renderReferences() {
     button.addEventListener("click", () => {
       void renderReferenceSelection(button.dataset.id);
     });
+  });
+  els.referencesView.querySelectorAll(".reference-community-card").forEach((button) => {
+    button.addEventListener("click", () => renderReferenceInsightFocus("community", button.dataset.communityId, insights));
+  });
+  els.referencesView.querySelectorAll(".reference-bridge-pair").forEach((button) => {
+    button.addEventListener("click", () => renderReferenceInsightFocus("bridge", button.dataset.bridgeId, insights));
+  });
+  els.referencesView.querySelectorAll(".reference-foundation-item").forEach((button) => {
+    button.addEventListener("click", () => renderReferenceInsightFocus("foundation", button.dataset.foundationKey, insights));
   });
   if (records[0]) void renderReferenceSelection(records[0].id);
 }

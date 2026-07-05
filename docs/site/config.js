@@ -5,6 +5,7 @@ export const SEARCH_EMBEDDINGS_URL = "site/data/icml2026_search_embeddings.json"
 export const TRENDS_URL = "site/data/icml2026_trends.json";
 export const STUDY_FEATURES_URL = "site/data/icml2026_study_features.json";
 export const REFERENCES_MANIFEST_URL = "site/data/references/manifest.json";
+export const REFERENCES_INSIGHTS_URL = "site/data/references/insights.json";
 export const PAGE_SIZE = 80;
 export const REPO_CDN_BASE = "https://cdn.jsdelivr.net/gh/KimYeongHyeon/ICML_2026_Browser@main/";
 export const LOCAL_ASSET_PREFIX = window.location.pathname.includes("/docs/") ? "../" : "";

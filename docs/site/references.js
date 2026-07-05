@@ -1,8 +1,9 @@
-import { REFERENCES_MANIFEST_URL } from "./config.js";
+import { REFERENCES_INSIGHTS_URL, REFERENCES_MANIFEST_URL } from "./config.js";
 import { versionedUrl } from "./data-loader.js";
 import { state } from "./state.js";
 
 let manifestPromise = null;
+let insightsPromise = null;
 
 async function loadManifest() {
   if (state.referencesManifestLoaded) return state.referencesManifest;
@@ -24,6 +25,24 @@ async function loadManifest() {
 
 export async function loadReferencesManifest() {
   return loadManifest();
+}
+
+export async function loadReferenceInsights() {
+  if (state.referenceInsightsLoaded) return state.referenceInsights;
+  if (!insightsPromise) {
+    insightsPromise = (async () => {
+      try {
+        const response = await fetch(versionedUrl(REFERENCES_INSIGHTS_URL, state.referencesManifest?.generatedAt || state.dataManifest?.version), { cache: "reload" });
+        state.referenceInsights = response.ok ? await response.json() : null;
+      } catch {
+        state.referenceInsights = null;
+      }
+      state.referenceInsightsLoaded = true;
+      insightsPromise = null;
+      return state.referenceInsights;
+    })();
+  }
+  return insightsPromise;
 }
 
 export async function loadReferenceRecord(recordId) {
