@@ -153,7 +153,8 @@
         "Reinforcement Learning"
       ],
       "domainTags": [
-        "Scientific Discovery"
+        "Scientific Discovery",
+        "Biology"
       ],
       "id": "1CjuJgwTqF--ZR9ieOo0J1",
       "leftRecordId": "1CjuJgwTqF",
@@ -885,7 +886,8 @@
         "Reinforcement Learning"
       ],
       "domainTags": [
-        "Scientific Discovery"
+        "Scientific Discovery",
+        "Biology"
       ],
       "edgeCount": 1,
       "id": "community-04",
@@ -1152,7 +1154,7 @@
       ]
     }
   ],
-  "generatedAt": "2026-07-04T23:07:30.259163+00:00",
+  "generatedAt": "2026-07-05T23:10:31.737433+00:00",
   "recordIndex": {
     "0096qmIqBx": {
       "bridgePairIds": [],
@@ -3691,9 +3693,9 @@
     },
     {
       "areaTags": [
+        "Evaluation",
         "LLMs",
         "Agents",
-        "Evaluation",
         "Optimization"
       ],
       "citingRecordIds": [
@@ -3847,7 +3849,7 @@
       "title": "Bronstein, and Xiaowen Dong"
     }
   ],
-  "sourceManifestGeneratedAt": "2026-07-04T23:07:30.259163+00:00",
+  "sourceManifestGeneratedAt": "2026-07-05T23:10:31.737433+00:00",
   "summary": {
     "communityCount": 10,
     "coverageLabel": "263 / 328 candidate PDFs",
