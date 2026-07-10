@@ -11,6 +11,7 @@ import {
   statusLabel,
   typeLabel,
 } from "./records.js";
+import { coreTopicTags } from "./core-topics.mjs";
 import { state } from "./state.js";
 import { containsNormalizedPhrase, escapeHtml, normalize, plainMathTitle, queueMathTypeset } from "./utils.js";
 import { renderViewer, uniqueChipValues } from "./viewer.js";
@@ -222,7 +223,7 @@ export function renderResults() {
       const featured = (record.presentationLabels || []).includes("Spotlight") ? " is-spotlight" : (record.presentationLabels || []).includes("Oral") ? " is-oral" : "";
       const details = resultDetails(record);
       const matched = matchedField(record, query);
-      const areaLabel = (record.areaTags || categoryTags(record)).slice(0, 1)[0] || "Other";
+      const areaLabel = coreTopicTags(record)[0] || (record.areaTags || categoryTags(record)).slice(0, 1)[0] || "Other";
       const assetBadges = uniqueChipValues([
         assetLabel(record),
         record.hasPoster ? "Poster" : "",

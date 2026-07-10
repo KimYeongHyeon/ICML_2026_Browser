@@ -1,4 +1,5 @@
 import { buildPeopleAnalytics } from "./people-analytics.mjs";
+import { coreTopicTags } from "./core-topics.mjs";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
 const dashboardState = {
@@ -68,7 +69,7 @@ function renderDetail(entity, mode, recordById) {
             ${papers.map((record) => `
               <button type="button" data-record-id="${escapeHtml(record.id)}">
                 <strong>${escapeHtml(plainMathTitle(record.title))}</strong>
-                <small>${escapeHtml((record.areaTags || record.categoryTags || []).slice(0, 2).join(" · ") || record.group || "ICML 2026")}</small>
+                <small>${escapeHtml(coreTopicTags(record, "detail").join(" · ") || record.group || "ICML 2026")}</small>
               </button>
             `).join("") || "<small>No linked work in the loaded index.</small>"}
           </div>
@@ -106,7 +107,7 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
       </header>
       <div class="people-method-note" role="note">
         <strong>Identity method</strong>
-        <span>Email is the primary key when present; otherwise normalized names are merged only when their coauthor context overlaps. Current public records contain ${Number(analytics.summary.emailIdentityCount).toLocaleString()} email-backed identities.</span>
+        <span>Email is the primary key when present; otherwise normalized names are merged only when their coauthor context overlaps. Rankings use one semantic core topic; open a work to inspect up to three supporting keywords. Current public records contain ${Number(analytics.summary.emailIdentityCount).toLocaleString()} email-backed identities.</span>
       </div>
       <div class="selection-stat-grid people-stat-grid">
         <span><strong>${Number(analytics.summary.uniqueWorks).toLocaleString()}</strong><small>unique works</small></span>

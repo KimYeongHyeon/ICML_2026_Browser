@@ -1,4 +1,5 @@
 import { buildAuthorNetwork } from "./people-analytics.mjs";
+import { coreTopicTags } from "./core-topics.mjs";
 import { colorForValue } from "./map-tooltip.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
@@ -151,7 +152,7 @@ function renderDetail(target, network, records, onOpenRecord) {
           ${papers.map((record) => `
             <button type="button" data-record-id="${escapeHtml(record.id)}">
               <strong>${escapeHtml(plainMathTitle(record.title))}</strong>
-              <small>${escapeHtml((record.areaTags || record.categoryTags || []).slice(0, 2).join(" · ") || record.group || "ICML 2026")}</small>
+              <small>${escapeHtml(coreTopicTags(record, "detail").join(" · ") || record.group || "ICML 2026")}</small>
             </button>
           `).join("") || "<small>No linked work in the loaded index.</small>"}
         </div>
