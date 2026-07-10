@@ -17,7 +17,7 @@ function sortedCounts(counts, limit = 5) {
 }
 
 function addTopics(counts, record) {
-  const labels = record.areaTags?.length ? record.areaTags : record.categoryTags || [];
+  const labels = coreTopicTags(record);
   for (const label of new Set(labels.filter(Boolean))) {
     counts.set(label, (counts.get(label) || 0) + 1);
   }
@@ -270,3 +270,4 @@ export function buildAuthorNetwork(records, { minWorks = 2 } = {}) {
     },
   };
 }
+import { coreTopicTags } from "./core-topics.mjs";

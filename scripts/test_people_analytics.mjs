@@ -45,6 +45,21 @@ test("buildPeopleAnalytics deduplicates paper and poster records", () => {
   assert.equal(analytics.groups[0].paperCount, 2);
 });
 
+test("buildPeopleAnalytics prioritizes one semantic core topic over fixed area labels", () => {
+  const analytics = buildPeopleAnalytics([
+    {
+      id: "1",
+      type: "paper",
+      title: "Routing Sparse Experts",
+      authors: "Ada Lovelace, Grace Hopper",
+      areaTags: ["Systems"],
+      embeddingClusterKeywords: ["mixture-of-experts", "routing", "training"],
+    },
+  ]);
+
+  assert.deepEqual(analytics.authors[0].topics, [{ label: "mixture-of-experts", count: 1 }]);
+});
+
 test("buildPeopleAnalytics keeps one-off coauthors out of lab proxies", () => {
   // Given: no author pair appears on two works.
   const records = [
