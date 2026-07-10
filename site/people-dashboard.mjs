@@ -5,11 +5,14 @@ const dashboardState = {
   mode: "authors",
   scope: "all",
   query: "",
+  page: 0,
   selectedIndex: 0,
   records: null,
   cache: new Map(),
   renderToken: 0,
 };
+
+const PEOPLE_PAGE_SIZE = 20;
 
 function scopeRecords(records, scope) {
   if (scope === "workshop") return records.filter((record) => record.type === "workshop");
@@ -79,7 +82,10 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
   const entities = dashboardState.mode === "authors" ? analytics.authors : analytics.groups;
   const query = dashboardState.query.trim().toLocaleLowerCase();
   const matching = entities.filter((entity) => !query || entitySearchText(entity, dashboardState.mode).includes(query));
-  const visible = matching.slice(0, 100);
+  const pageCount = Math.max(1, Math.ceil(matching.length / PEOPLE_PAGE_SIZE));
+  dashboardState.page = Math.min(dashboardState.page, pageCount - 1);
+  const pageStart = dashboardState.page * PEOPLE_PAGE_SIZE;
+  const visible = matching.slice(pageStart, pageStart + PEOPLE_PAGE_SIZE);
   const selected = visible[dashboardState.selectedIndex] || visible[0];
   const recordById = new Map(records.map((record) => [record.id, record]));
   target.innerHTML = `
@@ -123,17 +129,27 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
       ` : ""}
       <div class="people-analysis-grid">
         <div class="people-ranking" aria-label="Ranked people analysis">
-          ${visible.map((entity, index) => `
-            <button type="button" data-entity-index="${index}" class="${entity === selected ? "is-active" : ""}">
-              <span class="neighbor-rank">${index + 1}</span>
+          <div class="people-ranking-list">
+            ${visible.map((entity, index) => `
+              <button type="button" data-entity-index="${index}" class="${entity === selected ? "is-active" : ""}">
+                <span class="neighbor-rank">${pageStart + index + 1}</span>
+                <span>
+                  <strong>${escapeHtml(entityLabel(entity, dashboardState.mode))}</strong>
+                  <small>${Number(entity.paperCount).toLocaleString()} works · ${(entity.topics || []).slice(0, 2).map((topic) => escapeHtml(topic.label)).join(" · ") || "unclassified"}</small>
+                </span>
+                ${dashboardState.mode === "groups" ? `<em>${Number(entity.members.length).toLocaleString()} people</em>` : ""}
+              </button>
+            `).join("") || `<div class="empty-state compact"><strong>No matches</strong><span>Try another name or topic.</span></div>`}
+          </div>
+          ${matching.length ? `
+            <nav class="people-pagination" aria-label="People result pages">
+              <small>${(pageStart + 1).toLocaleString()}–${Math.min(pageStart + PEOPLE_PAGE_SIZE, matching.length).toLocaleString()} of ${matching.length.toLocaleString()}</small>
               <span>
-                <strong>${escapeHtml(entityLabel(entity, dashboardState.mode))}</strong>
-                <small>${Number(entity.paperCount).toLocaleString()} works · ${(entity.topics || []).slice(0, 2).map((topic) => escapeHtml(topic.label)).join(" · ") || "unclassified"}</small>
+                <button type="button" data-people-page="previous" ${dashboardState.page === 0 ? "disabled" : ""} aria-label="Previous 20 people">←</button>
+                <button type="button" data-people-page="next" ${dashboardState.page >= pageCount - 1 ? "disabled" : ""} aria-label="Next 20 people">→</button>
               </span>
-              ${dashboardState.mode === "groups" ? `<em>${Number(entity.members.length).toLocaleString()} people</em>` : ""}
-            </button>
-          `).join("") || `<div class="empty-state compact"><strong>No matches</strong><span>Try another name or topic.</span></div>`}
-          ${matching.length > visible.length ? `<small class="people-result-limit">Showing the first ${visible.length.toLocaleString()} of ${matching.length.toLocaleString()} matches.</small>` : ""}
+            </nav>
+          ` : ""}
         </div>
         <div id="peopleDetail">${renderDetail(selected, dashboardState.mode, recordById)}</div>
       </div>
@@ -142,22 +158,30 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
 
   target.querySelector("#peopleScope")?.addEventListener("change", (event) => {
     dashboardState.scope = event.target.value;
+    dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
     void renderPeopleDashboard(target, dashboardState.records, onOpenRecord);
   });
   target.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
     dashboardState.mode = button.dataset.mode;
+    dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
     mountDashboard(target, analytics, records, onOpenRecord);
   }));
   target.querySelector("#peopleSearch")?.addEventListener("input", (event) => {
     dashboardState.query = event.target.value;
+    dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
     mountDashboard(target, analytics, records, onOpenRecord);
     target.querySelector("#peopleSearch")?.focus();
   });
   target.querySelectorAll("[data-entity-index]").forEach((button) => button.addEventListener("click", () => {
     dashboardState.selectedIndex = Number(button.dataset.entityIndex);
+    mountDashboard(target, analytics, records, onOpenRecord);
+  }));
+  target.querySelectorAll("[data-people-page]").forEach((button) => button.addEventListener("click", () => {
+    dashboardState.page += button.dataset.peoplePage === "next" ? 1 : -1;
+    dashboardState.selectedIndex = 0;
     mountDashboard(target, analytics, records, onOpenRecord);
   }));
   target.querySelectorAll("[data-record-id]").forEach((button) => button.addEventListener("click", () => onOpenRecord(button.dataset.recordId)));

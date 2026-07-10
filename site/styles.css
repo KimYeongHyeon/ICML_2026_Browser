@@ -1400,13 +1400,20 @@ a:focus-visible {
 }
 
 .people-ranking {
+  display: flex;
+  flex-direction: column;
   max-height: min(58vh, 650px);
-  overflow: auto;
+  overflow: hidden;
   padding: 8px;
+}
+
+.people-ranking-list {
+  min-height: 0;
+  overflow: auto;
   scrollbar-gutter: stable;
 }
 
-.people-ranking > button {
+.people-ranking-list > button {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -1421,12 +1428,12 @@ a:focus-visible {
   cursor: pointer;
 }
 
-.people-ranking > button:hover,
-.people-ranking > button.is-active {
+.people-ranking-list > button:hover,
+.people-ranking-list > button.is-active {
   background: var(--surface-2);
 }
 
-.people-ranking > button span:nth-child(2) {
+.people-ranking-list > button span:nth-child(2) {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -1446,10 +1453,47 @@ a:focus-visible {
   line-height: 1.35;
 }
 
-.people-result-limit {
-  display: block;
-  padding: 14px 10px 8px;
+.people-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 9px 3px 1px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.people-pagination small {
   color: var(--muted-2);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.people-pagination span {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.people-pagination button {
+  display: grid;
+  width: 30px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.people-pagination button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.people-pagination button:disabled {
+  color: var(--muted-2);
+  cursor: not-allowed;
 }
 
 .people-detail-card {
