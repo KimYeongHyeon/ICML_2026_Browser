@@ -56,6 +56,18 @@ In the map legend:
 - node shape and ring represent domain,
 - the shape legend labels the actual domain names, not generic shape names.
 
+### People and Author Map
+
+The People view summarizes authors and repeated collaboration groups across accepted works. Author identities use a public-data-safe rule: matching email is strongest when present; otherwise identical normalized names are merged only when their coauthor context overlaps. The current public snapshot has no author emails, so uncertain same-name records remain separate rather than being silently merged.
+
+The Author Map is a separate coauthorship network. It starts with a conference overview of the most prolific mapped author, strongest repeated collaboration, broadest collaboration connector, and leading mapped topic. Its graph shows authors with at least two unique accepted works:
+
+- node size represents unique accepted works,
+- node color represents the author's primary inferred topic,
+- link width represents repeated coauthorship strength.
+
+Clicking an overview card or node opens the author's topics, frequent collaborators, and linked accepted works. This is collaboration evidence, not verified lab or institutional-affiliation data.
+
 ### References
 
 The References view is a separate top-level tab for citation-overlap analysis. It turns extracted bibliographies into citation communities, strongest bridge pairs, shared foundations, and a selected-paper citation neighborhood.

@@ -103,6 +103,22 @@ Component rule: same function, same UI/UX. Before adding a component or control 
 - **Accessibility**: help controls expose their explanation via `title` and `aria-label`; disclosure uses native keyboard and expanded-state behavior.
 - **Rule**: do not invent a separate disclosure visual language inside selection blocks.
 
+### Ranked Analysis List
+
+- **Structure**: a scrollable ranked list paired with a persistent detail panel; list rows reuse the existing circular rank marker and compact title/metadata hierarchy.
+- **States**: the selected and hover rows use `--surface-2`; topic bars use `--accent` and a data-driven width.
+- **Responsive behavior**: two columns on desktop, a single list-then-detail flow on mobile.
+- **Accessibility**: rows and linked works are native buttons; analysis-unit toggles use a labelled button group.
+- **Trust rule**: inferred entities must show their resolution method and must not be labelled as verified affiliations.
+
+### Network Explorer
+
+- **Structure**: graph canvas paired with a scrollable detail panel; an instruction caption stays inside the graph stage without blocking interaction.
+- **Encoding**: size carries quantity, colour carries the primary classification, and link width carries relationship strength. The reading key must be visible above the graph.
+- **States**: selected nodes and their links receive the accent emphasis; hover reveals a compact canvas label.
+- **Responsive behavior**: canvas stacks above the detail panel below tablet width.
+- **Trust rule**: network edges state their exact evidence basis and omit unsupported affiliation claims.
+
 ## 6. Motion & Interaction
 
 ### Timing
