@@ -7,6 +7,9 @@ import {
   parseAuthors,
 } from "../docs/site/people-analytics.mjs";
 
+globalThis.window = { location: { pathname: "" } };
+const { filterAuthorGraph } = await import("../docs/site/author-map.mjs");
+
 test("parseAuthors handles collected author separators", () => {
   // Given: author strings from the ICML and workshop collectors.
   // When: the strings are parsed.
@@ -119,4 +122,26 @@ test("buildAuthorNetwork keeps recurring authors and weights coauthor links", ()
   assert.equal(network.insights.prolificAuthor.name, "Ada Lovelace");
   assert.deepEqual(network.insights.strongestPair, { source: "Ada Lovelace", target: "Grace Hopper", workCount: 2 });
   assert.deepEqual(network.insights.leadingTopic, { label: "Systems", authorCount: 2 });
+});
+
+test("filterAuthorGraph retains links after ForceGraph resolves endpoint nodes", () => {
+  // Given: ForceGraph has replaced the graph's original string endpoints with nodes.
+  const ada = { id: "ada", title: "Ada Lovelace", group: "Systems", topics: [] };
+  const grace = { id: "grace", title: "Grace Hopper", group: "Systems", topics: [] };
+  const network = {
+    summary: { authorCount: 2, linkCount: 1 },
+    nodes: [ada, grace],
+    links: [{ source: ada, target: grace, value: 2 }],
+    neighborsById: new Map([
+      ["ada", [{ id: "grace", workCount: 2 }]],
+      ["grace", [{ id: "ada", workCount: 2 }]],
+    ]),
+  };
+
+  // When: the user searches for a mapped author.
+  const filtered = filterAuthorGraph(network, "Ada");
+
+  // Then: the adjacent coauthor link remains visible.
+  assert.equal(filtered.summary.linkCount, 1);
+  assert.equal(filtered.links.length, 1);
 });

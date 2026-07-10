@@ -28,14 +28,20 @@ function searchText(node) {
   return [node.title, node.group, ...(node.topics || []).map((topic) => topic.label)].join(" ").toLocaleLowerCase();
 }
 
-function filteredGraph(network) {
-  const query = authorMapState.query.trim().toLocaleLowerCase();
-  if (!query) return network;
-  const matching = network.nodes.filter((node) => searchText(node).includes(query));
+function linkEndpointId(endpoint) {
+  return typeof endpoint === "object" ? endpoint?.id : endpoint;
+}
+
+export function filterAuthorGraph(network, query = "") {
+  const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+  if (!normalizedQuery) return network;
+  const matching = network.nodes.filter((node) => searchText(node).includes(normalizedQuery));
   const visibleIds = new Set(matching.map((node) => node.id));
   matching.forEach((node) => (network.neighborsById.get(node.id) || []).forEach((neighbor) => visibleIds.add(neighbor.id)));
   const nodes = network.nodes.filter((node) => visibleIds.has(node.id));
-  const links = network.links.filter((link) => visibleIds.has(link.source) && visibleIds.has(link.target));
+  const links = network.links.filter((link) => (
+    visibleIds.has(linkEndpointId(link.source)) && visibleIds.has(linkEndpointId(link.target))
+  ));
   return {
     ...network,
     summary: {
@@ -48,9 +54,13 @@ function filteredGraph(network) {
   };
 }
 
+function filteredGraph(network) {
+  return filterAuthorGraph(network, authorMapState.query);
+}
+
 function selectedLink(link) {
-  const source = typeof link.source === "object" ? link.source.id : link.source;
-  const target = typeof link.target === "object" ? link.target.id : link.target;
+  const source = linkEndpointId(link.source);
+  const target = linkEndpointId(link.target);
   return source === authorMapState.selectedId || target === authorMapState.selectedId;
 }
 
