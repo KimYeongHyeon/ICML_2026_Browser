@@ -12,6 +12,8 @@ export const els = {
   activeSummary: document.querySelector("#activeSummary"),
   results: document.querySelector("#results"),
   referencesView: document.querySelector("#referencesView"),
+  peopleView: document.querySelector("#peopleView"),
+  authorMapView: document.querySelector("#authorMapView"),
   mapView: document.querySelector("#mapView"),
   mapCanvas: document.querySelector("#mapCanvas"),
   mapDetail: document.querySelector("#mapDetail"),

@@ -74,6 +74,8 @@ import {
   loadReferenceRecord,
   loadReferencesManifest,
 } from "./references.js";
+import { renderPeopleDashboard } from "./people-dashboard.mjs";
+import { destroyAuthorMap, renderAuthorMap } from "./author-map.mjs";
 
 let fullRecordsPromise = null;
 let mapDataPromise = null;
@@ -756,7 +758,7 @@ async function renderReferenceSelection(recordId) {
 
 function renderAll() {
   els.tabs.forEach((button) => {
-    const count = button.dataset.tab === "references"
+    const count = button.dataset.tab === "references" || button.dataset.tab === "people" || button.dataset.tab === "author-map"
       ? 1
       : button.dataset.tab === "map"
       ? displayRecords().filter((record) => record.mapAvailable && (!state.mapData?.records?.length || mapRecordById().has(record.id))).length
@@ -767,13 +769,19 @@ function renderAll() {
   updateSelects();
   resetResultWindow();
   const isMap = state.tab === "map";
+  const isPeople = state.tab === "people";
+  const isAuthorMap = state.tab === "author-map";
   const isReferences = state.tab === "references";
   document.body.classList.toggle("is-map-tab", isMap);
+  document.body.classList.toggle("is-people-tab", isPeople);
+  document.body.classList.toggle("is-author-map-tab", isAuthorMap);
   document.body.classList.toggle("is-references-tab", isReferences);
-  els.results.hidden = isMap || isReferences;
+  els.results.hidden = isMap || isPeople || isAuthorMap || isReferences;
   els.mapView.hidden = !isMap;
+  els.peopleView.hidden = !isPeople;
+  els.authorMapView.hidden = !isAuthorMap;
   els.referencesView.hidden = !isReferences;
-  const selected = isMap || isReferences ? null : ensureVisibleSelection();
+  const selected = isMap || isPeople || isAuthorMap || isReferences ? null : ensureVisibleSelection();
   if (!isMap && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
   } else if (isMap && state.mapGraph && state.mapLive) {
@@ -781,6 +789,29 @@ function renderAll() {
   }
   renderResults();
   renderMap();
+  if (!isAuthorMap) destroyAuthorMap();
+  if (isPeople) {
+    void renderPeopleDashboard(els.peopleView, state.data?.records || [], (recordId) => {
+      const record = findDisplayRecord(recordId);
+      if (!record) return;
+      state.tab = record.type === "workshop" ? "workshop" : "paper";
+      state.selectedId = record.id;
+      state.viewerMapRequested = true;
+      state.viewerReferenceRequested = true;
+      renderAll();
+    });
+  }
+  if (isAuthorMap) {
+    void renderAuthorMap(els.authorMapView, state.data?.records || [], (recordId) => {
+      const record = findDisplayRecord(recordId);
+      if (!record) return;
+      state.tab = record.type === "workshop" ? "workshop" : "paper";
+      state.selectedId = record.id;
+      state.viewerMapRequested = true;
+      state.viewerReferenceRequested = true;
+      renderAll();
+    });
+  }
   void renderReferences();
   renderViewer(selected);
 }
@@ -969,7 +1000,7 @@ async function init() {
         state.selectedId = "";
         loadSearchEmbeddingsInBackground();
       }
-      if (nextTab === "references") {
+      if (nextTab === "references" || nextTab === "people" || nextTab === "author-map") {
         state.selectedId = "";
       }
       clearMapSelection();
