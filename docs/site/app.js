@@ -824,6 +824,21 @@ async function renderReferenceSelection(recordId) {
   });
 }
 
+function openPeopleTopicOnMap(topicLabel) {
+  const topic = String(topicLabel || "").trim();
+  if (!topic) return;
+  state.tab = "map";
+  state.query = topic;
+  state.selectedId = "";
+  state.mapFilterValue = "";
+  state.mapLandscapeFilterId = "";
+  state.mapLandscapeFilterName = "";
+  if (els.search) els.search.value = topic;
+  if (els.mapSearch) els.mapSearch.value = topic;
+  loadSearchEmbeddingsInBackground();
+  renderAll();
+}
+
 function renderAll() {
   els.tabs.forEach((button) => {
     const count = button.dataset.tab === "references" || button.dataset.tab === "people" || button.dataset.tab === "author-map"
@@ -870,7 +885,7 @@ function renderAll() {
       state.viewerMapRequested = true;
       state.viewerReferenceRequested = true;
       renderAll();
-    });
+    }, openPeopleTopicOnMap);
   }
   if (isAuthorMap) {
     void renderAuthorMap(els.authorMapView, state.data?.records || [], state.peopleTopics, (recordId) => {
