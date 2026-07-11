@@ -1,6 +1,12 @@
 import {
   DATA_MANIFEST_URL,
+  PEOPLE_TOPICS_URL,
+  RESEARCH_CONCEPTS_URL,
 } from "./config.js";
+import { parsePeopleTopicsArtifact } from "./people-artifact.mjs";
+import { parseConceptArtifact } from "./research-concepts.mjs";
+
+const RESEARCH_CONCEPT_ARTIFACT_SCHEMA = "icml-concepts/v1";
 
 export function versionedUrl(url, version) {
   if (!version) return url;
@@ -34,4 +40,36 @@ export async function loadShardRecords(manifest) {
   const version = manifest.generatedAt || manifest.version || "";
   const shards = await Promise.all(manifest.shards.map(async (shard) => fetchJson(versionedUrl(shard.url, version), { cache: "reload" })));
   return shards.flatMap((shard) => shard.records || []);
+}
+
+export async function loadResearchConcepts(version) {
+  const payload = await fetchJson(versionedUrl(RESEARCH_CONCEPTS_URL, version), { cache: "reload" });
+  if (
+    !payload
+    || typeof payload !== "object"
+    || Array.isArray(payload)
+    || payload.schemaVersion !== RESEARCH_CONCEPT_ARTIFACT_SCHEMA
+    || !payload.records
+    || typeof payload.records !== "object"
+    || Array.isArray(payload.records)
+    || !payload.summary
+    || typeof payload.summary !== "object"
+    || Array.isArray(payload.summary)
+    || !Number.isInteger(payload.summary.publishedRecordCount)
+    || payload.summary.publishedRecordCount < 0
+  ) {
+    throw new Error("Invalid research concepts artifact.");
+  }
+  const concepts = parseConceptArtifact(payload);
+  if (concepts.size !== payload.summary.publishedRecordCount) {
+    throw new Error("Invalid research concepts artifact.");
+  }
+  concepts.artifactFingerprint = String(payload.fingerprints?.artifact || "");
+  concepts.artifactRecordCount = payload.summary.publishedRecordCount;
+  return concepts;
+}
+
+export async function loadPeopleTopics(version, conceptFingerprint = "") {
+  const payload = await fetchJson(versionedUrl(PEOPLE_TOPICS_URL, version), { cache: "reload" });
+  return parsePeopleTopicsArtifact(payload, conceptFingerprint);
 }
