@@ -166,6 +166,7 @@ async function renderMap() {
     colorSummary,
     clusterSummary,
     state.mapFilterValue,
+    state.mapLandscapeFilterName,
     mapSearchSummary(visibleRecords, query),
   ]);
   renderSemanticInsightPanel(visibleRecords, query);
@@ -1038,6 +1039,25 @@ async function init() {
   scheduleMapDataPreload();
   scheduleFullRecordsHydration();
   els.mapDetail.addEventListener("click", (event) => {
+    const landscapeButton = event.target.closest("[data-landscape-cluster-id]");
+    if (landscapeButton) {
+      state.mapLandscapeFilterId = landscapeButton.dataset.landscapeClusterId || "";
+      state.mapLandscapeFilterName = landscapeButton.dataset.landscapeName || "Semantic concentration";
+      state.selectedId = "";
+      clearMapSelection();
+      resetResultWindow();
+      renderMap();
+      return;
+    }
+    if (event.target.closest("[data-clear-landscape]")) {
+      state.mapLandscapeFilterId = "";
+      state.mapLandscapeFilterName = "";
+      state.selectedId = "";
+      clearMapSelection();
+      resetResultWindow();
+      renderMap();
+      return;
+    }
     const button = event.target.closest(".trend-card-main[data-record-id], .trend-representatives [data-record-id]");
     if (!button) return;
     event.preventDefault();
@@ -1063,6 +1083,8 @@ async function init() {
         state.query = "";
         els.search.value = "";
         if (els.mapSearch) els.mapSearch.value = "";
+        state.mapLandscapeFilterId = "";
+        state.mapLandscapeFilterName = "";
       }
       state.category = "all";
       state.group = "all";

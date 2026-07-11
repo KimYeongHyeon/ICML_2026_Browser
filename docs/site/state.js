@@ -42,6 +42,8 @@ export const state = {
   mapMode: "global",
   mapLive: true,
   mapFilterValue: "",
+  mapLandscapeFilterId: "",
+  mapLandscapeFilterName: "",
   mapLegendExpanded: false,
   mapGraph: null,
   mapGraphData: null,

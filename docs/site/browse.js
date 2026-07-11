@@ -12,6 +12,7 @@ import {
   typeLabel,
 } from "./records.js";
 import { researchConceptTags } from "./research-concepts.mjs";
+import { matchesLandscapeCluster } from "./map-landscape.mjs";
 import { state } from "./state.js";
 import { containsNormalizedPhrase, escapeHtml, normalize, plainMathTitle, queueMathTypeset } from "./utils.js";
 import { renderViewer, uniqueChipValues } from "./viewer.js";
@@ -99,6 +100,7 @@ function passesActiveFilters(record, ignoreMapFilter) {
   if (state.group !== "all" && record.group !== state.group) return false;
   if (state.presentation !== "all" && !(record.presentationLabels || []).includes(state.presentation)) return false;
   if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
+  if (!ignoreMapFilter && state.tab === "map" && !matchesLandscapeCluster(record, state.mapLandscapeFilterId)) return false;
   return true;
 }
 
