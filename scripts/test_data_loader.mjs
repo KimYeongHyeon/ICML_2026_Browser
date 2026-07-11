@@ -75,6 +75,7 @@ test("loadResearchConcepts rejects a concept-count mismatch", { concurrency: fal
   // Given: the artifact claims a reviewed concept record that the compact map omits.
   const payload = {
     schemaVersion: "icml-concepts/v1",
+    fingerprints: { artifact: `sha256:${"a".repeat(64)}` },
     records: {},
     summary: { publishedRecordCount: 1 },
   };
@@ -91,6 +92,7 @@ test("loadResearchConcepts returns reviewed concepts from a valid published arti
   // Given: a compact artifact emitted by the compiler.
   const payload = {
     schemaVersion: "icml-concepts/v1",
+    fingerprints: { artifact: `sha256:${"a".repeat(64)}` },
     records: {
       "paper-1": {
         core: ["Concept erasure"],
@@ -116,16 +118,26 @@ test("loadPeopleTopics accepts only the matching concept revision", { concurrenc
   const payload = {
     schemaVersion: "icml-people-topics/v1",
     source: {
-      conceptArtifactFingerprint: "sha256:concept-fixture",
+      conceptArtifactFingerprint: `sha256:${"a".repeat(64)}`,
       conceptRecordCount: 7065,
+      indexVersion: "fixture-version",
+      indexArtifactFingerprint: `sha256:${"b".repeat(64)}`,
     },
-    scopes: { all: {}, main: {}, workshop: {} },
+    fingerprints: { artifact: `sha256:${"c".repeat(64)}`, conceptArtifact: `sha256:${"a".repeat(64)}` },
+    scopes: Object.fromEntries(["all", "main", "workshop"].map((scope) => [scope, {
+      summary: {},
+      identityResolution: { emailAddressesPublished: false },
+      authors: [],
+      coauthorLinks: [],
+      groups: [],
+      topicTrends: { claimScope: "single-year-corpus-prevalence", topics: [] },
+    }])),
   };
   await withDataLoader(async ({ loadPeopleTopics }) => withFetch(async () => ({ ok: true, json: async () => payload }), async () => {
     // When / Then: a matching source loads and a stale source is rejected.
-    assert.equal(await loadPeopleTopics("fixture-version", "sha256:concept-fixture"), payload);
+    assert.equal(await loadPeopleTopics("fixture-version", `sha256:${"a".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065), payload);
     await assert.rejects(
-      loadPeopleTopics("fixture-version", "sha256:new-concepts"),
+      loadPeopleTopics("fixture-version", `sha256:${"d".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065),
       /Invalid people and topic analysis artifact/,
     );
   }));

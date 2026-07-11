@@ -17,12 +17,12 @@ Core principle: the same function must use the same UI and UX everywhere. Reuse 
 | Surface/secondary | --surface-2 | #f4f5f6 | n/a | Chips and subtle fills |
 | Surface/tertiary | --surface-3 | #f7f8f9 | n/a | Nested controls |
 | Text/primary | --text | #25282b | n/a | Titles and body |
-| Text/secondary | --muted | #71777d | n/a | Supporting text |
-| Text/tertiary | --muted-2 | #9aa0a6 | n/a | Labels and low emphasis |
+| Text/secondary | --muted | #60666b | n/a | Supporting text |
+| Text/tertiary | --muted-2 | #62686d | n/a | Labels and low emphasis |
 | Border/default | --line | #ecedef | n/a | Control outlines |
 | Border/subtle | --line-soft | #f1f2f4 | n/a | Soft dividers |
-| Accent/primary | --accent | #6aa593 | n/a | Focus and active states |
-| Accent/strong | --accent-strong | #4f8576 | n/a | Hover and emphasized links |
+| Accent/primary | --accent | #3f7668 | n/a | Focus and active states; 5.25:1 on white |
+| Accent/strong | --accent-strong | #35685b | n/a | Hover and emphasized links; 6.40:1 on white |
 | Status/success | --good | #047857 | n/a | Positive status |
 | Status/warning | --warn | #b45309 | n/a | Cautions |
 | Status/error | --bad | #b91c1c | n/a | Errors |

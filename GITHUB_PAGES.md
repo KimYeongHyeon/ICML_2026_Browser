@@ -29,7 +29,14 @@ This rewrites:
 
 ```text
 docs/site/data/icml2026_index.json
+docs/site/data/icml2026_index.manifest.json
+docs/site/data/icml2026_startup.json
+docs/site/data/shards/
 docs/site/data/icml2026_map.json
+docs/site/data/icml2026_trends.json
+docs/site/data/icml2026_study_features.json
+docs/site/data/concepts/icml2026_concepts.json
+docs/site/data/analysis/icml2026_people_topics.json
 ```
 
 ## Semantic Map
