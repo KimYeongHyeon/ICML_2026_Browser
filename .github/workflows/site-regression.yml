@@ -52,5 +52,10 @@ jobs:
             scripts/test_data_loader.mjs \
             scripts/test_people_topics_artifact.mjs \
             scripts/test_people_concepts.mjs \
-            scripts/test_people_analytics.mjs
+            scripts/test_people_analytics.mjs \
+            scripts/test_build_people_topics.mjs \
+            scripts/test_map_landscape.mjs \
+            scripts/test_map_core_concept_filter.mjs \
+            scripts/test_people_topic_handoff.mjs \
+            scripts/test_author_map_disclosure.mjs
           node --check scripts/verify_ui_smoke.mjs

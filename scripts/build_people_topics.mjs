@@ -35,12 +35,13 @@ function containsPrivateEmail(value) {
 
 async function main() {
   if (process.argv.includes("--help")) {
-    process.stdout.write("Usage: node scripts/build_people_topics.mjs [--index PATH] [--concepts PATH] [--output PATH] [--expected-records N] [--if-ready]\n");
+    process.stdout.write("Usage: node scripts/build_people_topics.mjs [--index PATH] [--concepts PATH] [--output PATH] [--manifest PATH] [--expected-records N] [--if-ready]\n");
     return;
   }
   const indexPath = option("--index", "docs/site/data/icml2026_index.json");
   const conceptPath = option("--concepts", "docs/site/data/concepts/icml2026_concepts.json");
   const outputPath = option("--output", "docs/site/data/analysis/icml2026_people_topics.json");
+  const manifestPath = option("--manifest", "docs/site/data/icml2026_index.manifest.json");
   const expectedRecordCount = numericOption("--expected-records", 7065);
   const [indexText, conceptText] = await Promise.all([
     readFile(indexPath, "utf8"),
@@ -70,10 +71,20 @@ async function main() {
     conceptArtifact: fingerprint(conceptText),
   };
   if (containsPrivateEmail(artifact)) throw new Error("Refusing to publish an analysis artifact containing email addresses.");
+  const serializedArtifact = `${JSON.stringify(artifact)}\n`;
+  const peopleTopicsArtifactFingerprint = fingerprint(serializedArtifact);
   const temporaryPath = `${outputPath}.${randomUUID()}.tmp`;
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(temporaryPath, `${JSON.stringify(artifact)}\n`, { encoding: "utf8", flag: "wx" });
+  await writeFile(temporaryPath, serializedArtifact, { encoding: "utf8", flag: "wx" });
   await rename(temporaryPath, outputPath);
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    throw new Error("The index manifest must be a JSON object.");
+  }
+  manifest.peopleTopicsArtifactFingerprint = peopleTopicsArtifactFingerprint;
+  const temporaryManifestPath = `${manifestPath}.${randomUUID()}.tmp`;
+  await writeFile(temporaryManifestPath, `${JSON.stringify(manifest)}\n`, { encoding: "utf8", flag: "wx" });
+  await rename(temporaryManifestPath, manifestPath);
   process.stdout.write(`${JSON.stringify({ output: outputPath, summary: artifact.scopes.all.summary })}\n`);
 }
 
