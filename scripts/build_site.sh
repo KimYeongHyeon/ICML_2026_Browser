@@ -29,6 +29,7 @@ elif [[ "${ICML_BUILD_SEMANTIC_MAP:-1}" == "1" ]]; then
 fi
 python3 scripts/build_icml_trends.py
 python3 scripts/build_icml_study_features.py
+node scripts/build_people_topics.mjs --if-ready --index "$INDEX_PATH"
 if [[ "${ICML_BUILD_REFERENCES:-1}" == "1" ]]; then
   python3 scripts/build_icml_references.py --source pdf
 fi

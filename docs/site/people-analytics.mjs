@@ -95,11 +95,14 @@ export function buildPeopleAnalytics(records) {
   for (const matches of byName.values()) {
     for (let left = 0; left < matches.length; left += 1) {
       const leftWork = workByOccurrence.get(matches[left].occurrenceId);
-      const leftContext = new Set(leftWork.authorEntries.map((entry) => entry.normalizedName));
+      const leftContext = new Set(leftWork.authorEntries.map((entry) => (
+        entry.email ? `email:${entry.email}` : `name:${entry.normalizedName}`
+      )));
       for (let right = left + 1; right < matches.length; right += 1) {
         const rightWork = workByOccurrence.get(matches[right].occurrenceId);
         const sharesCoauthor = rightWork.authorEntries.some((entry) => (
-          entry.normalizedName !== matches[right].normalizedName && leftContext.has(entry.normalizedName)
+          entry.normalizedName !== matches[right].normalizedName
+          && leftContext.has(entry.email ? `email:${entry.email}` : `name:${entry.normalizedName}`)
         ));
         if (sharesCoauthor) unite(matches[left].occurrenceId, matches[right].occurrenceId);
       }
@@ -215,8 +218,7 @@ export function buildPeopleAnalytics(records) {
   };
 }
 
-export function buildAuthorNetwork(records, { minWorks = 2 } = {}) {
-  const analytics = buildPeopleAnalytics(records);
+export function buildAuthorNetworkFromAnalytics(analytics, { minWorks = 2 } = {}) {
   const nodes = analytics.authors
     .filter((author) => author.paperCount >= minWorks)
     .map((author) => ({
@@ -269,5 +271,9 @@ export function buildAuthorNetwork(records, { minWorks = 2 } = {}) {
       leadingTopic: { label: leadingTopic, authorCount: leadingTopicCount },
     },
   };
+}
+
+export function buildAuthorNetwork(records, options = {}) {
+  return buildAuthorNetworkFromAnalytics(buildPeopleAnalytics(records), options);
 }
 import { coreTopicTags } from "./core-topics.mjs";

@@ -11,7 +11,7 @@ import {
   statusLabel,
   typeLabel,
 } from "./records.js";
-import { coreTopicTags } from "./core-topics.mjs";
+import { researchConceptTags } from "./research-concepts.mjs";
 import { state } from "./state.js";
 import { containsNormalizedPhrase, escapeHtml, normalize, plainMathTitle, queueMathTypeset } from "./utils.js";
 import { renderViewer, uniqueChipValues } from "./viewer.js";
@@ -223,7 +223,8 @@ export function renderResults() {
       const featured = (record.presentationLabels || []).includes("Spotlight") ? " is-spotlight" : (record.presentationLabels || []).includes("Oral") ? " is-oral" : "";
       const details = resultDetails(record);
       const matched = matchedField(record, query);
-      const areaLabel = coreTopicTags(record)[0] || (record.areaTags || categoryTags(record)).slice(0, 1)[0] || "Other";
+      const areaLabel = (record.areaTags || categoryTags(record)).slice(0, 1)[0] || "Other";
+      const coreConcepts = researchConceptTags(record, "browse");
       const assetBadges = uniqueChipValues([
         assetLabel(record),
         record.hasPoster ? "Poster" : "",
@@ -243,6 +244,7 @@ export function renderResults() {
             ${record.group && record.group !== "Main Conference" ? `<span class="badge">${escapeHtml(record.group)}</span>` : ""}
             ${assetBadges.map((label) => `<span class="badge">${escapeHtml(label)}</span>`).join("")}
           </span>
+          ${coreConcepts.length ? `<span class="badges research-concept-chips" aria-label="Research concepts">${coreConcepts.map((concept) => `<span class="badge">${escapeHtml(concept)}</span>`).join("")}</span>` : ""}
           <span class="result-evidence" aria-label="Record evidence">
             ${evidenceBadges.map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
           </span>

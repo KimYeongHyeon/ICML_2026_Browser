@@ -2,6 +2,7 @@ import { els } from "./dom.js";
 import { typeLabel } from "./records.js";
 import { state } from "./state.js";
 import { recordStudy, unusualDirectionForRecord } from "./study-features.js";
+import { researchConceptTags } from "./research-concepts.mjs";
 import { renderStudyPanel, renderUnusualDirections } from "./study-ui.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 import { colorForValue } from "./map-tooltip.js";
@@ -158,6 +159,7 @@ export function renderMapDetail(record) {
   const clusterLabel = embeddingClusterColorLabel(record);
   const clusterSize = embeddingClusterSize(record);
   const unusual = unusualDirectionForRecord(record.id);
+  const detailConcepts = researchConceptTags(record, "detail");
   const neighborStrength = (score) => Math.max(0.08, Math.min(1, (displayScore(score) - neighborMin) / neighborRange));
   const similarityBand = topScore >= 0.9 ? "tight local neighborhood" : topScore >= 0.75 ? "clear related neighborhood" : "broad topical neighborhood";
   els.mapDetail.innerHTML = `
@@ -185,6 +187,7 @@ export function renderMapDetail(record) {
         <strong>Embedding cluster</strong>
         <span><em>${escapeHtml(clusterLabel)}</em><b>${clusterSize ? clusterSize.toLocaleString() : "HDBSCAN"}</b></span>
       </div>
+      ${detailConcepts.length ? `<section class="map-research-concepts"><h4>Research concepts</h4><div class="badges">${detailConcepts.map((concept) => `<span class="badge">${escapeHtml(concept)}</span>`).join("")}</div></section>` : ""}
       <p class="map-neighborhood-note">Neighborhood evidence: nearest records are ranked from the precomputed title+abstract embedding graph; bars are normalized within this selected record.</p>
       <p class="map-selected-basis">Selected basis: ${escapeHtml(record.embeddingTextQuality || "title/topic")} · ${escapeHtml(record.sourceType || "collected metadata")}</p>
       <p class="map-similarity-scale">Similarity scale: ${escapeHtml(similarityBand)} · top score ${Number(topScore || 0).toFixed(2)} · compare bars only within this selected record.</p>

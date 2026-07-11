@@ -1,5 +1,4 @@
-import { buildPeopleAnalytics } from "./people-analytics.mjs";
-import { coreTopicTags } from "./core-topics.mjs";
+import { researchConceptTags } from "./research-concepts.mjs";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
 const dashboardState = {
@@ -9,11 +8,16 @@ const dashboardState = {
   page: 0,
   selectedIndex: 0,
   records: null,
+  analysisArtifact: null,
   cache: new Map(),
   renderToken: 0,
 };
 
 const PEOPLE_PAGE_SIZE = 20;
+
+export function clearPeopleDashboardCache() {
+  dashboardState.cache.clear();
+}
 
 function scopeRecords(records, scope) {
   if (scope === "workshop") return records.filter((record) => record.type === "workshop");
@@ -22,8 +26,9 @@ function scopeRecords(records, scope) {
 }
 
 function topicBars(topics = []) {
-  const max = Math.max(1, ...topics.map((topic) => topic.count));
-  return topics.map((topic) => `
+  const primaryTopics = topics.slice(0, 1);
+  const max = Math.max(1, ...primaryTopics.map((topic) => topic.count));
+  return primaryTopics.map((topic) => `
     <span class="people-topic-row">
       <span><b>${escapeHtml(topic.label)}</b><small>${Number(topic.count).toLocaleString()}</small></span>
       <i style="--topic-share:${Math.round((topic.count / max) * 100)}%"></i>
@@ -39,6 +44,27 @@ function entityLabel(entity, mode) {
 function entitySearchText(entity, mode) {
   const names = mode === "authors" ? [entity.name, ...(entity.aliases || [])] : entity.members;
   return [...names, ...(entity.topics || []).map((topic) => topic.label)].join(" ").toLocaleLowerCase();
+}
+
+function renderTopicTrends(topicTrends) {
+  const topics = (topicTrends?.topics || []).slice(0, 4);
+  return `
+    <section class="author-map-insights people-topic-trends" aria-label="Corpus topic prevalence">
+      <div class="author-map-insights-head">
+        <p class="eyebrow">Corpus topic prevalence</p>
+        <span>${escapeHtml(topicTrends?.note || "Single-year prevalence; no temporal growth claim.")}</span>
+      </div>
+      <div class="author-map-insight-grid">
+        ${topics.map((topic, index) => `
+          <article>
+            <em>Rank ${index + 1}</em>
+            <strong>${escapeHtml(topic.label)}</strong>
+            <span>${Number(topic.workCount).toLocaleString()} unique works · ${Number(topic.workShare) > 0 && Number(topic.workShare) < 0.001 ? "<0.1" : (Number(topic.workShare) * 100).toFixed(1)}% of this scope</span>
+          </article>
+        `).join("") || "<article><em>Pending</em><strong>No finalized topic counts</strong><span>The analysis artifact contains no reviewed Core concepts for this scope.</span></article>"}
+      </div>
+    </section>
+  `;
 }
 
 function renderDetail(entity, mode, recordById) {
@@ -69,7 +95,7 @@ function renderDetail(entity, mode, recordById) {
             ${papers.map((record) => `
               <button type="button" data-record-id="${escapeHtml(record.id)}">
                 <strong>${escapeHtml(plainMathTitle(record.title))}</strong>
-                <small>${escapeHtml(coreTopicTags(record, "detail").join(" · ") || record.group || "ICML 2026")}</small>
+                <small>${escapeHtml(researchConceptTags(record, "detail").join(" · ") || "No reviewed research concepts.")}</small>
               </button>
             `).join("") || "<small>No linked work in the loaded index.</small>"}
           </div>
@@ -107,7 +133,7 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
       </header>
       <div class="people-method-note" role="note">
         <strong>Identity method</strong>
-        <span>Email is the primary key when present; otherwise normalized names are merged only when their coauthor context overlaps. Rankings use one semantic core topic; open a work to inspect up to three supporting keywords. Current public records contain ${Number(analytics.summary.emailIdentityCount).toLocaleString()} email-backed identities.</span>
+        <span>Email is the primary key when present; otherwise normalized names are merged only when their coauthor context overlaps. Rankings use one reviewed Core concept; open a work to inspect up to six reviewed Detail concepts. Current public records contain ${Number(analytics.summary.emailIdentityCount).toLocaleString()} email-backed identities.</span>
       </div>
       <div class="selection-stat-grid people-stat-grid">
         <span><strong>${Number(analytics.summary.uniqueWorks).toLocaleString()}</strong><small>unique works</small></span>
@@ -115,6 +141,7 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
         <span><strong>${Number(analytics.summary.groupCount).toLocaleString()}</strong><small>coauthor communities</small></span>
         <span><strong>${Number(analytics.summary.emailIdentityCount).toLocaleString()}</strong><small>email-backed</small></span>
       </div>
+      ${renderTopicTrends(analytics.topicTrends)}
       <div class="people-toolbar">
         <div class="people-mode" role="group" aria-label="Analysis unit">
           <button type="button" data-mode="authors" class="${dashboardState.mode === "authors" ? "is-active" : ""}">Authors</button>
@@ -136,7 +163,7 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
                 <span class="neighbor-rank">${pageStart + index + 1}</span>
                 <span>
                   <strong>${escapeHtml(entityLabel(entity, dashboardState.mode))}</strong>
-                  <small>${Number(entity.paperCount).toLocaleString()} works · ${(entity.topics || []).slice(0, 2).map((topic) => escapeHtml(topic.label)).join(" · ") || "unclassified"}</small>
+                  <small>${Number(entity.paperCount).toLocaleString()} works · ${(entity.topics || []).slice(0, 1).map((topic) => escapeHtml(topic.label)).join("") || "no reviewed Core concept"}</small>
                 </span>
                 ${dashboardState.mode === "groups" ? `<em>${Number(entity.members.length).toLocaleString()} people</em>` : ""}
               </button>
@@ -161,7 +188,7 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
     dashboardState.scope = event.target.value;
     dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
-    void renderPeopleDashboard(target, dashboardState.records, onOpenRecord);
+    void renderPeopleDashboard(target, dashboardState.records, dashboardState.analysisArtifact, onOpenRecord);
   });
   target.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
     dashboardState.mode = button.dataset.mode;
@@ -188,19 +215,22 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
   target.querySelectorAll("[data-record-id]").forEach((button) => button.addEventListener("click", () => onOpenRecord(button.dataset.recordId)));
 }
 
-export async function renderPeopleDashboard(target, records, onOpenRecord) {
+export async function renderPeopleDashboard(target, records, analysisArtifact, onOpenRecord) {
   if (!target || !records) return;
-  if (dashboardState.records !== records) {
+  if (dashboardState.records !== records || dashboardState.analysisArtifact !== analysisArtifact) {
     dashboardState.records = records;
+    dashboardState.analysisArtifact = analysisArtifact;
     dashboardState.cache.clear();
   }
   const token = ++dashboardState.renderToken;
   let analytics = dashboardState.cache.get(dashboardState.scope);
   const scoped = scopeRecords(records, dashboardState.scope);
   if (!analytics) {
-    target.innerHTML = `<div class="empty-state"><strong>Resolving author identities</strong><span>Deduplicating works, email keys, and coauthor neighborhoods.</span></div>`;
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-    analytics = buildPeopleAnalytics(scoped);
+    analytics = analysisArtifact?.scopes?.[dashboardState.scope];
+    if (!analytics) {
+      target.innerHTML = `<div class="empty-state"><strong>Finalized people analysis pending</strong><span>This view activates after the complete reviewed-concept artifact and its matching author/topic analysis artifact are published.</span></div>`;
+      return;
+    }
     dashboardState.cache.set(dashboardState.scope, analytics);
   }
   if (token !== dashboardState.renderToken || !target.isConnected) return;

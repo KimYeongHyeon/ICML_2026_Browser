@@ -1,0 +1,132 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import test from "node:test";
+
+const siteDirectory = new URL("../docs/site/", import.meta.url);
+
+async function withDataLoader(action) {
+  const directory = await mkdtemp(join(tmpdir(), "icml-data-loader-test-"));
+  const originalWindow = globalThis.window;
+  globalThis.window = { location: { pathname: "/" } };
+  try {
+    const [config, loader, concepts, peopleArtifact, peopleAnalytics, coreTopics] = await Promise.all([
+      readFile(new URL("config.js", siteDirectory), "utf8"),
+      readFile(new URL("data-loader.js", siteDirectory), "utf8"),
+      readFile(new URL("research-concepts.mjs", siteDirectory), "utf8"),
+      readFile(new URL("people-artifact.mjs", siteDirectory), "utf8"),
+      readFile(new URL("people-analytics.mjs", siteDirectory), "utf8"),
+      readFile(new URL("core-topics.mjs", siteDirectory), "utf8"),
+    ]);
+    await Promise.all([
+      writeFile(join(directory, "config.mjs"), config),
+      writeFile(join(directory, "research-concepts.mjs"), concepts),
+      writeFile(join(directory, "people-artifact.mjs"), peopleArtifact),
+      writeFile(join(directory, "people-analytics.mjs"), peopleAnalytics),
+      writeFile(join(directory, "core-topics.mjs"), coreTopics),
+      writeFile(
+        join(directory, "data-loader.mjs"),
+        loader.replace('"./config.js"', '"./config.mjs"'),
+      ),
+    ]);
+    const module = await import(pathToFileURL(join(directory, "data-loader.mjs")).href);
+    return await action(module);
+  } finally {
+    globalThis.window = originalWindow;
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+async function withFetch(fetchImplementation, action) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchImplementation;
+  try {
+    return await action();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+test("loadResearchConcepts rejects a missing published artifact", { concurrency: false }, async () => {
+  // Given: the published concept artifact responds with a missing status.
+  await withDataLoader(async ({ loadResearchConcepts }) => withFetch(async () => ({ ok: false, status: 404 }), async () => {
+    // When: the application loads reviewed research concepts.
+    await assert.rejects(
+      loadResearchConcepts("fixture-version"),
+      /Failed to load .*icml2026_concepts\.json.*\(404\)/,
+    );
+  }));
+});
+
+test("loadResearchConcepts rejects an artifact without the published schema", { concurrency: false }, async () => {
+  // Given: a response is JSON but does not have the compiled artifact contract.
+  await withDataLoader(async ({ loadResearchConcepts }) => withFetch(async () => ({ ok: true, json: async () => ({ records: [] }) }), async () => {
+    // When: the application parses the artifact boundary.
+    await assert.rejects(
+      loadResearchConcepts("fixture-version"),
+      /Invalid research concepts artifact/,
+    );
+  }));
+});
+
+test("loadResearchConcepts rejects a concept-count mismatch", { concurrency: false }, async () => {
+  // Given: the artifact claims a reviewed concept record that the compact map omits.
+  const payload = {
+    schemaVersion: "icml-concepts/v1",
+    records: {},
+    summary: { publishedRecordCount: 1 },
+  };
+  await withDataLoader(async ({ loadResearchConcepts }) => withFetch(async () => ({ ok: true, json: async () => payload }), async () => {
+    // When: the application validates the published artifact.
+    await assert.rejects(
+      loadResearchConcepts("fixture-version"),
+      /Invalid research concepts artifact/,
+    );
+  }));
+});
+
+test("loadResearchConcepts returns reviewed concepts from a valid published artifact", { concurrency: false }, async () => {
+  // Given: a compact artifact emitted by the compiler.
+  const payload = {
+    schemaVersion: "icml-concepts/v1",
+    records: {
+      "paper-1": {
+        core: ["Concept erasure"],
+        detail: ["Activation steering"],
+      },
+    },
+    summary: { publishedRecordCount: 1 },
+  };
+  await withDataLoader(async ({ loadResearchConcepts }) => withFetch(async () => ({ ok: true, json: async () => payload }), async () => {
+    // When: the application loads research concepts.
+    const concepts = await loadResearchConcepts("fixture-version");
+
+    // Then: the accepted compact concepts reach the application unchanged.
+    assert.deepEqual(concepts.get("paper-1"), {
+      core: ["Concept erasure"],
+      detail: ["Activation steering"],
+    });
+  }));
+});
+
+test("loadPeopleTopics accepts only the matching concept revision", { concurrency: false }, async () => {
+  // Given: the published analysis declares its exact finalized concept source.
+  const payload = {
+    schemaVersion: "icml-people-topics/v1",
+    source: {
+      conceptArtifactFingerprint: "sha256:concept-fixture",
+      conceptRecordCount: 7065,
+    },
+    scopes: { all: {}, main: {}, workshop: {} },
+  };
+  await withDataLoader(async ({ loadPeopleTopics }) => withFetch(async () => ({ ok: true, json: async () => payload }), async () => {
+    // When / Then: a matching source loads and a stale source is rejected.
+    assert.equal(await loadPeopleTopics("fixture-version", "sha256:concept-fixture"), payload);
+    await assert.rejects(
+      loadPeopleTopics("fixture-version", "sha256:new-concepts"),
+      /Invalid people and topic analysis artifact/,
+    );
+  }));
+});
