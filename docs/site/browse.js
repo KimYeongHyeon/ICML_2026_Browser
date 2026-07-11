@@ -20,6 +20,7 @@ import {
   mapColorValue,
   mapSemanticSearchIds,
 } from "./map-core.js";
+import { matchesMapCoreConcept } from "./research-concepts.mjs";
 import { browseRecordColor } from "./map-tooltip.js";
 
 let browseDeps = {};
@@ -99,6 +100,7 @@ function passesActiveFilters(record, ignoreMapFilter) {
   if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
   if (state.group !== "all" && record.group !== state.group) return false;
   if (state.presentation !== "all" && !(record.presentationLabels || []).includes(state.presentation)) return false;
+  if (state.tab === "map" && !matchesMapCoreConcept(record, state.mapCoreConceptFilter)) return false;
   if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
   if (!ignoreMapFilter && state.tab === "map" && !matchesLandscapeCluster(record, state.mapLandscapeFilterId)) return false;
   return true;

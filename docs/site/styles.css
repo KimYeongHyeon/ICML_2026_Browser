@@ -2425,6 +2425,35 @@ a:focus-visible {
   padding: 0;
 }
 
+.map-core-concept-filter {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0 1px;
+}
+
+.map-core-concept-filter[hidden] {
+  display: none;
+}
+
+.map-core-concept-filter span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.map-core-concept-filter strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.map-core-concept-filter .map-control {
+  justify-self: start;
+}
+
 .map-actions {
   display: flex;
   align-items: center;

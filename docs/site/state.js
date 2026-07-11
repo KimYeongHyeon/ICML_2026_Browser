@@ -41,6 +41,7 @@ export const state = {
   mapEmbeddingClusterLevel: "15",
   mapMode: "global",
   mapLive: true,
+  mapCoreConceptFilter: "",
   mapFilterValue: "",
   mapLandscapeFilterId: "",
   mapLandscapeFilterName: "",

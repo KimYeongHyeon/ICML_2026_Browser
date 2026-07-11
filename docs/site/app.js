@@ -12,6 +12,7 @@ import {
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
 import { attachResearchConcepts } from "./research-concepts.mjs";
+import { clearMapCoreConceptFilter, createMapCoreConceptHandoff } from "./map-core-concept-filter.mjs";
 import { state } from "./state.js";
 import { escapeHtml, normalize, plainMathTitle } from "./utils.js";
 import {
@@ -165,6 +166,7 @@ async function renderMap() {
     state.mapMode,
     colorSummary,
     clusterSummary,
+    state.mapCoreConceptFilter ? `Core: ${state.mapCoreConceptFilter}` : "",
     state.mapFilterValue,
     state.mapLandscapeFilterName,
     mapSearchSummary(visibleRecords, query),
@@ -315,6 +317,7 @@ function ensurePeopleTopics() {
     state.researchConcepts.artifactFingerprint,
     state.dataManifest?.indexArtifactFingerprint,
     state.researchConcepts.artifactRecordCount,
+    state.dataManifest?.peopleTopicsArtifactFingerprint,
   ).then((artifact) => {
     state.peopleTopics = artifact;
     state.peopleTopicsLoaded = true;
@@ -825,18 +828,19 @@ async function renderReferenceSelection(recordId) {
 }
 
 function openPeopleTopicOnMap(topicLabel) {
-  const topic = String(topicLabel || "").trim();
-  if (!topic) return;
-  state.tab = "map";
-  state.query = topic;
-  state.selectedId = "";
-  state.mapFilterValue = "";
-  state.mapLandscapeFilterId = "";
-  state.mapLandscapeFilterName = "";
-  if (els.search) els.search.value = topic;
-  if (els.mapSearch) els.mapSearch.value = topic;
-  loadSearchEmbeddingsInBackground();
+  const handoff = createMapCoreConceptHandoff(topicLabel);
+  if (!handoff) return;
+  Object.assign(state, handoff);
+  if (els.search) els.search.value = "";
+  if (els.mapSearch) els.mapSearch.value = "";
   renderAll();
+}
+
+function updateMapCoreConceptFilterControl() {
+  const coreConcept = state.mapCoreConceptFilter;
+  if (!els.mapCoreConceptFilter || !els.mapCoreConceptFilterLabel) return;
+  els.mapCoreConceptFilter.hidden = !coreConcept;
+  els.mapCoreConceptFilterLabel.textContent = coreConcept;
 }
 
 function renderAll() {
@@ -867,6 +871,7 @@ function renderAll() {
   els.peopleView.hidden = !isPeople;
   els.authorMapView.hidden = !isAuthorMap;
   els.referencesView.hidden = !isReferences;
+  updateMapCoreConceptFilterControl();
   const selected = isMap || isPeople || isAuthorMap || isReferences ? null : ensureVisibleSelection();
   if (!isMap && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
@@ -1098,6 +1103,7 @@ async function init() {
         state.query = "";
         els.search.value = "";
         if (els.mapSearch) els.mapSearch.value = "";
+        state.mapCoreConceptFilter = "";
         state.mapLandscapeFilterId = "";
         state.mapLandscapeFilterName = "";
       }
@@ -1165,6 +1171,14 @@ async function init() {
   els.mapMode.addEventListener("change", (event) => {
     state.mapMode = event.target.value;
     clearMapSelection();
+    renderMap();
+  });
+  els.clearMapCoreConceptFilter?.addEventListener("click", () => {
+    clearMapCoreConceptFilter(state);
+    state.selectedId = "";
+    clearMapSelection();
+    resetResultWindow();
+    updateMapCoreConceptFilterControl();
     renderMap();
   });
   els.mapLive?.addEventListener("click", () => {
