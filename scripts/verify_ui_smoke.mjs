@@ -698,12 +698,15 @@ const workshopBoundarySearch = await page.evaluate(() => {
 await page.locator('.tab[data-tab="people"]').click();
 await page.waitForSelector(".people-dashboard, .people-view .empty-state", { timeout: 30000 });
 const peoplePending = await page.locator(".people-view .empty-state").count() > 0;
+if (!peoplePending) {
+  await page.locator(".people-ranking-list > button").first().waitFor({ state: "visible", timeout: 30000 });
+}
 const peopleAuthors = await page.evaluate(() => ({
   active: document.querySelector('.tab[data-tab="people"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".people-dashboard h2")?.textContent || "",
   method: document.querySelector(".people-method-note")?.textContent || "",
   stats: document.querySelector(".people-stat-grid")?.textContent || "",
-  rankingCount: document.querySelectorAll(".people-ranking > button").length,
+  rankingCount: document.querySelectorAll(".people-ranking-list > button").length,
   detailText: document.querySelector(".people-detail-card")?.textContent || "",
   pendingText: document.querySelector(".people-view .empty-state")?.textContent || "",
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
@@ -731,7 +734,7 @@ if (!peoplePending) {
   await page.waitForSelector(".people-proxy-note");
   peopleGroups = await page.evaluate(() => ({
     proxyNote: document.querySelector(".people-proxy-note")?.textContent || "",
-    rankingCount: document.querySelectorAll(".people-ranking > button").length,
+    rankingCount: document.querySelectorAll(".people-ranking-list > button").length,
     memberCount: document.querySelectorAll(".people-members span").length,
     paperCount: document.querySelectorAll(".people-paper-list [data-record-id]").length,
   }));
