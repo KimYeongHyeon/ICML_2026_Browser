@@ -38,7 +38,7 @@ function renderTopicLegend(nodes) {
   const counts = new Map();
   nodes.forEach((node) => counts.set(node.group, (counts.get(node.group) || 0) + 1));
   const topics = [...counts.entries()].sort((left, right) => (right[1] - left[1]) || left[0].localeCompare(right[0])).slice(0, 6);
-  return `<div class="author-map-reading-key" aria-label="Author map topic colour key"><strong>Topic colours</strong>${topics.map(([topic, count]) => `<span><i style="--topic-color:${colorForValue(topic)}"></i>${escapeHtml(topic)} <em>${Number(count).toLocaleString()}</em></span>`).join("")}</div>`;
+  return `<div class="author-map-reading-key" aria-label="Author map topic colour key"><strong>Topic colours</strong><small>Primary reviewed Core concept; this is an authorship view, not corpus prevalence.</small>${topics.map(([topic, count]) => `<span><i style="--topic-color:${colorForValue(topic)}"></i>${escapeHtml(topic)} <em>${Number(count).toLocaleString()}</em></span>`).join("")}</div>`;
 }
 
 function linkEndpointId(endpoint) {
@@ -249,7 +249,7 @@ function mountAuthorMap(target, network, records, onOpenRecord) {
           <label><span>Find</span><input id="authorMapSearch" type="search" value="${escapeHtml(authorMapState.query)}" placeholder="Author or topic" autocomplete="off" /></label>
         </div>
       </header>
-      <div class="author-map-method-note" role="note"><strong>Reading the graph</strong><span>The overview shows the top ${Number(network.summary.authorCount).toLocaleString()} of ${Number(network.summary.eligibleAuthorCount).toLocaleString()} recurring authors by accepted-work count. Node size = work count; colour = primary reviewed Core concept; link width = repeated coauthorship strength.${authorMapState.query ? ` Search currently shows ${Number(visible.nodes.length).toLocaleString()} matching or adjacent identities; same-name identities stay separate without email or shared-coauthor evidence.` : ""}</span></div>
+      <div class="author-map-method-note" role="note"><strong>Reading the graph</strong><span>The overview shows the top ${Number(network.summary.authorCount).toLocaleString()} of ${Number(network.summary.eligibleAuthorCount).toLocaleString()} recurring authors by accepted-work count. Node size = work count; colour = primary reviewed Core concept; link width = repeated coauthorship strength. Node relationships represent recurring coauthorship, not a research-lab proxy. They are not verified institutional affiliations.${authorMapState.query ? ` Showing ${Number(visible.nodes.length).toLocaleString()} topic matches plus their recurring mapped collaborators; adjacent nodes are exploration context, not additional topic matches. Same-name identities stay separate without email or shared-coauthor evidence.` : ""}</span></div>
       ${renderTopicLegend(network.nodes)}
       <section class="author-map-insights" aria-label="Conference-wide author insights">
         <div class="author-map-insights-head"><p class="eyebrow">Conference overview</p><span>Computed from ${Number(network.summary.uniqueWorks).toLocaleString()} unique accepted works in this scope</span></div>

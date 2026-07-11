@@ -1005,6 +1005,15 @@ a:focus-visible {
 }
 
 .author-map-reading-key > strong { color: var(--text); }
+.author-map-reading-key small {
+  width: 100%;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .author-map-reading-key span { display: inline-flex; align-items: center; gap: var(--space-1); }
 .author-map-reading-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--topic-color); }
 .author-map-reading-key em { color: var(--muted-2); font-style: normal; }
