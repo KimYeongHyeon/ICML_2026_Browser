@@ -117,7 +117,11 @@ function scopeArtifact(records) {
   };
 }
 
-export function buildPeopleTopicsArtifact(records, conceptArtifact, { indexVersion = "" } = {}) {
+export function buildPeopleTopicsArtifact(
+  records,
+  conceptArtifact,
+  { indexVersion = "", indexArtifactFingerprint = "" } = {},
+) {
   assertCompleteConceptArtifact(conceptArtifact);
   const concepts = parseConceptArtifact(conceptArtifact);
   const enriched = attachResearchConcepts(
@@ -131,6 +135,7 @@ export function buildPeopleTopicsArtifact(records, conceptArtifact, { indexVersi
       conceptRecordCount: conceptArtifact.summary.publishedRecordCount,
       corpusYear: 2026,
       indexVersion,
+      indexArtifactFingerprint,
     },
     scopes: Object.fromEntries(["all", "main", "workshop"].map((scope) => [
       scope,
@@ -154,7 +159,23 @@ function validScope(scope) {
   );
 }
 
-export function parsePeopleTopicsArtifact(payload, expectedConceptFingerprint = "", expectedIndexVersion = "") {
+function containsPrivateEmail(value) {
+  if (Array.isArray(value)) return value.some(containsPrivateEmail);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, nested]) => (
+      key === "email" || key === "authorEmails" || containsPrivateEmail(nested)
+    ));
+  }
+  return typeof value === "string" && /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/u.test(value);
+}
+
+export function parsePeopleTopicsArtifact(
+  payload,
+  expectedConceptFingerprint = "",
+  expectedIndexVersion = "",
+  expectedIndexFingerprint = "",
+  expectedConceptRecordCount = 0,
+) {
   const conceptFingerprint = payload?.source?.conceptArtifactFingerprint;
   if (
     payload?.schemaVersion !== PEOPLE_TOPICS_SCHEMA_VERSION
@@ -167,6 +188,15 @@ export function parsePeopleTopicsArtifact(payload, expectedConceptFingerprint = 
     || !payload.source.indexVersion
     || !expectedIndexVersion
     || payload.source.indexVersion !== expectedIndexVersion
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.source.indexArtifactFingerprint || "")
+    || !expectedIndexFingerprint
+    || payload.source.indexArtifactFingerprint !== expectedIndexFingerprint
+    || !Number.isInteger(expectedConceptRecordCount)
+    || expectedConceptRecordCount <= 0
+    || payload.source.conceptRecordCount !== expectedConceptRecordCount
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.fingerprints?.artifact || "")
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.fingerprints?.conceptArtifact || "")
+    || containsPrivateEmail(payload)
     || !validScope(payload.scopes?.all)
     || !validScope(payload.scopes?.main)
     || !validScope(payload.scopes?.workshop)

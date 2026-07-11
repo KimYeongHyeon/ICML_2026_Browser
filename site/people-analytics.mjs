@@ -65,6 +65,7 @@ export function buildPeopleAnalytics(records) {
   }).filter((record) => record.authorEntries.length);
 
   const parent = new Map();
+  const componentEmails = new Map();
   const root = (id) => {
     const current = parent.get(id) || id;
     if (current === id) return id;
@@ -75,12 +76,22 @@ export function buildPeopleAnalytics(records) {
   const unite = (left, right) => {
     const leftRoot = root(left);
     const rightRoot = root(right);
-    if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+    if (leftRoot === rightRoot) return;
+    const leftEmails = componentEmails.get(leftRoot) || new Set();
+    const rightEmails = componentEmails.get(rightRoot) || new Set();
+    const combinedEmails = new Set([...leftEmails, ...rightEmails]);
+    if (combinedEmails.size > 1) return;
+    parent.set(rightRoot, leftRoot);
+    componentEmails.set(leftRoot, combinedEmails);
+    componentEmails.delete(rightRoot);
   };
   const occurrences = works.flatMap((record) => record.authorEntries);
   const workByOccurrence = new Map();
   works.forEach((record) => record.authorEntries.forEach((entry) => workByOccurrence.set(entry.occurrenceId, record)));
-  occurrences.forEach((entry) => parent.set(entry.occurrenceId, entry.occurrenceId));
+  occurrences.forEach((entry) => {
+    parent.set(entry.occurrenceId, entry.occurrenceId);
+    componentEmails.set(entry.occurrenceId, entry.email ? new Set([entry.email]) : new Set());
+  });
   const byEmail = new Map();
   const byName = new Map();
   for (const entry of occurrences) {
@@ -221,8 +232,8 @@ export function buildPeopleAnalytics(records) {
   };
 }
 
-export function buildAuthorNetworkFromAnalytics(analytics, { minWorks = 2 } = {}) {
-  const nodes = analytics.authors
+export function buildAuthorNetworkFromAnalytics(analytics, { minWorks = 2, maxAuthors = 1200 } = {}) {
+  const eligibleAuthors = analytics.authors
     .filter((author) => author.paperCount >= minWorks)
     .map((author) => ({
       id: author.identityId,
@@ -232,6 +243,7 @@ export function buildAuthorNetworkFromAnalytics(analytics, { minWorks = 2 } = {}
       recordIds: author.recordIds,
       group: author.topics[0]?.label || "Other",
     }));
+  const nodes = eligibleAuthors.slice(0, maxAuthors);
   const nodeIds = new Set(nodes.map((node) => node.id));
   const links = analytics.coauthorLinks.filter((link) => nodeIds.has(link.source) && nodeIds.has(link.target));
   const neighborsById = new Map(nodes.map((node) => [node.id, []]));
@@ -261,6 +273,7 @@ export function buildAuthorNetworkFromAnalytics(analytics, { minWorks = 2 } = {}
     summary: {
       minWorks,
       authorCount: nodes.length,
+      eligibleAuthorCount: eligibleAuthors.length,
       linkCount: links.length,
       uniqueWorks: analytics.summary.uniqueWorks,
     },

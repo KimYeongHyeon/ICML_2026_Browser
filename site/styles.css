@@ -5,15 +5,18 @@
   --surface-2: #f4f5f6;
   --surface-3: #f7f8f9;
   --text: #25282b;
-  --muted: #71777d;
-  --muted-2: #9aa0a6;
+  --muted: #60666b;
+  --muted-2: #62686d;
   --line: #ecedef;
   --line-soft: #f1f2f4;
-  --accent: #6aa593;
-  --accent-strong: #4f8576;
+  --accent: #3f7668;
+  --accent-strong: #35685b;
   --good: #047857;
   --warn: #b45309;
   --bad: #b91c1c;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
   --shadow: 0 2px 8px rgb(40 45 50 / 0.04);
   --shadow-lift: 0 18px 48px rgb(40 45 50 / 0.14);
 }
@@ -990,6 +993,21 @@ a:focus-visible {
 .author-map-method-note strong {
   color: var(--accent-strong);
 }
+
+.author-map-reading-key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.author-map-reading-key > strong { color: var(--text); }
+.author-map-reading-key span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.author-map-reading-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--topic-color); }
+.author-map-reading-key em { color: var(--muted-2); font-style: normal; }
 
 .author-map-insights {
   display: grid;

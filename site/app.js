@@ -84,6 +84,7 @@ let fullRecordsPromise = null;
 let mapDataPromise = null;
 let studyFeaturesPromise = null;
 let researchConceptsPromise = null;
+let peopleTopicsPromise = null;
 let searchEmbeddingsStarted = false;
 
 configureMapCore({ findDisplayRecord });
@@ -223,7 +224,9 @@ function renderDataHealthNote() {
   const assetCounts = summary.assetCounts || {};
   const status = embedding.status || "missing";
   const source = state.dataManifest ? "sharded index" : "monolithic index";
-  const generatedAt = state.data?.generatedAt ? new Date(state.data.generatedAt).toLocaleString() : "";
+  const generatedAt = state.data?.generatedAt
+    ? new Date(state.data.generatedAt).toLocaleString().replace(/(AM|PM|오전|오후)\s+(?=\d)/u, "$1\u00a0")
+    : "";
   const stale = status !== "fresh";
   const conceptsUnavailable = Boolean(state.researchConceptsError);
   els.dataNote.classList.add("is-visible");
@@ -277,25 +280,13 @@ function hydrateFullRecordsInBackground() {
 
 function ensureResearchConcepts() {
   if (researchConceptsPromise) return researchConceptsPromise;
-  researchConceptsPromise = loadResearchConcepts(state.dataManifest?.version).then(async (concepts) => {
+  researchConceptsPromise = loadResearchConcepts(state.dataManifest?.version).then((concepts) => {
     state.researchConcepts = concepts;
     state.researchConceptsLoaded = true;
     state.researchConceptsError = "";
     attachResearchConcepts(state.data?.records || [], concepts);
     clearPeopleDashboardCache();
     clearAuthorMapCache();
-    try {
-      state.peopleTopics = await loadPeopleTopics(
-        state.dataManifest?.version,
-        concepts.artifactFingerprint,
-      );
-      state.peopleTopicsLoaded = true;
-      state.peopleTopicsError = "";
-    } catch (error) {
-      state.peopleTopics = null;
-      state.peopleTopicsLoaded = false;
-      state.peopleTopicsError = error instanceof Error ? error.message : "People and topic analysis artifact could not be loaded.";
-    }
     renderDataHealthNote();
     renderAll();
     return concepts;
@@ -314,6 +305,31 @@ function ensureResearchConcepts() {
     return state.researchConcepts;
   });
   return researchConceptsPromise;
+}
+
+function ensurePeopleTopics() {
+  if (peopleTopicsPromise || !state.researchConceptsLoaded) return peopleTopicsPromise;
+  peopleTopicsPromise = loadPeopleTopics(
+    state.dataManifest?.version,
+    state.researchConcepts.artifactFingerprint,
+    state.dataManifest?.indexArtifactFingerprint,
+    state.researchConcepts.artifactRecordCount,
+  ).then((artifact) => {
+    state.peopleTopics = artifact;
+    state.peopleTopicsLoaded = true;
+    state.peopleTopicsError = "";
+    clearPeopleDashboardCache();
+    clearAuthorMapCache();
+    renderAll();
+    return artifact;
+  }).catch((error) => {
+    state.peopleTopics = null;
+    state.peopleTopicsLoaded = false;
+    state.peopleTopicsError = error instanceof Error ? error.message : "People and topic analysis artifact could not be loaded.";
+    renderAll();
+    return null;
+  });
+  return peopleTopicsPromise;
 }
 
 function scheduleFullRecordsHydration() {
@@ -823,6 +839,9 @@ function renderAll() {
   const isPeople = state.tab === "people";
   const isAuthorMap = state.tab === "author-map";
   const isReferences = state.tab === "references";
+  if ((isPeople || isAuthorMap) && state.researchConceptsLoaded && !state.peopleTopicsLoaded && !state.peopleTopicsError) {
+    void ensurePeopleTopics();
+  }
   document.body.classList.toggle("is-map-tab", isMap);
   document.body.classList.toggle("is-people-tab", isPeople);
   document.body.classList.toggle("is-author-map-tab", isAuthorMap);
