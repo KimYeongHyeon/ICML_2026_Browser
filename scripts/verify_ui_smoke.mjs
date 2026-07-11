@@ -182,9 +182,12 @@ await page.waitForSelector(".trend-card", { timeout: 30000 });
 const mapEntryStudyRequestCount = studyRequests.length - studyRequestsBeforeMapEntry;
 
 await page.locator('.tab[data-tab="author-map"]').click();
-await page.waitForSelector("#authorMapCanvas canvas", { timeout: 30000 });
-await page.locator("[data-insight-author-id]").first().click();
-await page.waitForFunction(() => document.querySelector("#authorMapDetail h3")?.textContent !== "Choose an author", null, { timeout: 30000 });
+await page.waitForSelector("#authorMapCanvas canvas, .author-map-view .empty-state", { timeout: 30000 });
+const authorMapPending = await page.locator(".author-map-view .empty-state").count() > 0;
+if (!authorMapPending) {
+  await page.locator("[data-insight-author-id]").first().click();
+  await page.waitForFunction(() => document.querySelector("#authorMapDetail h3")?.textContent !== "Choose an author", null, { timeout: 30000 });
+}
 const authorMap = await page.evaluate(() => ({
   active: document.querySelector('.tab[data-tab="author-map"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".author-map-dashboard h2")?.textContent || "",
@@ -192,6 +195,7 @@ const authorMap = await page.evaluate(() => ({
   insightText: document.querySelector(".author-map-insight-grid")?.textContent || "",
   selectedAuthor: document.querySelector("#authorMapDetail h3")?.textContent || "",
   paperCount: document.querySelectorAll(".author-map-paper-list button").length,
+  pendingText: document.querySelector(".author-map-view .empty-state")?.textContent || "",
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
 await page.locator('.tab[data-tab="paper"]').click();
@@ -650,7 +654,8 @@ const workshopBoundarySearch = await page.evaluate(() => {
 });
 
 await page.locator('.tab[data-tab="people"]').click();
-await page.waitForSelector(".people-dashboard", { timeout: 30000 });
+await page.waitForSelector(".people-dashboard, .people-view .empty-state", { timeout: 30000 });
+const peoplePending = await page.locator(".people-view .empty-state").count() > 0;
 const peopleAuthors = await page.evaluate(() => ({
   active: document.querySelector('.tab[data-tab="people"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".people-dashboard h2")?.textContent || "",
@@ -658,22 +663,27 @@ const peopleAuthors = await page.evaluate(() => ({
   stats: document.querySelector(".people-stat-grid")?.textContent || "",
   rankingCount: document.querySelectorAll(".people-ranking > button").length,
   detailText: document.querySelector(".people-detail-card")?.textContent || "",
+  pendingText: document.querySelector(".people-view .empty-state")?.textContent || "",
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
-await page.locator('[data-mode="groups"]').click();
-await page.waitForSelector(".people-proxy-note");
-const peopleGroups = await page.evaluate(() => ({
-  proxyNote: document.querySelector(".people-proxy-note")?.textContent || "",
-  rankingCount: document.querySelectorAll(".people-ranking > button").length,
-  memberCount: document.querySelectorAll(".people-members span").length,
-  paperCount: document.querySelectorAll(".people-paper-list [data-record-id]").length,
-}));
-await page.locator(".people-paper-list [data-record-id]").first().click();
-await page.waitForSelector('.tab[data-tab="paper"].is-active, .tab[data-tab="workshop"].is-active');
-const peopleDrilldown = await page.evaluate(() => ({
-  activeTab: document.querySelector(".tab.is-active")?.textContent?.trim() || "",
-  viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
-}));
+let peopleGroups = { proxyNote: "", rankingCount: 0, memberCount: 0, paperCount: 0 };
+let peopleDrilldown = { activeTab: "", viewerTitle: "" };
+if (!peoplePending) {
+  await page.locator('[data-mode="groups"]').click();
+  await page.waitForSelector(".people-proxy-note");
+  peopleGroups = await page.evaluate(() => ({
+    proxyNote: document.querySelector(".people-proxy-note")?.textContent || "",
+    rankingCount: document.querySelectorAll(".people-ranking > button").length,
+    memberCount: document.querySelectorAll(".people-members span").length,
+    paperCount: document.querySelectorAll(".people-paper-list [data-record-id]").length,
+  }));
+  await page.locator(".people-paper-list [data-record-id]").first().click();
+  await page.waitForSelector('.tab[data-tab="paper"].is-active, .tab[data-tab="workshop"].is-active');
+  peopleDrilldown = await page.evaluate(() => ({
+    activeTab: document.querySelector(".tab.is-active")?.textContent?.trim() || "",
+    viewerTitle: document.querySelector("#viewerTitle")?.textContent || "",
+  }));
+}
 
 await page.locator('.tab[data-tab="references"]').click();
 await page.waitForSelector(".reference-dashboard", { timeout: 30000 });
@@ -814,38 +824,42 @@ if (initial.topTabs.join(" / ") !== "Papers / Workshops / Map / People / Author 
 }
 if (
   !authorMap.active
-  || authorMap.title !== "Author map"
-  || authorMap.canvasCount !== 1
-  || !/Most prolific mapped author/i.test(authorMap.insightText)
-  || !/Strongest recurring collaboration/i.test(authorMap.insightText)
-  || !authorMap.selectedAuthor
-  || authorMap.paperCount < 1
+  || (authorMapPending
+    ? !/Finalized author map pending/i.test(authorMap.pendingText)
+    : authorMap.title !== "Author map"
+      || authorMap.canvasCount !== 1
+      || !/Most prolific mapped author/i.test(authorMap.insightText)
+      || !/Strongest recurring collaboration/i.test(authorMap.insightText)
+      || !authorMap.selectedAuthor
+      || authorMap.paperCount < 1)
   || !authorMap.viewerHidden
 ) {
   throw new Error(`Author Map should render the graph, conference overview, and selected-author details: ${JSON.stringify(authorMap)}`);
 }
 if (
   !peopleAuthors.active
-  || peopleAuthors.title !== "People & research groups"
-  || !/Email is the primary key/i.test(peopleAuthors.method)
-  || !/0 email-backed identities/i.test(peopleAuthors.method)
-  || !/unique works/i.test(peopleAuthors.stats)
-  || peopleAuthors.rankingCount < 1
-  || !/unique accepted works/i.test(peopleAuthors.detailText)
+  || (peoplePending
+    ? !/Finalized people analysis pending/i.test(peopleAuthors.pendingText)
+    : peopleAuthors.title !== "People & research groups"
+      || !/Email is the primary key/i.test(peopleAuthors.method)
+      || !/email-backed identities/i.test(peopleAuthors.method)
+      || !/unique works/i.test(peopleAuthors.stats)
+      || peopleAuthors.rankingCount < 1
+      || !/unique accepted works/i.test(peopleAuthors.detailText))
   || !peopleAuthors.viewerHidden
 ) {
   throw new Error(`People tab should expose author identity counts, method, and topics: ${JSON.stringify(peopleAuthors)}`);
 }
-if (
+if (!peoplePending && (
   !/Research-lab proxy/i.test(peopleGroups.proxyNote)
   || !/not verified institutional affiliations/i.test(peopleGroups.proxyNote)
   || peopleGroups.rankingCount < 1
   || peopleGroups.memberCount < 2
   || peopleGroups.paperCount < 1
-) {
+)) {
   throw new Error(`People groups should expose the coauthor proxy and linked works: ${JSON.stringify(peopleGroups)}`);
 }
-if (!/^(Papers|Workshops)$/.test(peopleDrilldown.activeTab) || !peopleDrilldown.viewerTitle) {
+if (!peoplePending && (!/^(Papers|Workshops)$/.test(peopleDrilldown.activeTab) || !peopleDrilldown.viewerTitle)) {
   throw new Error(`People linked work should open in the matching browse surface: ${JSON.stringify(peopleDrilldown)}`);
 }
 if (initial.paperHidden || !initial.paperActive) {

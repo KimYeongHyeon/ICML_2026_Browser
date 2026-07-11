@@ -4,11 +4,14 @@ import {
 } from "./config.js";
 import {
   loadIndexData,
+  loadPeopleTopics,
+  loadResearchConcepts,
   loadShardRecords,
   versionedUrl,
 } from "./data-loader.js";
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
+import { attachResearchConcepts } from "./research-concepts.mjs";
 import { state } from "./state.js";
 import { escapeHtml, normalize, plainMathTitle } from "./utils.js";
 import {
@@ -74,12 +77,13 @@ import {
   loadReferenceRecord,
   loadReferencesManifest,
 } from "./references.js";
-import { renderPeopleDashboard } from "./people-dashboard.mjs";
-import { destroyAuthorMap, renderAuthorMap } from "./author-map.mjs";
+import { clearPeopleDashboardCache, renderPeopleDashboard } from "./people-dashboard.mjs";
+import { clearAuthorMapCache, destroyAuthorMap, renderAuthorMap } from "./author-map.mjs";
 
 let fullRecordsPromise = null;
 let mapDataPromise = null;
 let studyFeaturesPromise = null;
+let researchConceptsPromise = null;
 let searchEmbeddingsStarted = false;
 
 configureMapCore({ findDisplayRecord });
@@ -221,8 +225,13 @@ function renderDataHealthNote() {
   const source = state.dataManifest ? "sharded index" : "monolithic index";
   const generatedAt = state.data?.generatedAt ? new Date(state.data.generatedAt).toLocaleString() : "";
   const stale = status !== "fresh";
+  const conceptsUnavailable = Boolean(state.researchConceptsError);
   els.dataNote.classList.add("is-visible");
-  els.dataNote.classList.toggle("is-warning", stale);
+  els.dataNote.classList.toggle("is-warning", stale || conceptsUnavailable);
+  if (conceptsUnavailable) {
+    els.dataNote.innerHTML = "<strong>Research concepts unavailable.</strong><span>The published reviewed-concepts artifact could not be loaded. Concept-specific cards, author topics, and map detail are withheld until a valid artifact is deployed.</span>";
+    return;
+  }
   const loadedText = `Loaded ${escapeHtml(source)}${generatedAt ? ` · ${escapeHtml(generatedAt)}` : ""}.`;
   const snapshot = [
     `${Number(typeCounts.paper || 0).toLocaleString()} papers`,
@@ -246,6 +255,7 @@ async function hydrateFullRecords() {
   const selectedId = state.selectedId;
   const shouldRestoreMapViewer = state.tab === "map" && selectedId;
   const enrichedRecords = enrichPaperPresentationRecords(records);
+  attachResearchConcepts(enrichedRecords, state.researchConcepts);
   if (state.mapData?.records?.length) enrichEmbeddingClusterRecords(enrichedRecords);
   state.data.records = enrichedRecords;
   state.dataShardsLoaded = true;
@@ -263,6 +273,47 @@ function hydrateFullRecordsInBackground() {
   if (fullRecordsPromise || state.dataShardsLoaded) return fullRecordsPromise;
   fullRecordsPromise = hydrateFullRecords().catch(() => null);
   return fullRecordsPromise;
+}
+
+function ensureResearchConcepts() {
+  if (researchConceptsPromise) return researchConceptsPromise;
+  researchConceptsPromise = loadResearchConcepts(state.dataManifest?.version).then(async (concepts) => {
+    state.researchConcepts = concepts;
+    state.researchConceptsLoaded = true;
+    state.researchConceptsError = "";
+    attachResearchConcepts(state.data?.records || [], concepts);
+    clearPeopleDashboardCache();
+    clearAuthorMapCache();
+    try {
+      state.peopleTopics = await loadPeopleTopics(
+        state.dataManifest?.version,
+        concepts.artifactFingerprint,
+      );
+      state.peopleTopicsLoaded = true;
+      state.peopleTopicsError = "";
+    } catch (error) {
+      state.peopleTopics = null;
+      state.peopleTopicsLoaded = false;
+      state.peopleTopicsError = error instanceof Error ? error.message : "People and topic analysis artifact could not be loaded.";
+    }
+    renderDataHealthNote();
+    renderAll();
+    return concepts;
+  }).catch((error) => {
+    state.researchConcepts = new Map();
+    state.researchConceptsLoaded = false;
+    state.researchConceptsError = error instanceof Error ? error.message : "Research concepts artifact could not be loaded.";
+    state.peopleTopics = null;
+    state.peopleTopicsLoaded = false;
+    state.peopleTopicsError = "People and topic analysis requires the finalized research concepts artifact.";
+    attachResearchConcepts(state.data?.records || [], state.researchConcepts);
+    clearPeopleDashboardCache();
+    clearAuthorMapCache();
+    renderDataHealthNote();
+    renderAll();
+    return state.researchConcepts;
+  });
+  return researchConceptsPromise;
 }
 
 function scheduleFullRecordsHydration() {
@@ -791,7 +842,7 @@ function renderAll() {
   renderMap();
   if (!isAuthorMap) destroyAuthorMap();
   if (isPeople) {
-    void renderPeopleDashboard(els.peopleView, state.data?.records || [], (recordId) => {
+    void renderPeopleDashboard(els.peopleView, state.data?.records || [], state.peopleTopics, (recordId) => {
       const record = findDisplayRecord(recordId);
       if (!record) return;
       state.tab = record.type === "workshop" ? "workshop" : "paper";
@@ -802,7 +853,7 @@ function renderAll() {
     });
   }
   if (isAuthorMap) {
-    void renderAuthorMap(els.authorMapView, state.data?.records || [], (recordId) => {
+    void renderAuthorMap(els.authorMapView, state.data?.records || [], state.peopleTopics, (recordId) => {
       const record = findDisplayRecord(recordId);
       if (!record) return;
       state.tab = record.type === "workshop" ? "workshop" : "paper";
@@ -958,11 +1009,13 @@ async function init() {
   state.data = loaded.data;
   state.dataManifest = loaded.manifest;
   state.data.records = enrichPaperPresentationRecords(state.data.records || []);
+  attachResearchConcepts(state.data.records, state.researchConcepts);
   renderDataHealthNote();
   refreshSearchWorkerIndex();
   updateHeader();
   updateClusterLevelVisibility();
   renderAll();
+  void ensureResearchConcepts();
   scheduleMapDataPreload();
   scheduleFullRecordsHydration();
   els.mapDetail.addEventListener("click", (event) => {

@@ -1,5 +1,5 @@
-import { buildAuthorNetwork } from "./people-analytics.mjs";
-import { coreTopicTags } from "./core-topics.mjs";
+import { buildAuthorNetworkFromAnalytics } from "./people-analytics.mjs";
+import { researchConceptTags } from "./research-concepts.mjs";
 import { colorForValue } from "./map-tooltip.js";
 import { escapeHtml, plainMathTitle } from "./utils.js";
 
@@ -9,11 +9,16 @@ const authorMapState = {
   selectedId: "",
   hoverId: "",
   records: null,
+  analysisArtifact: null,
   cache: new Map(),
   graph: null,
   graphTarget: null,
   renderToken: 0,
 };
+
+export function clearAuthorMapCache() {
+  authorMapState.cache.clear();
+}
 
 function scopeRecords(records, scope) {
   if (scope === "workshop") return records.filter((record) => record.type === "workshop");
@@ -133,7 +138,7 @@ function renderDetail(target, network, records, onOpenRecord) {
       <h3>${escapeHtml(node.title)}</h3>
       <p class="author-map-detail-summary"><b>${Number(node.paperCount).toLocaleString()}</b> unique accepted works</p>
       <div class="author-map-topic-list">
-        ${(node.topics || []).map((topic) => `<span><b>${escapeHtml(topic.label)}</b><em>${Number(topic.count).toLocaleString()}</em></span>`).join("") || "<small>No topic tags available.</small>"}
+        ${(node.topics || []).slice(0, 1).map((topic) => `<span><b>${escapeHtml(topic.label)}</b><em>${Number(topic.count).toLocaleString()}</em></span>`).join("") || "<small>No reviewed Core concept.</small>"}
       </div>
       <section>
         <h4>Frequent collaborators</h4>
@@ -152,7 +157,7 @@ function renderDetail(target, network, records, onOpenRecord) {
           ${papers.map((record) => `
             <button type="button" data-record-id="${escapeHtml(record.id)}">
               <strong>${escapeHtml(plainMathTitle(record.title))}</strong>
-              <small>${escapeHtml(coreTopicTags(record, "detail").join(" · ") || record.group || "ICML 2026")}</small>
+              <small>${escapeHtml(researchConceptTags(record, "detail").join(" · ") || "No reviewed research concepts.")}</small>
             </button>
           `).join("") || "<small>No linked work in the loaded index.</small>"}
         </div>
@@ -237,7 +242,7 @@ function mountAuthorMap(target, network, records, onOpenRecord) {
           <label><span>Find</span><input id="authorMapSearch" type="search" value="${escapeHtml(authorMapState.query)}" placeholder="Author or topic" autocomplete="off" /></label>
         </div>
       </header>
-      <div class="author-map-method-note" role="note"><strong>Reading the graph</strong><span>Only authors with at least two unique accepted works are shown. Node size = work count; colour = primary topic; link width = repeated coauthorship strength.${authorMapState.query ? ` Search currently shows ${Number(visible.nodes.length).toLocaleString()} matching or adjacent identities; same-name identities stay separate without email or shared-coauthor evidence.` : ""}</span></div>
+      <div class="author-map-method-note" role="note"><strong>Reading the graph</strong><span>Only authors with at least two unique accepted works are shown. Node size = work count; colour = primary reviewed Core concept; link width = repeated coauthorship strength.${authorMapState.query ? ` Search currently shows ${Number(visible.nodes.length).toLocaleString()} matching or adjacent identities; same-name identities stay separate without email or shared-coauthor evidence.` : ""}</span></div>
       <section class="author-map-insights" aria-label="Conference-wide author insights">
         <div class="author-map-insights-head"><p class="eyebrow">Conference overview</p><span>Computed from ${Number(network.summary.uniqueWorks).toLocaleString()} unique accepted works in this scope</span></div>
         <div class="author-map-insight-grid">
@@ -263,7 +268,7 @@ function mountAuthorMap(target, network, records, onOpenRecord) {
   target.querySelector("#authorMapScope").addEventListener("change", (event) => {
     authorMapState.scope = event.target.value;
     authorMapState.selectedId = "";
-    void renderAuthorMap(target, authorMapState.records, onOpenRecord);
+    void renderAuthorMap(target, authorMapState.records, authorMapState.analysisArtifact, onOpenRecord);
   });
   target.querySelector("#authorMapSearch").addEventListener("input", (event) => {
     authorMapState.query = event.target.value;
@@ -280,18 +285,22 @@ function mountAuthorMap(target, network, records, onOpenRecord) {
   }));
 }
 
-export async function renderAuthorMap(target, records, onOpenRecord) {
+export async function renderAuthorMap(target, records, analysisArtifact, onOpenRecord) {
   if (!target || !records) return;
-  if (authorMapState.records !== records) {
+  if (authorMapState.records !== records || authorMapState.analysisArtifact !== analysisArtifact) {
     authorMapState.records = records;
+    authorMapState.analysisArtifact = analysisArtifact;
     authorMapState.cache.clear();
   }
   const token = ++authorMapState.renderToken;
   let network = authorMapState.cache.get(authorMapState.scope);
   if (!network) {
-    target.innerHTML = `<div class="empty-state"><strong>Building author network</strong><span>Resolving identities and weighting coauthorship links.</span></div>`;
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-    network = buildAuthorNetwork(scopeRecords(records, authorMapState.scope));
+    const analytics = analysisArtifact?.scopes?.[authorMapState.scope];
+    if (!analytics) {
+      target.innerHTML = `<div class="empty-state"><strong>Finalized author map pending</strong><span>This graph activates after the complete reviewed-concept artifact and its matching author/topic analysis artifact are published.</span></div>`;
+      return;
+    }
+    network = buildAuthorNetworkFromAnalytics(analytics);
     authorMapState.cache.set(authorMapState.scope, network);
   }
   if (token !== authorMapState.renderToken || !target.isConnected) return;
