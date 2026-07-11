@@ -57,6 +57,7 @@ export async function loadResearchConcepts(version) {
     || Array.isArray(payload.summary)
     || !Number.isInteger(payload.summary.publishedRecordCount)
     || payload.summary.publishedRecordCount < 0
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.fingerprints?.artifact || "")
   ) {
     throw new Error("Invalid research concepts artifact.");
   }
@@ -69,7 +70,18 @@ export async function loadResearchConcepts(version) {
   return concepts;
 }
 
-export async function loadPeopleTopics(version, conceptFingerprint = "") {
+export async function loadPeopleTopics(
+  version,
+  conceptFingerprint = "",
+  indexArtifactFingerprint = "",
+  conceptRecordCount = 0,
+) {
   const payload = await fetchJson(versionedUrl(PEOPLE_TOPICS_URL, version), { cache: "reload" });
-  return parsePeopleTopicsArtifact(payload, conceptFingerprint);
+  return parsePeopleTopicsArtifact(
+    payload,
+    conceptFingerprint,
+    version,
+    indexArtifactFingerprint,
+    conceptRecordCount,
+  );
 }

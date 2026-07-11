@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
-            docs/site/data
+            docs/site
             scripts
 
       - name: Set up Python
@@ -46,6 +46,11 @@ jobs:
           python3 scripts/verify_embedding_map.py docs/site/data/icml2026_index.json docs/site/data/icml2026_map.json
           python3 scripts/test_embedding_map_units.py
 
-      - name: Check UI smoke syntax
+      - name: Verify people analysis contracts
         run: |
+          node --test \
+            scripts/test_data_loader.mjs \
+            scripts/test_people_topics_artifact.mjs \
+            scripts/test_people_concepts.mjs \
+            scripts/test_people_analytics.mjs
           node --check scripts/verify_ui_smoke.mjs

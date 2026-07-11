@@ -12,6 +12,7 @@ function assertCompleteConceptArtifact(payload) {
   const candidateCount = summary?.candidateRecordCount;
   const publishedCount = summary?.publishedRecordCount;
   const excludedCount = summary?.excludedRecordCount;
+  const records = payload?.records;
   if (
     payload?.schemaVersion !== "icml-concepts/v1"
     || !Number.isInteger(candidateCount)
@@ -19,6 +20,11 @@ function assertCompleteConceptArtifact(payload) {
     || publishedCount !== candidateCount
     || excludedCount !== 0
     || Object.keys(summary?.exclusionCounts || {}).length
+    || !records
+    || typeof records !== "object"
+    || Array.isArray(records)
+    || Object.keys(records).length !== candidateCount
+    || parseConceptArtifact(payload).size !== candidateCount
   ) {
     throw new Error("A finalized artifact with complete concept coverage is required.");
   }
@@ -66,7 +72,9 @@ function topicTrends(records) {
     .sort((left, right) => (right.workCount - left.workCount) || left.label.localeCompare(right.label));
   return {
     claimScope: "single-year-corpus-prevalence",
-    note: "ICML 2026 is a single-year corpus. Counts describe prevalence, not temporal growth.",
+    workCount: works.length,
+    topicBearingWorkCount: [...counts.values()].reduce((total, count) => total + count, 0),
+    note: `ICML 2026 is a single-year corpus. Shares use ${works.length.toLocaleString()} unique works; counts describe prevalence, not temporal growth.`,
     topics,
   };
 }
@@ -109,7 +117,11 @@ function scopeArtifact(records) {
   };
 }
 
-export function buildPeopleTopicsArtifact(records, conceptArtifact) {
+export function buildPeopleTopicsArtifact(
+  records,
+  conceptArtifact,
+  { indexVersion = "", indexArtifactFingerprint = "" } = {},
+) {
   assertCompleteConceptArtifact(conceptArtifact);
   const concepts = parseConceptArtifact(conceptArtifact);
   const enriched = attachResearchConcepts(
@@ -122,6 +134,8 @@ export function buildPeopleTopicsArtifact(records, conceptArtifact) {
       conceptArtifactFingerprint: conceptArtifact.fingerprints?.artifact || "",
       conceptRecordCount: conceptArtifact.summary.publishedRecordCount,
       corpusYear: 2026,
+      indexVersion,
+      indexArtifactFingerprint,
     },
     scopes: Object.fromEntries(["all", "main", "workshop"].map((scope) => [
       scope,
@@ -130,16 +144,62 @@ export function buildPeopleTopicsArtifact(records, conceptArtifact) {
   };
 }
 
-export function parsePeopleTopicsArtifact(payload, expectedConceptFingerprint = "") {
+function validScope(scope) {
+  return Boolean(
+    scope
+    && typeof scope === "object"
+    && scope.summary
+    && Array.isArray(scope.authors)
+    && Array.isArray(scope.coauthorLinks)
+    && Array.isArray(scope.groups)
+    && scope.identityResolution?.emailAddressesPublished === false
+    && scope.authors.every((author) => author && typeof author === "object" && !("email" in author))
+    && scope.topicTrends?.claimScope === "single-year-corpus-prevalence"
+    && Array.isArray(scope.topicTrends.topics)
+  );
+}
+
+function containsPrivateEmail(value) {
+  if (Array.isArray(value)) return value.some(containsPrivateEmail);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, nested]) => (
+      key === "email" || key === "authorEmails" || containsPrivateEmail(nested)
+    ));
+  }
+  return typeof value === "string" && /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/u.test(value);
+}
+
+export function parsePeopleTopicsArtifact(
+  payload,
+  expectedConceptFingerprint = "",
+  expectedIndexVersion = "",
+  expectedIndexFingerprint = "",
+  expectedConceptRecordCount = 0,
+) {
+  const conceptFingerprint = payload?.source?.conceptArtifactFingerprint;
   if (
     payload?.schemaVersion !== PEOPLE_TOPICS_SCHEMA_VERSION
     || !payload.source
     || !Number.isInteger(payload.source.conceptRecordCount)
     || payload.source.conceptRecordCount <= 0
-    || !payload.scopes?.all
-    || !payload.scopes?.main
-    || !payload.scopes?.workshop
-    || (expectedConceptFingerprint && payload.source.conceptArtifactFingerprint !== expectedConceptFingerprint)
+    || !/^sha256:[0-9a-f]{64}$/u.test(conceptFingerprint || "")
+    || !expectedConceptFingerprint
+    || conceptFingerprint !== expectedConceptFingerprint
+    || !payload.source.indexVersion
+    || !expectedIndexVersion
+    || payload.source.indexVersion !== expectedIndexVersion
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.source.indexArtifactFingerprint || "")
+    || !expectedIndexFingerprint
+    || payload.source.indexArtifactFingerprint !== expectedIndexFingerprint
+    || !Number.isInteger(expectedConceptRecordCount)
+    || expectedConceptRecordCount <= 0
+    || payload.source.conceptRecordCount !== expectedConceptRecordCount
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.fingerprints?.artifact || "")
+    || !/^sha256:[0-9a-f]{64}$/u.test(payload.fingerprints?.conceptArtifact || "")
+    || containsPrivateEmail(payload)
+    || !validScope(payload.scopes?.all)
+    || !validScope(payload.scopes?.main)
+    || !validScope(payload.scopes?.workshop)
   ) {
     throw new Error("Invalid people and topic analysis artifact.");
   }

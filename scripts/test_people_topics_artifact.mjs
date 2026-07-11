@@ -24,9 +24,13 @@ const records = [
   },
 ];
 
+const conceptFingerprint = `sha256:${"a".repeat(64)}`;
+const indexFingerprint = `sha256:${"b".repeat(64)}`;
+const peopleFingerprint = `sha256:${"c".repeat(64)}`;
+
 const completeConceptArtifact = {
   schemaVersion: "icml-concepts/v1",
-  fingerprints: { artifact: "sha256:concept-fixture" },
+  fingerprints: { artifact: conceptFingerprint },
   records: {
     "paper:1": { core: ["Sparse expert routing"], detail: ["Load balancing"] },
     "paper:2": { core: ["Sparse expert routing"], detail: ["Failure recovery"] },
@@ -38,6 +42,15 @@ const completeConceptArtifact = {
     exclusionCounts: {},
   },
 };
+
+function publishedArtifact() {
+  const artifact = buildPeopleTopicsArtifact(records, completeConceptArtifact, {
+    indexVersion: "fixture-index-v1",
+    indexArtifactFingerprint: indexFingerprint,
+  });
+  artifact.fingerprints = { artifact: peopleFingerprint, conceptArtifact: conceptFingerprint };
+  return artifact;
+}
 
 test("buildPeopleTopicsArtifact rejects partial concept coverage", () => {
   // Given: extraction is still running and one candidate has not been published.
@@ -58,14 +71,19 @@ test("buildPeopleTopicsArtifact rejects partial concept coverage", () => {
   );
 });
 
+test("buildPeopleTopicsArtifact rejects summary and record-count disagreement", () => {
+  const inconsistent = { ...completeConceptArtifact, records: { "paper:1": completeConceptArtifact.records["paper:1"] } };
+  assert.throws(() => buildPeopleTopicsArtifact(records, inconsistent), /complete concept coverage is required/);
+});
+
 test("buildPeopleTopicsArtifact resolves authors and publishes single-year prevalence", () => {
   // Given: every candidate has a finalized reviewed-concept entry.
   // When: the downstream analysis artifact is built.
-  const artifact = buildPeopleTopicsArtifact(records, completeConceptArtifact);
+  const artifact = publishedArtifact();
 
   // Then: identity, collaboration proxy, and corpus topic claims are explicit and bounded.
   assert.equal(artifact.schemaVersion, "icml-people-topics/v1");
-  assert.equal(artifact.source.conceptArtifactFingerprint, "sha256:concept-fixture");
+  assert.equal(artifact.source.conceptArtifactFingerprint, conceptFingerprint);
   assert.equal(artifact.source.conceptRecordCount, 2);
   assert.equal(artifact.scopes.all.summary.authorCount, 2);
   const ada = artifact.scopes.all.authors.find((author) => author.name === "Ada Lovelace");
@@ -86,22 +104,40 @@ test("buildPeopleTopicsArtifact resolves authors and publishes single-year preva
 
 test("parsePeopleTopicsArtifact rejects stale concept provenance", () => {
   // Given: an otherwise valid analysis artifact was built from an older concept revision.
-  const artifact = buildPeopleTopicsArtifact(records, completeConceptArtifact);
+  const artifact = publishedArtifact();
 
   // When / Then: the UI boundary refuses to combine revisions.
   assert.throws(
-    () => parsePeopleTopicsArtifact(artifact, "sha256:new-concepts"),
+    () => parsePeopleTopicsArtifact(artifact, `sha256:${"d".repeat(64)}`, "fixture-index-v1", indexFingerprint, 2),
     /Invalid people and topic analysis artifact/,
   );
   assert.equal(
-    parsePeopleTopicsArtifact(artifact, "sha256:concept-fixture"),
+    parsePeopleTopicsArtifact(artifact, conceptFingerprint, "fixture-index-v1", indexFingerprint, 2),
     artifact,
+  );
+});
+
+test("parsePeopleTopicsArtifact requires complete concept and index provenance", () => {
+  const artifact = publishedArtifact();
+  assert.throws(() => parsePeopleTopicsArtifact(artifact), /Invalid people and topic analysis artifact/);
+  assert.throws(() => parsePeopleTopicsArtifact(artifact, conceptFingerprint, "fixture-index-v2", indexFingerprint, 2), /Invalid people and topic analysis artifact/);
+  assert.throws(() => parsePeopleTopicsArtifact(artifact, conceptFingerprint, "fixture-index-v1", `sha256:${"d".repeat(64)}`, 2), /Invalid people and topic analysis artifact/);
+  assert.throws(() => parsePeopleTopicsArtifact(artifact, conceptFingerprint, "fixture-index-v1", indexFingerprint, 3), /Invalid people and topic analysis artifact/);
+  assert.equal(parsePeopleTopicsArtifact(artifact, conceptFingerprint, "fixture-index-v1", indexFingerprint, 2), artifact);
+});
+
+test("parsePeopleTopicsArtifact rejects raw email data in any published field", () => {
+  const artifact = publishedArtifact();
+  artifact.scopes.all.authors[0].authorEmails = ["private@example.org"];
+  assert.throws(
+    () => parsePeopleTopicsArtifact(artifact, conceptFingerprint, "fixture-index-v1", indexFingerprint, 2),
+    /Invalid people and topic analysis artifact/,
   );
 });
 
 test("buildAuthorNetworkFromAnalytics reuses the published people scope", () => {
   // Given: the browser has loaded the finalized precomputed scope.
-  const artifact = buildPeopleTopicsArtifact(records, completeConceptArtifact);
+  const artifact = publishedArtifact();
 
   // When: Author Map derives its graph view without re-resolving identities.
   const network = buildAuthorNetworkFromAnalytics(artifact.scopes.all);

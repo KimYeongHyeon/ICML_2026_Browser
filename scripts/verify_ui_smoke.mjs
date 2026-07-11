@@ -13,6 +13,7 @@ const failedRequests = [];
 const badResponses = [];
 const referenceRequests = [];
 const studyRequests = [];
+const peopleTopicRequests = [];
 
 function isBenignConsoleError(text) {
   const value = String(text || "").trim();
@@ -78,6 +79,9 @@ page.on("request", (request) => {
   }
   if (isSameOrigin(request.url()) && /\/site\/data\/icml2026_study_features\.json/.test(request.url())) {
     studyRequests.push(request.url());
+  }
+  if (isSameOrigin(request.url()) && /\/site\/data\/analysis\/icml2026_people_topics\.json/.test(request.url())) {
+    peopleTopicRequests.push(request.url());
   }
 });
 page.on("response", (response) => {
@@ -158,6 +162,7 @@ const initial = await page.evaluate(() => ({
 }));
 const initialReferenceRequestCount = referenceRequests.length;
 const initialStudyRequestCount = studyRequests.length;
+const initialPeopleTopicRequestCount = peopleTopicRequests.length;
 const expectedDataSnapshot = await page.evaluate(async () => {
   const startup = await fetch("site/data/icml2026_startup.json").then((response) => response.json());
   const typeCounts = startup.summary?.typeCounts || {};
@@ -198,6 +203,7 @@ const authorMap = await page.evaluate(() => ({
   pendingText: document.querySelector(".author-map-view .empty-state")?.textContent || "",
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
+const authorMapPeopleTopicRequestCount = peopleTopicRequests.length;
 await page.locator('.tab[data-tab="paper"]').click();
 await page.waitForSelector(".result-item", { timeout: 30000 });
 
@@ -764,6 +770,8 @@ const report = {
   viewerUtilityUnits,
   initialReferenceRequestCount,
   initialStudyRequestCount,
+  initialPeopleTopicRequestCount,
+  authorMapPeopleTopicRequestCount,
   mapEntryStudyRequestCount,
   authorMap,
   embeddingLookupCompleteness,
@@ -896,6 +904,12 @@ if (initialReferenceRequestCount !== 0) {
 }
 if (initialStudyRequestCount !== 0) {
   throw new Error(`study features must not load during initial startup: ${JSON.stringify(studyRequests.slice(0, initialStudyRequestCount))}`);
+}
+if (initialPeopleTopicRequestCount !== 0) {
+  throw new Error(`people analysis must not load during initial startup: ${JSON.stringify(peopleTopicRequests.slice(0, initialPeopleTopicRequestCount))}`);
+}
+if (authorMapPeopleTopicRequestCount !== 1) {
+  throw new Error(`author map should load exactly one finalized people analysis artifact: ${JSON.stringify(peopleTopicRequests)}`);
 }
 if (mapEntryStudyRequestCount !== 0) {
   throw new Error(`study features must not load just by entering Map without query/selection: ${JSON.stringify(studyRequests)}`);

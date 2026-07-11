@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -243,6 +244,7 @@ def write_sharded_payload(payload: dict[str, Any]) -> None:
 
     write_json_payload(MANIFEST_OUT, {
         "generatedAt": payload.get("generatedAt"),
+        "indexArtifactFingerprint": f"sha256:{sha256(OUT.read_bytes()).hexdigest()}",
         "summary": payload.get("summary", {}),
         "startupUrl": relative_site_data_url(STARTUP_OUT),
         "shards": shards,

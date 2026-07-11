@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,18 +12,36 @@ function option(name, fallback) {
   return index >= 0 && process.argv[index + 1] ? resolve(process.argv[index + 1]) : resolve(root, fallback);
 }
 
+function numericOption(name, fallback) {
+  const index = process.argv.indexOf(name);
+  const value = index >= 0 ? Number(process.argv[index + 1]) : fallback;
+  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} requires a positive integer.`);
+  return value;
+}
+
 function fingerprint(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
+function containsPrivateEmail(value) {
+  if (Array.isArray(value)) return value.some(containsPrivateEmail);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, nested]) => (
+      key === "email" || key === "authorEmails" || containsPrivateEmail(nested)
+    ));
+  }
+  return typeof value === "string" && /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/u.test(value);
+}
+
 async function main() {
   if (process.argv.includes("--help")) {
-    process.stdout.write("Usage: node scripts/build_people_topics.mjs [--index PATH] [--concepts PATH] [--output PATH] [--if-ready]\n");
+    process.stdout.write("Usage: node scripts/build_people_topics.mjs [--index PATH] [--concepts PATH] [--output PATH] [--expected-records N] [--if-ready]\n");
     return;
   }
   const indexPath = option("--index", "docs/site/data/icml2026_index.json");
   const conceptPath = option("--concepts", "docs/site/data/concepts/icml2026_concepts.json");
   const outputPath = option("--output", "docs/site/data/analysis/icml2026_people_topics.json");
+  const expectedRecordCount = numericOption("--expected-records", 7065);
   const [indexText, conceptText] = await Promise.all([
     readFile(indexPath, "utf8"),
     readFile(conceptPath, "utf8"),
@@ -32,7 +50,7 @@ async function main() {
   const conceptPayload = JSON.parse(conceptText);
   const summary = conceptPayload.summary || {};
   const complete = Number.isInteger(summary.candidateRecordCount)
-    && summary.candidateRecordCount > 0
+    && summary.candidateRecordCount === expectedRecordCount
     && summary.publishedRecordCount === summary.candidateRecordCount
     && summary.excludedRecordCount === 0
     && !Object.keys(summary.exclusionCounts || {}).length;
@@ -40,15 +58,21 @@ async function main() {
     process.stdout.write(`${JSON.stringify({ status: "skipped", reason: "concept-artifact-not-finalized" })}\n`);
     return;
   }
-  const artifact = buildPeopleTopicsArtifact(indexPayload.records || [], conceptPayload);
-  artifact.source.indexArtifactFingerprint = fingerprint(indexText);
+  if (!complete) throw new Error(`Expected a finalized ${expectedRecordCount.toLocaleString()}-record concept artifact.`);
+  if (!indexPayload.generatedAt) throw new Error("The index artifact requires generatedAt provenance.");
+  const indexArtifactFingerprint = fingerprint(indexText);
+  const artifact = buildPeopleTopicsArtifact(indexPayload.records || [], conceptPayload, {
+    indexVersion: indexPayload.generatedAt,
+    indexArtifactFingerprint,
+  });
   artifact.fingerprints = {
     artifact: fingerprint(JSON.stringify(artifact)),
     conceptArtifact: fingerprint(conceptText),
   };
-  const temporaryPath = `${outputPath}.${process.pid}.tmp`;
+  if (containsPrivateEmail(artifact)) throw new Error("Refusing to publish an analysis artifact containing email addresses.");
+  const temporaryPath = `${outputPath}.${randomUUID()}.tmp`;
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(temporaryPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+  await writeFile(temporaryPath, `${JSON.stringify(artifact)}\n`, { encoding: "utf8", flag: "wx" });
   await rename(temporaryPath, outputPath);
   process.stdout.write(`${JSON.stringify({ output: outputPath, summary: artifact.scopes.all.summary })}\n`);
 }

@@ -118,6 +118,44 @@ test("buildPeopleAnalytics separates same-name authors without shared context", 
   assert.equal(analytics.authors.filter((author) => author.name === "J. Lee").length, 2);
 });
 
+test("buildPeopleAnalytics keeps conflicting email identities separate", () => {
+  const records = [
+    { id: "1", type: "paper", title: "One", authors: "Sam Lee, Shared Person", authorEmails: ["sam-a@example.org", "shared@example.org"] },
+    { id: "2", type: "paper", title: "Two", authors: "Sam Lee, Shared Person", authorEmails: ["sam-b@example.org", "shared@example.org"] },
+  ];
+  const analytics = buildPeopleAnalytics(records);
+  assert.equal(analytics.authors.filter((author) => author.name === "Sam Lee").length, 2);
+});
+
+test("buildPeopleAnalytics prevents an email-less alias from bridging conflicting emails", () => {
+  // Given: an ambiguous same-name occurrence shares a coauthor with two distinct email-backed people.
+  const records = [
+    { id: "1", type: "paper", title: "One", authors: "Sam Lee, Shared Person", authorEmails: ["sam-a@example.org", "shared@example.org"] },
+    { id: "2", type: "paper", title: "Two", authors: "Sam Lee, Shared Person", authorEmails: ["", "shared@example.org"] },
+    { id: "3", type: "paper", title: "Three", authors: "Sam Lee, Shared Person", authorEmails: ["sam-b@example.org", "shared@example.org"] },
+  ];
+
+  // When: identities are resolved through their overlapping coauthor context.
+  const analytics = buildPeopleAnalytics(records);
+
+  // Then: the email-less alias cannot transitively merge the two verified identities.
+  assert.equal(analytics.authors.filter((author) => author.name === "Sam Lee").length, 2);
+  assert.deepEqual(
+    analytics.authors.filter((author) => author.name === "Sam Lee").map((author) => author.paperCount).sort(),
+    [1, 2],
+  );
+});
+
+test("buildPeopleAnalytics emits stable identity IDs across input order", () => {
+  const records = [
+    { id: "paper:b", type: "paper", title: "Beta", authors: "Bob B" },
+    { id: "paper:a", type: "paper", title: "Alpha", authors: "Ada A" },
+  ];
+  const first = buildPeopleAnalytics(records);
+  const second = buildPeopleAnalytics(records.slice().reverse());
+  assert.deepEqual(first.authors.map(({ identityId, name }) => ({ identityId, name })), second.authors.map(({ identityId, name }) => ({ identityId, name })));
+});
+
 test("buildAuthorNetwork keeps recurring authors and weights coauthor links", () => {
   // Given: two recurring collaborators and one one-off collaborator.
   const records = [
