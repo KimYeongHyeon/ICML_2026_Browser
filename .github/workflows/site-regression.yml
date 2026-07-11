@@ -59,3 +59,26 @@ jobs:
             scripts/test_people_topic_handoff.mjs \
             scripts/test_author_map_disclosure.mjs
           node --check scripts/verify_ui_smoke.mjs
+
+      - name: Run browser smoke test
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx --no-install playwright install --with-deps chromium
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ]; then
+              kill "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT INT TERM
+          python3 -m http.server 57995 --directory docs > /tmp/icml-site-server.log 2>&1 &
+          server_pid=$!
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:57995/site/ > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:57995/site/ > /dev/null
+          node scripts/verify_ui_smoke.mjs http://127.0.0.1:57995/site/

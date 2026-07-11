@@ -88,6 +88,45 @@ test("Given an active Map Core filter, when browse records are collected, then t
   }
 });
 
+test("Given a Map landscape filter, when legend records ignore the color filter, then the landscape and Core filters remain active", () => {
+  const selectedConcept = "Mechanistic interpretability";
+  const records = [
+    { id: "matching", type: "paper", clusterLabel: "Optimization", embeddingClusterId: "cluster-7", researchConcepts: { core: [selectedConcept] } },
+    { id: "wrong-color", type: "paper", clusterLabel: "Vision", embeddingClusterId: "cluster-7", researchConcepts: { core: [selectedConcept] } },
+    { id: "wrong-landscape", type: "paper", clusterLabel: "Optimization", embeddingClusterId: "cluster-8", researchConcepts: { core: [selectedConcept] } },
+    { id: "wrong-core", type: "paper", clusterLabel: "Optimization", embeddingClusterId: "cluster-7", researchConcepts: { core: ["Sparse autoencoders"] } },
+  ];
+  const previousState = {
+    data: state.data,
+    tab: state.tab,
+    query: state.query,
+    category: state.category,
+    group: state.group,
+    presentation: state.presentation,
+    mapCoreConceptFilter: state.mapCoreConceptFilter,
+    mapFilterValue: state.mapFilterValue,
+    mapLandscapeFilterId: state.mapLandscapeFilterId,
+  };
+
+  try {
+    Object.assign(state, {
+      data: { records },
+      tab: "map",
+      query: "",
+      category: "all",
+      group: "all",
+      presentation: "all",
+      mapCoreConceptFilter: selectedConcept,
+      mapFilterValue: "Optimization",
+      mapLandscapeFilterId: "cluster-7",
+    });
+
+    assert.deepEqual(getFilteredRecords({ ignoreMapFilter: true }).map((record) => record.id), ["matching", "wrong-color"]);
+  } finally {
+    Object.assign(state, previousState);
+  }
+});
+
 test("Given a People Core-concept action, when preparing the Map handoff, then the exact filter is set without a text query", () => {
   const handoff = createMapCoreConceptHandoff("Mechanistic interpretability");
 

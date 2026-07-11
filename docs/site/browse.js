@@ -96,13 +96,13 @@ export function queueWorkerSearch() {
   worker.postMessage({ type: "search", requestId, query, candidateIds });
 }
 
-function passesActiveFilters(record, ignoreMapFilter) {
+function passesActiveFilters(record, ignoreMapColorFilter) {
   if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
   if (state.group !== "all" && record.group !== state.group) return false;
   if (state.presentation !== "all" && !(record.presentationLabels || []).includes(state.presentation)) return false;
   if (state.tab === "map" && !matchesMapCoreConcept(record, state.mapCoreConceptFilter)) return false;
-  if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
-  if (!ignoreMapFilter && state.tab === "map" && !matchesLandscapeCluster(record, state.mapLandscapeFilterId)) return false;
+  if (!ignoreMapColorFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
+  if (state.tab === "map" && !matchesLandscapeCluster(record, state.mapLandscapeFilterId)) return false;
   return true;
 }
 
