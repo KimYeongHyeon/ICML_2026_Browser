@@ -28,7 +28,6 @@ const coreCount = await page.locator("#resultCount").innerText();
 const mapSearch = await page.locator("#mapSearchInput").inputValue();
 
 await page.setViewportSize({ width: 390, height: 844 });
-await page.locator('[data-clear-map-core-concept-filter]').waitFor({ state: "visible" });
 const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
 
 await browser.close();
