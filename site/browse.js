@@ -12,6 +12,7 @@ import {
   typeLabel,
 } from "./records.js";
 import { researchConceptTags } from "./research-concepts.mjs";
+import { matchesLandscapeCluster } from "./map-landscape.mjs";
 import { state } from "./state.js";
 import { containsNormalizedPhrase, escapeHtml, normalize, plainMathTitle, queueMathTypeset } from "./utils.js";
 import { renderViewer, uniqueChipValues } from "./viewer.js";
@@ -19,6 +20,7 @@ import {
   mapColorValue,
   mapSemanticSearchIds,
 } from "./map-core.js";
+import { matchesMapCoreConcept } from "./research-concepts.mjs";
 import { browseRecordColor } from "./map-tooltip.js";
 
 let browseDeps = {};
@@ -94,11 +96,13 @@ export function queueWorkerSearch() {
   worker.postMessage({ type: "search", requestId, query, candidateIds });
 }
 
-function passesActiveFilters(record, ignoreMapFilter) {
+function passesActiveFilters(record, ignoreMapColorFilter) {
   if (state.category !== "all" && !categoryTags(record).includes(state.category)) return false;
   if (state.group !== "all" && record.group !== state.group) return false;
   if (state.presentation !== "all" && !(record.presentationLabels || []).includes(state.presentation)) return false;
-  if (!ignoreMapFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
+  if (state.tab === "map" && !matchesMapCoreConcept(record, state.mapCoreConceptFilter)) return false;
+  if (!ignoreMapColorFilter && state.tab === "map" && state.mapFilterValue && mapColorValue(record) !== state.mapFilterValue) return false;
+  if (state.tab === "map" && !matchesLandscapeCluster(record, state.mapLandscapeFilterId)) return false;
   return true;
 }
 

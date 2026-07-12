@@ -12,6 +12,7 @@ import {
 import { els } from "./dom.js";
 import { enrichPaperPresentationRecords } from "./records.js";
 import { attachResearchConcepts } from "./research-concepts.mjs";
+import { clearMapCoreConceptFilter, createMapCoreConceptHandoff } from "./map-core-concept-filter.mjs";
 import { state } from "./state.js";
 import { escapeHtml, normalize, plainMathTitle } from "./utils.js";
 import {
@@ -165,7 +166,9 @@ async function renderMap() {
     state.mapMode,
     colorSummary,
     clusterSummary,
+    state.mapCoreConceptFilter ? `Core: ${state.mapCoreConceptFilter}` : "",
     state.mapFilterValue,
+    state.mapLandscapeFilterName,
     mapSearchSummary(visibleRecords, query),
   ]);
   renderSemanticInsightPanel(visibleRecords, query);
@@ -314,6 +317,7 @@ function ensurePeopleTopics() {
     state.researchConcepts.artifactFingerprint,
     state.dataManifest?.indexArtifactFingerprint,
     state.researchConcepts.artifactRecordCount,
+    state.dataManifest?.peopleTopicsArtifactFingerprint,
   ).then((artifact) => {
     state.peopleTopics = artifact;
     state.peopleTopicsLoaded = true;
@@ -823,6 +827,22 @@ async function renderReferenceSelection(recordId) {
   });
 }
 
+function openPeopleTopicOnMap(topicLabel) {
+  const handoff = createMapCoreConceptHandoff(topicLabel);
+  if (!handoff) return;
+  Object.assign(state, handoff);
+  if (els.search) els.search.value = "";
+  if (els.mapSearch) els.mapSearch.value = "";
+  renderAll();
+}
+
+function updateMapCoreConceptFilterControl() {
+  const coreConcept = state.mapCoreConceptFilter;
+  if (!els.mapCoreConceptFilter || !els.mapCoreConceptFilterLabel) return;
+  els.mapCoreConceptFilter.hidden = !coreConcept;
+  els.mapCoreConceptFilterLabel.textContent = coreConcept;
+}
+
 function renderAll() {
   els.tabs.forEach((button) => {
     const count = button.dataset.tab === "references" || button.dataset.tab === "people" || button.dataset.tab === "author-map"
@@ -851,6 +871,7 @@ function renderAll() {
   els.peopleView.hidden = !isPeople;
   els.authorMapView.hidden = !isAuthorMap;
   els.referencesView.hidden = !isReferences;
+  updateMapCoreConceptFilterControl();
   const selected = isMap || isPeople || isAuthorMap || isReferences ? null : ensureVisibleSelection();
   if (!isMap && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
@@ -869,7 +890,7 @@ function renderAll() {
       state.viewerMapRequested = true;
       state.viewerReferenceRequested = true;
       renderAll();
-    });
+    }, openPeopleTopicOnMap);
   }
   if (isAuthorMap) {
     void renderAuthorMap(els.authorMapView, state.data?.records || [], state.peopleTopics, (recordId) => {
@@ -1038,6 +1059,25 @@ async function init() {
   scheduleMapDataPreload();
   scheduleFullRecordsHydration();
   els.mapDetail.addEventListener("click", (event) => {
+    const landscapeButton = event.target.closest("[data-landscape-cluster-id]");
+    if (landscapeButton) {
+      state.mapLandscapeFilterId = landscapeButton.dataset.landscapeClusterId || "";
+      state.mapLandscapeFilterName = landscapeButton.dataset.landscapeName || "Semantic concentration";
+      state.selectedId = "";
+      clearMapSelection();
+      resetResultWindow();
+      renderMap();
+      return;
+    }
+    if (event.target.closest("[data-clear-landscape]")) {
+      state.mapLandscapeFilterId = "";
+      state.mapLandscapeFilterName = "";
+      state.selectedId = "";
+      clearMapSelection();
+      resetResultWindow();
+      renderMap();
+      return;
+    }
     const button = event.target.closest(".trend-card-main[data-record-id], .trend-representatives [data-record-id]");
     if (!button) return;
     event.preventDefault();
@@ -1063,6 +1103,9 @@ async function init() {
         state.query = "";
         els.search.value = "";
         if (els.mapSearch) els.mapSearch.value = "";
+        state.mapCoreConceptFilter = "";
+        state.mapLandscapeFilterId = "";
+        state.mapLandscapeFilterName = "";
       }
       state.category = "all";
       state.group = "all";
@@ -1128,6 +1171,14 @@ async function init() {
   els.mapMode.addEventListener("change", (event) => {
     state.mapMode = event.target.value;
     clearMapSelection();
+    renderMap();
+  });
+  els.clearMapCoreConceptFilter?.addEventListener("click", () => {
+    clearMapCoreConceptFilter(state);
+    state.selectedId = "";
+    clearMapSelection();
+    resetResultWindow();
+    updateMapCoreConceptFilterControl();
     renderMap();
   });
   els.mapLive?.addEventListener("click", () => {

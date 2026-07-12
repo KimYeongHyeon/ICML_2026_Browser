@@ -79,11 +79,16 @@ function renderTrendCards() {
   }
   return `
     <section class="trend-panel">
+      ${state.mapLandscapeFilterId ? `
+        <div class="landscape-filter-state" role="status">
+          <span>Landscape: <b>${escapeHtml(state.mapLandscapeFilterName)}</b></span>
+          <button type="button" data-clear-landscape>Clear landscape</button>
+        </div>
+      ` : ""}
       <div class="trend-panel-head">
-        <p class="eyebrow">Semantic trends</p>
-        <h3>Research currents</h3>
-        <span>${trends.length.toLocaleString()} embedding clusters</span>
-        <p class="trend-basis-note">Derived from title+abstract embedding clusters, not official ICML subject areas.</p>
+        <p class="eyebrow">ICML 2026 research landscape</p>
+        <h3>Semantic concentrations</h3>
+        <p class="trend-basis-note">Single-conference snapshot from title+abstract embedding clusters. Sizes describe coverage in this corpus, not temporal growth, momentum, or official ICML areas.</p>
       </div>
       <div class="trend-list">
         ${trends.map((trend, index) => {
@@ -112,6 +117,11 @@ function renderTrendCards() {
               <span><em>Method</em>${escapeHtml(trend.representativeMethodology || "Embedding-neighborhood analysis")}</span>
               <span><em>Branches</em>${(trend.subBranches || trend.keywords || []).slice(0, 4).map((label) => `<b>${escapeHtml(label)}</b>`).join("")}</span>
             </div>
+            <button class="trend-explore-cluster" type="button"
+              data-landscape-cluster-id="${escapeHtml(trend.clusterId || "")}"
+              data-landscape-name="${escapeHtml(trend.name || trend.clusterLabel || "Semantic concentration")}">
+              Explore this cluster <span>${Number(trend.size || 0).toLocaleString()} mapped records</span>
+            </button>
             <div class="trend-representatives">
               <strong>First reads</strong>
               ${firstReads.map((record) => `<button type="button" data-record-id="${escapeHtml(record.id)}">${escapeHtml(plainMathTitle(record.title))}</button>`).join("")}
