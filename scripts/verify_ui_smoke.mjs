@@ -187,12 +187,11 @@ await page.waitForSelector(".trend-card", { timeout: 30000 });
 const mapEntryStudyRequestCount = studyRequests.length - studyRequestsBeforeMapEntry;
 
 await page.locator('.tab[data-tab="author-map"]').click();
-await page.waitForSelector("#authorMapCanvas canvas, .author-map-view .empty-state", { timeout: 30000 });
-const authorMapPending = await page.locator(".author-map-view .empty-state").count() > 0;
-if (!authorMapPending) {
-  await page.locator("[data-insight-author-id]").first().click();
-  await page.waitForFunction(() => document.querySelector("#authorMapDetail h3")?.textContent !== "Choose an author", null, { timeout: 30000 });
-}
+await page.waitForSelector(".author-map-dashboard", { timeout: 30000 });
+await page.waitForSelector("#authorMapCanvas canvas", { timeout: 30000 });
+await page.waitForSelector(".author-map-reading-key", { timeout: 30000 });
+await page.locator("[data-insight-author-id]").first().click();
+await page.waitForFunction(() => document.querySelector("#authorMapDetail h3")?.textContent !== "Choose an author", null, { timeout: 30000 });
 const authorMap = await page.evaluate(() => ({
   active: document.querySelector('.tab[data-tab="author-map"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".author-map-dashboard h2")?.textContent || "",
@@ -200,6 +199,7 @@ const authorMap = await page.evaluate(() => ({
   insightText: document.querySelector(".author-map-insight-grid")?.textContent || "",
   selectedAuthor: document.querySelector("#authorMapDetail h3")?.textContent || "",
   paperCount: document.querySelectorAll(".author-map-paper-list button").length,
+  readingKey: document.querySelector(".author-map-reading-key")?.textContent || "",
   pendingText: document.querySelector(".author-map-view .empty-state")?.textContent || "",
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
@@ -450,6 +450,7 @@ await page.locator('.tab[data-tab="map"]').click();
 await page.waitForSelector("#mapCanvas canvas", { timeout: 30000 });
 await page.waitForSelector(".trend-card", { timeout: 30000 });
 const trendsInitial = await page.evaluate(() => ({
+  eyebrow: document.querySelector(".trend-panel-head .eyebrow")?.textContent || "",
   heading: document.querySelector(".trend-panel-head h3")?.textContent || "",
   cardCount: document.querySelectorAll(".trend-card").length,
   firstKeywords: document.querySelector(".trend-keywords")?.textContent || "",
@@ -461,6 +462,41 @@ const trendsInitial = await page.evaluate(() => ({
   studyLabels: [...document.querySelectorAll(".trend-study-section em")].map((item) => item.textContent || ""),
   firstReadText: document.querySelector(".trend-representatives")?.textContent || "",
   unusualText: document.querySelector(".unusual-directions")?.textContent || "",
+}));
+const landscapeBefore = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.textContent || "";
+  return {
+    resultCount,
+    count: Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", "")),
+  };
+});
+const landscapeButton = page.locator("[data-landscape-cluster-id]").first();
+await landscapeButton.waitFor({ state: "visible", timeout: 30000 });
+const landscapeClusterId = await landscapeButton.getAttribute("data-landscape-cluster-id");
+await landscapeButton.click();
+await page.waitForSelector("[data-clear-landscape]", { timeout: 30000 });
+await page.waitForFunction((before) => {
+  const resultCount = document.querySelector("#resultCount")?.textContent || "";
+  const count = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+  return count > 0 && count <= before;
+}, landscapeBefore.count, { timeout: 30000 });
+const landscapeFilter = await page.evaluate(() => {
+  const resultCount = document.querySelector("#resultCount")?.textContent || "";
+  return {
+    clearButtonVisible: Boolean(document.querySelector("[data-clear-landscape]")),
+    resultCount,
+    count: Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", "")),
+  };
+});
+await page.locator("[data-clear-landscape]").click();
+await page.waitForFunction(() => !document.querySelector("[data-clear-landscape]"), null, { timeout: 30000 });
+await page.waitForFunction((before) => {
+  const resultCount = document.querySelector("#resultCount")?.textContent || "";
+  return Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", "")) === before;
+}, landscapeBefore.count, { timeout: 30000 });
+const landscapeClear = await page.evaluate(() => ({
+  clearButtonPresent: Boolean(document.querySelector("[data-clear-landscape]")),
+  resultCount: document.querySelector("#resultCount")?.textContent || "",
 }));
 await page.locator(".trend-card-main").first().click();
 await page.waitForTimeout(500);
@@ -662,24 +698,69 @@ const workshopBoundarySearch = await page.evaluate(() => {
 await page.locator('.tab[data-tab="people"]').click();
 await page.waitForSelector(".people-dashboard, .people-view .empty-state", { timeout: 30000 });
 const peoplePending = await page.locator(".people-view .empty-state").count() > 0;
+if (!peoplePending) {
+  await page.locator(".people-ranking-list > button").first().waitFor({ state: "visible", timeout: 30000 });
+}
 const peopleAuthors = await page.evaluate(() => ({
   active: document.querySelector('.tab[data-tab="people"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".people-dashboard h2")?.textContent || "",
   method: document.querySelector(".people-method-note")?.textContent || "",
   stats: document.querySelector(".people-stat-grid")?.textContent || "",
-  rankingCount: document.querySelectorAll(".people-ranking > button").length,
+  rankingCount: document.querySelectorAll(".people-ranking-list > button").length,
   detailText: document.querySelector(".people-detail-card")?.textContent || "",
   pendingText: document.querySelector(".people-view .empty-state")?.textContent || "",
   viewerHidden: getComputedStyle(document.querySelector(".viewer-panel")).display === "none",
 }));
 let peopleGroups = { proxyNote: "", rankingCount: 0, memberCount: 0, paperCount: 0 };
 let peopleDrilldown = { activeTab: "", viewerTitle: "" };
+let peopleTopicHandoff = {
+  topic: "",
+  activeTab: "",
+  mapSearchValue: "",
+  clearControlVisible: false,
+  clearControlAccessibleName: "",
+  activeSummary: "",
+  filteredCount: 0,
+};
 if (!peoplePending) {
+  const peopleTopic = page.locator("[data-people-topic]").first();
+  await peopleTopic.waitFor({ state: "visible", timeout: 30000 });
+  const topic = await peopleTopic.getAttribute("data-people-topic");
+  await peopleTopic.click();
+  await page.waitForFunction((expectedTopic) => {
+    const resultCount = document.querySelector("#resultCount")?.textContent || "";
+    const filteredCount = Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", ""));
+    const clearControl = document.querySelector("[data-clear-map-core-concept-filter]");
+    return (
+      document.querySelector('.tab[data-tab="map"]')?.classList.contains("is-active")
+      && document.querySelector("#mapSearchInput")?.value === ""
+      && clearControl instanceof HTMLElement
+      && !clearControl.hidden
+      && clearControl.getAttribute("aria-label") === "Clear Core concept filter"
+      && (document.querySelector("#activeSummary")?.textContent || "").includes(`Core: ${expectedTopic}`)
+      && filteredCount > 0
+    );
+  }, topic || "", { timeout: 30000 });
+  peopleTopicHandoff = await page.evaluate((selectedTopic) => {
+    const resultCount = document.querySelector("#resultCount")?.textContent || "";
+    const clearControl = document.querySelector("[data-clear-map-core-concept-filter]");
+    return {
+      topic: selectedTopic || "",
+      filteredCount: Number((resultCount.match(/[\d,]+/)?.[0] || "0").replaceAll(",", "")),
+      clearControlVisible: clearControl instanceof HTMLElement && !clearControl.hidden,
+      clearControlAccessibleName: clearControl?.getAttribute("aria-label") || "",
+      activeSummary: document.querySelector("#activeSummary")?.textContent || "",
+    activeTab: document.querySelector(".tab.is-active")?.dataset.tab || "",
+      mapSearchValue: document.querySelector("#mapSearchInput")?.value || "",
+    };
+  }, topic || "");
+  await page.locator('.tab[data-tab="people"]').click();
+  await page.waitForSelector(".people-dashboard", { timeout: 30000 });
   await page.locator('[data-mode="groups"]').click();
   await page.waitForSelector(".people-proxy-note");
   peopleGroups = await page.evaluate(() => ({
     proxyNote: document.querySelector(".people-proxy-note")?.textContent || "",
-    rankingCount: document.querySelectorAll(".people-ranking > button").length,
+    rankingCount: document.querySelectorAll(".people-ranking-list > button").length,
     memberCount: document.querySelectorAll(".people-members span").length,
     paperCount: document.querySelectorAll(".people-paper-list [data-record-id]").length,
   }));
@@ -774,6 +855,10 @@ const report = {
   authorMapPeopleTopicRequestCount,
   mapEntryStudyRequestCount,
   authorMap,
+  landscapeClusterId,
+  landscapeBefore,
+  landscapeFilter,
+  landscapeClear,
   embeddingLookupCompleteness,
   paper,
   paperSpotlight,
@@ -813,6 +898,7 @@ const report = {
   peopleAuthors,
   peopleGroups,
   peopleDrilldown,
+  peopleTopicHandoff,
   mapSearch,
   mapTooltip,
   consoleErrors,
@@ -830,16 +916,17 @@ if (initial.posterTabExists) {
 if (initial.topTabs.join(" / ") !== "Papers / Workshops / Map / People / Author Map / References") {
   throw new Error(`top-level tabs changed: ${JSON.stringify(initial.topTabs)}`);
 }
+if (!/not corpus prevalence/i.test(authorMap.readingKey)) {
+  throw new Error(`Author Map reading key must disclose authorship evidence, not corpus prevalence: ${JSON.stringify(authorMap)}`);
+}
 if (
   !authorMap.active
-  || (authorMapPending
-    ? !/Finalized author map pending/i.test(authorMap.pendingText)
-    : authorMap.title !== "Author map"
-      || authorMap.canvasCount !== 1
-      || !/Most prolific mapped author/i.test(authorMap.insightText)
-      || !/Strongest recurring collaboration/i.test(authorMap.insightText)
-      || !authorMap.selectedAuthor
-      || authorMap.paperCount < 1)
+  || authorMap.title !== "Author map"
+  || authorMap.canvasCount !== 1
+  || !/Most prolific mapped author/i.test(authorMap.insightText)
+  || !/Strongest recurring collaboration/i.test(authorMap.insightText)
+  || !authorMap.selectedAuthor
+  || authorMap.paperCount < 1
   || !authorMap.viewerHidden
 ) {
   throw new Error(`Author Map should render the graph, conference overview, and selected-author details: ${JSON.stringify(authorMap)}`);
@@ -913,6 +1000,28 @@ if (authorMapPeopleTopicRequestCount !== 1) {
 }
 if (mapEntryStudyRequestCount !== 0) {
   throw new Error(`study features must not load just by entering Map without query/selection: ${JSON.stringify(studyRequests)}`);
+}
+if (
+  !landscapeClusterId
+  || landscapeBefore.count <= 0
+  || !landscapeFilter.clearButtonVisible
+  || landscapeFilter.count <= 0
+  || landscapeFilter.count > landscapeBefore.count
+  || landscapeClear.clearButtonPresent
+  || landscapeClear.resultCount !== landscapeBefore.resultCount
+) {
+  throw new Error(`Map landscape controls must narrow to a nonzero subset and restore the unfiltered result count: ${JSON.stringify({ landscapeClusterId, landscapeBefore, landscapeFilter, landscapeClear })}`);
+}
+if (!peoplePending && (
+  !peopleTopicHandoff.topic
+  || peopleTopicHandoff.activeTab !== "map"
+  || peopleTopicHandoff.mapSearchValue !== ""
+  || !peopleTopicHandoff.clearControlVisible
+  || peopleTopicHandoff.clearControlAccessibleName !== "Clear Core concept filter"
+  || !peopleTopicHandoff.activeSummary.includes(`Core: ${peopleTopicHandoff.topic}`)
+  || peopleTopicHandoff.filteredCount <= 0
+)) {
+  throw new Error(`People topic action must apply the selected Core concept filter on Map: ${JSON.stringify(peopleTopicHandoff)}`);
 }
 if (!initial.headerStats.includes("7,066") || !initial.headerStats.includes("records") || !/\n\d+\narea groups/.test(initial.headerStats) || !initial.headerStats.includes("723") || !initial.headerStats.includes("workshops")) {
   throw new Error(`header should match compact design stats: ${initial.headerStats}`);
@@ -1144,13 +1253,16 @@ if (afterSwitch.overflow) {
   throw new Error("filter grid or document overflows at 1366px");
 }
 if (
-  trendsInitial.heading !== "Research currents"
+  trendsInitial.eyebrow !== "ICML 2026 research landscape"
+  || trendsInitial.heading !== "Semantic concentrations"
   || trendsInitial.cardCount < 4
   || !trendsInitial.firstKeywords.trim()
   || trendsInitial.firstRepresentatives < 3
   || !trendsInitial.firstSummary.includes("This trend groups papers around")
   || !/title\+abstract embedding clusters/i.test(trendsInitial.basisNote)
-  || !/not official ICML subject areas/i.test(trendsInitial.basisNote)
+  || !/single-conference snapshot/i.test(trendsInitial.basisNote)
+  || !/not temporal growth, momentum/i.test(trendsInitial.basisNote)
+  || !/not .*official ICML areas/i.test(trendsInitial.basisNote)
   || !/Basis:/i.test(trendsInitial.evidenceBasis)
   || !/mapped records/i.test(trendsInitial.evidenceBasis)
   || !/first reads/i.test(trendsInitial.evidenceBasis)

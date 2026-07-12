@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, webcrypto } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +11,10 @@ const siteDirectory = new URL("../docs/site/", import.meta.url);
 async function withDataLoader(action) {
   const directory = await mkdtemp(join(tmpdir(), "icml-data-loader-test-"));
   const originalWindow = globalThis.window;
+  const originalCrypto = globalThis.crypto;
+  const cryptoWasInjected = !globalThis.crypto?.subtle;
   globalThis.window = { location: { pathname: "/" } };
+  if (cryptoWasInjected) globalThis.crypto = webcrypto;
   try {
     const [config, loader, concepts, peopleArtifact, peopleAnalytics, coreTopics] = await Promise.all([
       readFile(new URL("config.js", siteDirectory), "utf8"),
@@ -35,6 +39,7 @@ async function withDataLoader(action) {
     return await action(module);
   } finally {
     globalThis.window = originalWindow;
+    if (cryptoWasInjected) globalThis.crypto = originalCrypto;
     await rm(directory, { force: true, recursive: true });
   }
 }
@@ -47,6 +52,38 @@ async function withFetch(fetchImplementation, action) {
   } finally {
     globalThis.fetch = originalFetch;
   }
+}
+
+function peopleTopicsResponse(body) {
+  return {
+    ok: true,
+    arrayBuffer: async () => new TextEncoder().encode(body).buffer,
+  };
+}
+
+function fingerprint(body) {
+  return `sha256:${createHash("sha256").update(body).digest("hex")}`;
+}
+
+function validPeopleTopicsPayload() {
+  return {
+    schemaVersion: "icml-people-topics/v1",
+    source: {
+      conceptArtifactFingerprint: `sha256:${"a".repeat(64)}`,
+      conceptRecordCount: 7065,
+      indexVersion: "fixture-version",
+      indexArtifactFingerprint: `sha256:${"b".repeat(64)}`,
+    },
+    fingerprints: { artifact: `sha256:${"c".repeat(64)}`, conceptArtifact: `sha256:${"a".repeat(64)}` },
+    scopes: Object.fromEntries(["all", "main", "workshop"].map((scope) => [scope, {
+      summary: {},
+      identityResolution: { emailAddressesPublished: false },
+      authors: [],
+      coauthorLinks: [],
+      groups: [],
+      topicTrends: { claimScope: "single-year-corpus-prevalence", topics: [] },
+    }])),
+  };
 }
 
 test("loadResearchConcepts rejects a missing published artifact", { concurrency: false }, async () => {
@@ -113,32 +150,46 @@ test("loadResearchConcepts returns reviewed concepts from a valid published arti
   }));
 });
 
-test("loadPeopleTopics accepts only the matching concept revision", { concurrency: false }, async () => {
-  // Given: the published analysis declares its exact finalized concept source.
-  const payload = {
-    schemaVersion: "icml-people-topics/v1",
-    source: {
-      conceptArtifactFingerprint: `sha256:${"a".repeat(64)}`,
-      conceptRecordCount: 7065,
-      indexVersion: "fixture-version",
-      indexArtifactFingerprint: `sha256:${"b".repeat(64)}`,
-    },
-    fingerprints: { artifact: `sha256:${"c".repeat(64)}`, conceptArtifact: `sha256:${"a".repeat(64)}` },
-    scopes: Object.fromEntries(["all", "main", "workshop"].map((scope) => [scope, {
-      summary: {},
-      identityResolution: { emailAddressesPublished: false },
-      authors: [],
-      coauthorLinks: [],
-      groups: [],
-      topicTrends: { claimScope: "single-year-corpus-prevalence", topics: [] },
-    }])),
-  };
-  await withDataLoader(async ({ loadPeopleTopics }) => withFetch(async () => ({ ok: true, json: async () => payload }), async () => {
-    // When / Then: a matching source loads and a stale source is rejected.
-    assert.equal(await loadPeopleTopics("fixture-version", `sha256:${"a".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065), payload);
-    await assert.rejects(
-      loadPeopleTopics("fixture-version", `sha256:${"d".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065),
-      /Invalid people and topic analysis artifact/,
+test("loadPeopleTopics accepts only the exact manifest-pinned bytes", { concurrency: false }, async () => {
+  // Given: the published analysis body exactly matches the manifest hash.
+  const payload = validPeopleTopicsPayload();
+  const body = JSON.stringify(payload);
+  await withDataLoader(async ({ loadPeopleTopics }) => withFetch(async () => peopleTopicsResponse(body), async () => {
+    // When: the loader verifies raw response bytes before parsing JSON.
+    assert.deepEqual(
+      await loadPeopleTopics("fixture-version", `sha256:${"a".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065, fingerprint(body)),
+      payload,
     );
   }));
+});
+
+test("loadPeopleTopics rejects a valid-shaped body whose raw bytes differ from the manifest pin", { concurrency: false }, async () => {
+  // Given: a still-valid artifact body has been changed after the manifest hash was published.
+  const body = JSON.stringify(validPeopleTopicsPayload());
+  const tamperedBody = JSON.stringify({ ...validPeopleTopicsPayload(), audit: "tampered" });
+  await withDataLoader(async ({ loadPeopleTopics }) => withFetch(async () => peopleTopicsResponse(tamperedBody), async () => {
+    // When / Then: JSON parsing is never trusted before the byte fingerprint matches.
+    await assert.rejects(
+      loadPeopleTopics("fixture-version", `sha256:${"a".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065, fingerprint(body)),
+      /People topics artifact fingerprint mismatch/,
+    );
+  }));
+});
+
+test("loadPeopleTopics fails closed when the manifest pin is missing or malformed", { concurrency: false }, async () => {
+  // Given: the current index manifest has no trustworthy people-artifact fingerprint.
+  for (const expectedFingerprint of ["", "sha256:not-a-digest"]) {
+    let fetched = false;
+    await withDataLoader(async ({ loadPeopleTopics }) => withFetch(async () => {
+      fetched = true;
+      return peopleTopicsResponse(JSON.stringify(validPeopleTopicsPayload()));
+    }, async () => {
+      // When / Then: the loader rejects the missing or malformed pin before fetching data.
+      await assert.rejects(
+        loadPeopleTopics("fixture-version", `sha256:${"a".repeat(64)}`, `sha256:${"b".repeat(64)}`, 7065, expectedFingerprint),
+        /Invalid people topics artifact fingerprint/,
+      );
+      assert.equal(fetched, false);
+    }));
+  }
 });

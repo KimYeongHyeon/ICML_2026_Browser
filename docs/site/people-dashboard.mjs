@@ -46,21 +46,22 @@ function entitySearchText(entity, mode) {
   return [...names, ...(entity.topics || []).map((topic) => topic.label)].join(" ").toLocaleLowerCase();
 }
 
-function renderTopicTrends(topicTrends) {
+export function renderTopicTrends(topicTrends) {
   const topics = (topicTrends?.topics || []).slice(0, 4);
   return `
-    <section class="author-map-insights people-topic-trends" aria-label="Corpus topic prevalence">
+    <section class="author-map-insights people-topic-prevalence" aria-label="Topics in this 2026 corpus">
       <div class="author-map-insights-head">
-        <p class="eyebrow">Corpus topic prevalence</p>
+        <p class="eyebrow">Topics in this 2026 corpus</p>
         <span>${escapeHtml(topicTrends?.note || "Single-year prevalence; no temporal growth claim.")}</span>
       </div>
       <div class="author-map-insight-grid">
         ${topics.map((topic, index) => `
-          <article>
-            <em>Rank ${index + 1}</em>
+          <button type="button" data-people-topic="${escapeHtml(topic.label)}" aria-label="Explore ${escapeHtml(topic.label)} related papers on Map">
+            <em>Reviewed Core concept · Rank ${index + 1}</em>
             <strong>${escapeHtml(topic.label)}</strong>
             <span>${Number(topic.workCount).toLocaleString()} unique works · ${Number(topic.workShare) > 0 && Number(topic.workShare) < 0.001 ? "<0.1" : (Number(topic.workShare) * 100).toFixed(1)}% of this scope</span>
-          </article>
+            <small>Explore related papers on Map →</small>
+          </button>
         `).join("") || "<article><em>Pending</em><strong>No finalized topic counts</strong><span>The analysis artifact contains no reviewed Core concepts for this scope.</span></article>"}
       </div>
     </section>
@@ -105,7 +106,7 @@ function renderDetail(entity, mode, recordById) {
   `;
 }
 
-function mountDashboard(target, analytics, records, onOpenRecord) {
+function mountDashboard(target, analytics, records, onOpenRecord, onExploreTopic) {
   const entities = dashboardState.mode === "authors" ? analytics.authors : analytics.groups;
   const query = dashboardState.query.trim().toLocaleLowerCase();
   const matching = entities.filter((entity) => !query || entitySearchText(entity, dashboardState.mode).includes(query));
@@ -188,34 +189,37 @@ function mountDashboard(target, analytics, records, onOpenRecord) {
     dashboardState.scope = event.target.value;
     dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
-    void renderPeopleDashboard(target, dashboardState.records, dashboardState.analysisArtifact, onOpenRecord);
+    void renderPeopleDashboard(target, dashboardState.records, dashboardState.analysisArtifact, onOpenRecord, onExploreTopic);
   });
   target.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
     dashboardState.mode = button.dataset.mode;
     dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
-    mountDashboard(target, analytics, records, onOpenRecord);
+    mountDashboard(target, analytics, records, onOpenRecord, onExploreTopic);
   }));
   target.querySelector("#peopleSearch")?.addEventListener("input", (event) => {
     dashboardState.query = event.target.value;
     dashboardState.page = 0;
     dashboardState.selectedIndex = 0;
-    mountDashboard(target, analytics, records, onOpenRecord);
+    mountDashboard(target, analytics, records, onOpenRecord, onExploreTopic);
     target.querySelector("#peopleSearch")?.focus();
   });
   target.querySelectorAll("[data-entity-index]").forEach((button) => button.addEventListener("click", () => {
     dashboardState.selectedIndex = Number(button.dataset.entityIndex);
-    mountDashboard(target, analytics, records, onOpenRecord);
+    mountDashboard(target, analytics, records, onOpenRecord, onExploreTopic);
   }));
   target.querySelectorAll("[data-people-page]").forEach((button) => button.addEventListener("click", () => {
     dashboardState.page += button.dataset.peoplePage === "next" ? 1 : -1;
     dashboardState.selectedIndex = 0;
-    mountDashboard(target, analytics, records, onOpenRecord);
+    mountDashboard(target, analytics, records, onOpenRecord, onExploreTopic);
   }));
   target.querySelectorAll("[data-record-id]").forEach((button) => button.addEventListener("click", () => onOpenRecord(button.dataset.recordId)));
+  target.querySelectorAll("[data-people-topic]").forEach((button) => button.addEventListener("click", () => {
+    onExploreTopic?.(button.dataset.peopleTopic || "");
+  }));
 }
 
-export async function renderPeopleDashboard(target, records, analysisArtifact, onOpenRecord) {
+export async function renderPeopleDashboard(target, records, analysisArtifact, onOpenRecord, onExploreTopic) {
   if (!target || !records) return;
   if (dashboardState.records !== records || dashboardState.analysisArtifact !== analysisArtifact) {
     dashboardState.records = records;
@@ -234,5 +238,5 @@ export async function renderPeopleDashboard(target, records, analysisArtifact, o
     dashboardState.cache.set(dashboardState.scope, analytics);
   }
   if (token !== dashboardState.renderToken || !target.isConnected) return;
-  mountDashboard(target, analytics, scoped, onOpenRecord);
+  mountDashboard(target, analytics, scoped, onOpenRecord, onExploreTopic);
 }

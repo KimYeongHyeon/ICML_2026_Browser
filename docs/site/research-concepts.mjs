@@ -89,3 +89,8 @@ export function researchConceptTags(record, depth = "core") {
   const limit = depth === "browse" ? 3 : 1;
   return (Array.isArray(concepts.core) ? concepts.core : []).slice(0, limit);
 }
+
+export function matchesMapCoreConcept(record, coreConceptFilter = "") {
+  if (!coreConceptFilter) return true;
+  return Array.isArray(record?.researchConcepts?.core) && record.researchConcepts.core.includes(coreConceptFilter);
+}
