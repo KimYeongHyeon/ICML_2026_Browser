@@ -12,4 +12,6 @@ test("author map discloses the limits of topic and affiliation evidence", async 
   assert.match(source, /primary reviewed Core concept; this is an authorship view, not corpus prevalence/i);
   assert.match(source, /topic matches plus their recurring mapped collaborators/i);
   assert.match(source, /not verified institutional affiliations/i);
+  assert.match(source, /graph intentionally caps candidates/i);
+  assert.match(source, /not included in its node or island counts/i);
 });

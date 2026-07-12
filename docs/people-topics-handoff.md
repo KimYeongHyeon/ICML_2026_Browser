@@ -35,9 +35,9 @@ The generated `icml-people-topics/v1` artifact contains three scopes: `all`, `ma
 
 ## UI integration
 
-The existing People ranked-list/detail components and Author Map network/detail components are reused. People adds a corpus topic-prevalence row using the existing conference-overview card pattern. Map Detail continues to show reviewed Detail concepts from the same finalized concept artifact.
+The Author directory ranked-list/detail components and Collaboration map network/detail components are reused inside one Author destination. The directory adds a corpus topic-prevalence row using the existing conference-overview card pattern. Map Detail continues to show reviewed Detail concepts from the same finalized concept artifact.
 
-People and Author Map load the analysis only when either tab is opened. When the finalized pair is unavailable or stale, they show a compact pending state and make no incomplete corpus claims.
+Author and Topics load the shared analysis only when either destination is opened. Topics can hand the selected exact Core concept into Author's Collaboration map. When the finalized pair is unavailable or stale, the affected view shows a compact pending state and makes no incomplete corpus claims.
 
 ## Verification
 

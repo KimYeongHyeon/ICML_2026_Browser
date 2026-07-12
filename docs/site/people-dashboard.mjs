@@ -121,7 +121,7 @@ function mountDashboard(target, analytics, records, onOpenRecord, onExploreTopic
       <header class="people-dashboard-head">
         <div>
           <p class="eyebrow">Authorship intelligence</p>
-          <h2>People & research groups</h2>
+          <h2>Authors & collaboration groups</h2>
         </div>
         <label class="people-scope">
           <span>Scope</span>

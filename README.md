@@ -56,11 +56,11 @@ In the map legend:
 - node shape and ring represent domain,
 - the shape legend labels the actual domain names, not generic shape names.
 
-### People and Author Map
+### Author
 
-The People view summarizes authors and repeated collaboration groups across accepted works. Author identities use a public-data-safe rule: matching email is strongest when present; otherwise identical normalized names are merged only when their coauthor context overlaps. The current public snapshot has no author emails, so uncertain same-name records remain separate rather than being silently merged.
+The Author view contains an Author directory and a Collaboration map. The directory summarizes authors and repeated collaboration groups across accepted works. Author identities use a public-data-safe rule: matching email is strongest when present; otherwise identical normalized names are merged only when their coauthor context overlaps. The current public snapshot has no author emails, so uncertain same-name records remain separate rather than being silently merged.
 
-The Author Map is a separate coauthorship network. It starts with a conference overview of the most prolific mapped author, strongest repeated collaboration, broadest collaboration connector, and leading mapped topic. Its graph shows authors with at least two unique accepted works:
+The Collaboration map is the Author view's coauthorship network. It starts with a conference overview of the most prolific mapped author, strongest repeated collaboration, broadest collaboration connector, and leading mapped topic. Its graph shows authors with at least two unique accepted works:
 
 - node size represents unique accepted works,
 - node color represents the author's primary inferred topic,
