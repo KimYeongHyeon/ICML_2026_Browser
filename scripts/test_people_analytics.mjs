@@ -8,7 +8,11 @@ import {
 } from "../docs/site/people-analytics.mjs";
 
 globalThis.window = { location: { pathname: "" } };
-const { filterAuthorGraph } = await import("../docs/site/author-map.mjs");
+const {
+  buildAuthorMapComponents,
+  filterAuthorGraph,
+  selectAuthorMapIslands,
+} = await import("../docs/site/author-map.mjs");
 
 test("parseAuthors handles collected author separators", () => {
   // Given: author strings from the ICML and workshop collectors.
@@ -197,4 +201,25 @@ test("filterAuthorGraph retains links after ForceGraph resolves endpoint nodes",
   // Then: the adjacent coauthor link remains visible.
   assert.equal(filtered.summary.linkCount, 1);
   assert.equal(filtered.links.length, 1);
+});
+
+test("author map separates connected components and hides small islands by default", () => {
+  const network = {
+    summary: { authorCount: 6, linkCount: 3 },
+    nodes: ["a", "b", "c", "d", "e", "f"].map((id) => ({ id, title: id, group: "Topic", topics: [] })),
+    links: [
+      { source: "a", target: "b", value: 2 },
+      { source: "b", target: "c", value: 1 },
+      { source: "d", target: "e", value: 1 },
+    ],
+    neighborsById: new Map(),
+  };
+
+  const components = buildAuthorMapComponents(network);
+  const islands = selectAuthorMapIslands(network, 3);
+
+  assert.deepEqual(components.map((component) => component.nodeIds.length), [3, 2, 1]);
+  assert.deepEqual(islands.nodes.map((node) => node.id).sort(), ["a", "b", "c"]);
+  assert.equal(islands.summary.islandCount, 1);
+  assert.equal(islands.summary.hiddenAuthorCount, 3);
 });

@@ -1,5 +1,7 @@
 # Topic Explorer UX Implementation Plan
 
+> **Historical note (superseded):** This plan's original no-new-top-level-tab constraint was superseded by the later approved Topics destination. The current information architecture keeps Author Map nested under Author.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the existing ICML 2026 Map and People surfaces into an evidence-preserving path from a semantic landscape or reviewed Core-concept label to the matching papers, without inventing time-series claims or an unvalidated taxonomy.

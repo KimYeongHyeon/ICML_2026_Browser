@@ -186,14 +186,16 @@ await page.locator('.tab[data-tab="map"]').click();
 await page.waitForSelector(".trend-card", { timeout: 30000 });
 const mapEntryStudyRequestCount = studyRequests.length - studyRequestsBeforeMapEntry;
 
-await page.locator('.tab[data-tab="author-map"]').click();
+await page.locator('.tab[data-tab="people"]').click();
+await page.locator('[data-author-view="map"]').click();
 await page.waitForSelector(".author-map-dashboard", { timeout: 30000 });
 await page.waitForSelector("#authorMapCanvas canvas", { timeout: 30000 });
 await page.waitForSelector(".author-map-reading-key", { timeout: 30000 });
 await page.locator("[data-insight-author-id]").first().click();
 await page.waitForFunction(() => document.querySelector("#authorMapDetail h3")?.textContent !== "Choose an author", null, { timeout: 30000 });
 const authorMap = await page.evaluate(() => ({
-  active: document.querySelector('.tab[data-tab="author-map"]')?.classList.contains("is-active") || false,
+  active: document.querySelector('.tab[data-tab="people"]')?.classList.contains("is-active") || false,
+  authorViewActive: document.querySelector('[data-author-view="map"]')?.classList.contains("is-active") || false,
   title: document.querySelector(".author-map-dashboard h2")?.textContent || "",
   canvasCount: document.querySelectorAll("#authorMapCanvas canvas").length,
   insightText: document.querySelector(".author-map-insight-grid")?.textContent || "",
@@ -913,7 +915,7 @@ console.log(JSON.stringify(report, null, 2));
 if (initial.posterTabExists) {
   throw new Error("Poster should not be a top-level tab; it is a paper presentation badge");
 }
-if (initial.topTabs.join(" / ") !== "Papers / Workshops / Map / People / Author Map / References") {
+if (initial.topTabs.join(" / ") !== "Papers / Workshops / Map / Topics / Author / References") {
   throw new Error(`top-level tabs changed: ${JSON.stringify(initial.topTabs)}`);
 }
 if (!/not corpus prevalence/i.test(authorMap.readingKey)) {
@@ -921,6 +923,7 @@ if (!/not corpus prevalence/i.test(authorMap.readingKey)) {
 }
 if (
   !authorMap.active
+  || !authorMap.authorViewActive
   || authorMap.title !== "Author map"
   || authorMap.canvasCount !== 1
   || !/Most prolific mapped author/i.test(authorMap.insightText)
@@ -935,7 +938,7 @@ if (
   !peopleAuthors.active
   || (peoplePending
     ? !/Finalized people analysis pending/i.test(peopleAuthors.pendingText)
-    : peopleAuthors.title !== "People & research groups"
+    : peopleAuthors.title !== "Authors & collaboration groups"
       || !/Email is the primary key/i.test(peopleAuthors.method)
       || !/email-backed identities/i.test(peopleAuthors.method)
       || !/unique works/i.test(peopleAuthors.stats)

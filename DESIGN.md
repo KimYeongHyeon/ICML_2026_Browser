@@ -111,13 +111,29 @@ Component rule: same function, same UI/UX. Before adding a component or control 
 - **Accessibility**: rows and linked works are native buttons; analysis-unit toggles use a labelled button group.
 - **Trust rule**: inferred entities must show their resolution method and must not be labelled as verified affiliations.
 
+### Author Analysis Switcher
+
+- **Structure**: the single top-level `Author` destination owns two sibling views: `Author directory` and `Collaboration map`.
+- **States**: the active view uses the same inset/raised-control treatment as the main navigation; a topic handoff opens the collaboration view directly.
+- **Responsive behavior**: both view controls share the full available width on narrow screens rather than creating another scrolling navigation row.
+- **Rule**: the global header must not duplicate an Author Map destination.
+
 ### Network Explorer
+
+The Author Map opens on the six largest eligible recurring-coauthorship islands, rather than every component at once. The overview selector can reveal all eligible islands; a topic handoff always shows its full qualifying search context. Island labels sit above each cloud and report author/link counts, so the canvas remains a spatial comparison rather than a pile of dots.
 
 - **Structure**: graph canvas paired with a scrollable detail panel; an instruction caption stays inside the graph stage without blocking interaction.
 - **Encoding**: size carries quantity, colour carries the primary classification, and link width carries relationship strength. The reading key must be visible above the graph.
 - **States**: selected nodes and their links receive the accent emphasis; hover reveals a compact canvas label.
 - **Responsive behavior**: canvas stacks above the detail panel below tablet width.
 - **Trust rule**: network edges state their exact evidence basis and omit unsupported affiliation claims.
+
+### Topic Explorer
+
+- **Structure**: scope control, a compact grid of reviewed Core concepts, then one persistent selected-concept panel with exact works and resolved-author evidence.
+- **States**: topic cards use the existing selection-card active state; the selected panel provides native actions to open the exact Map filter or the matching Author Map search.
+- **Responsive behavior**: the concept grid collapses to one column and the selected panel stacks its works above authors on mobile.
+- **Trust rule**: use “single-year corpus concentration”, never temporal trend language; Map handoff is limited to exact reviewed Core-concept matches.
 
 ## 6. Motion & Interaction
 
