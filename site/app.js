@@ -79,7 +79,8 @@ import {
   loadReferencesManifest,
 } from "./references.js";
 import { clearPeopleDashboardCache, renderPeopleDashboard } from "./people-dashboard.mjs";
-import { clearAuthorMapCache, destroyAuthorMap, renderAuthorMap } from "./author-map.mjs";
+import { clearAuthorMapCache, destroyAuthorMap, focusAuthorMapTopic, renderAuthorMap, resetAuthorMapFocus } from "./author-map.mjs";
+import { renderTopicsDashboard } from "./topics-dashboard.mjs";
 
 let fullRecordsPromise = null;
 let mapDataPromise = null;
@@ -836,6 +837,14 @@ function openPeopleTopicOnMap(topicLabel) {
   renderAll();
 }
 
+function openTopicAuthorMap(topicLabel, scope) {
+  focusAuthorMapTopic(topicLabel, scope);
+  state.tab = "people";
+  state.authorView = "map";
+  state.selectedId = "";
+  renderAll();
+}
+
 function updateMapCoreConceptFilterControl() {
   const coreConcept = state.mapCoreConceptFilter;
   if (!els.mapCoreConceptFilter || !els.mapCoreConceptFilterLabel) return;
@@ -845,7 +854,7 @@ function updateMapCoreConceptFilterControl() {
 
 function renderAll() {
   els.tabs.forEach((button) => {
-    const count = button.dataset.tab === "references" || button.dataset.tab === "people" || button.dataset.tab === "author-map"
+    const count = button.dataset.tab === "references" || button.dataset.tab === "topics" || button.dataset.tab === "people"
       ? 1
       : button.dataset.tab === "map"
       ? displayRecords().filter((record) => record.mapAvailable && (!state.mapData?.records?.length || mapRecordById().has(record.id))).length
@@ -856,23 +865,33 @@ function renderAll() {
   updateSelects();
   resetResultWindow();
   const isMap = state.tab === "map";
+  const isTopics = state.tab === "topics";
   const isPeople = state.tab === "people";
-  const isAuthorMap = state.tab === "author-map";
+  const isAuthorMap = isPeople && state.authorView === "map";
   const isReferences = state.tab === "references";
-  if ((isPeople || isAuthorMap) && state.researchConceptsLoaded && !state.peopleTopicsLoaded && !state.peopleTopicsError) {
+  if ((isTopics || isPeople) && state.researchConceptsLoaded && !state.peopleTopicsLoaded && !state.peopleTopicsError) {
     void ensurePeopleTopics();
   }
+  if (isTopics && !state.dataShardsLoaded) void hydrateFullRecordsInBackground();
   document.body.classList.toggle("is-map-tab", isMap);
+  document.body.classList.toggle("is-topics-tab", isTopics);
   document.body.classList.toggle("is-people-tab", isPeople);
   document.body.classList.toggle("is-author-map-tab", isAuthorMap);
   document.body.classList.toggle("is-references-tab", isReferences);
-  els.results.hidden = isMap || isPeople || isAuthorMap || isReferences;
+  els.results.hidden = isMap || isTopics || isPeople || isAuthorMap || isReferences;
   els.mapView.hidden = !isMap;
+  els.topicsView.hidden = !isTopics;
   els.peopleView.hidden = !isPeople;
+  els.peopleDashboardView.hidden = !isPeople || isAuthorMap;
   els.authorMapView.hidden = !isAuthorMap;
+  els.authorViewTabs.forEach((button) => {
+    const active = button.dataset.authorView === state.authorView;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
   els.referencesView.hidden = !isReferences;
   updateMapCoreConceptFilterControl();
-  const selected = isMap || isPeople || isAuthorMap || isReferences ? null : ensureVisibleSelection();
+  const selected = isMap || isTopics || isPeople || isReferences ? null : ensureVisibleSelection();
   if (!isMap && state.mapGraph) {
     state.mapGraph.pauseAnimation?.();
   } else if (isMap && state.mapGraph && state.mapLive) {
@@ -881,8 +900,23 @@ function renderAll() {
   renderResults();
   renderMap();
   if (!isAuthorMap) destroyAuthorMap();
+  if (isTopics) {
+    if (!state.dataShardsLoaded) {
+      els.topicsView.innerHTML = `<div class="empty-state"><strong>Loading complete topic corpus</strong><span>Reading the remaining indexed works before showing topic counts.</span></div>`;
+    } else {
+      void renderTopicsDashboard(els.topicsView, state.data?.records || [], state.peopleTopics, (recordId) => {
+        const record = findDisplayRecord(recordId);
+        if (!record) return;
+        state.tab = record.type === "workshop" ? "workshop" : "paper";
+        state.selectedId = record.id;
+        state.viewerMapRequested = true;
+        state.viewerReferenceRequested = true;
+        renderAll();
+      }, openPeopleTopicOnMap, openTopicAuthorMap);
+    }
+  }
   if (isPeople) {
-    void renderPeopleDashboard(els.peopleView, state.data?.records || [], state.peopleTopics, (recordId) => {
+    if (!isAuthorMap) void renderPeopleDashboard(els.peopleDashboardView, state.data?.records || [], state.peopleTopics, (recordId) => {
       const record = findDisplayRecord(recordId);
       if (!record) return;
       state.tab = record.type === "workshop" ? "workshop" : "paper";
@@ -1115,8 +1149,12 @@ async function init() {
         state.selectedId = "";
         loadSearchEmbeddingsInBackground();
       }
-      if (nextTab === "references" || nextTab === "people" || nextTab === "author-map") {
+      if (nextTab === "references" || nextTab === "topics" || nextTab === "people") {
         state.selectedId = "";
+      }
+      if (nextTab === "people" && tabChanged) {
+        state.authorView = "directory";
+        resetAuthorMapFocus();
       }
       clearMapSelection();
       if (els.presentation) els.presentation.value = "all";
@@ -1128,6 +1166,15 @@ async function init() {
       button.addEventListener("pointerenter", scheduleMapDataPreload);
       button.addEventListener("focus", scheduleMapDataPreload);
     }
+  });
+  els.authorViewTabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      if (state.tab !== "people" || state.authorView === button.dataset.authorView) return;
+      state.authorView = button.dataset.authorView || "directory";
+      state.selectedId = "";
+      renderAll();
+      window.scrollTo(0, 0);
+    });
   });
 
   els.search.addEventListener("input", (event) => {

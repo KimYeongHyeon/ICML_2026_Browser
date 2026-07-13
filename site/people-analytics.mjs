@@ -272,6 +272,7 @@ export function buildAuthorNetworkFromAnalytics(analytics, { minWorks = 2, maxAu
   return {
     summary: {
       minWorks,
+      authorCap: maxAuthors,
       authorCount: nodes.length,
       eligibleAuthorCount: eligibleAuthors.length,
       linkCount: links.length,

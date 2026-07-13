@@ -2,6 +2,7 @@ import { PAGE_SIZE } from "./config.js";
 
 export const state = {
   tab: "paper",
+  authorView: "directory",
   query: "",
   category: "all",
   group: "all",
