@@ -16,15 +16,15 @@ ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "docs" / "site" / "data" / "icml2026_index.json"
 
 
-def test_canonical_index_contains_paper_poster_duplicate_pairs() -> None:
+def test_canonical_index_merges_poster_assets_into_papers() -> None:
     payload = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
     records = payload["records"]
-    paper_titles = {str(record["title"]) for record in records if record.get("type") == "paper"}
-    poster_titles = {str(record["title"]) for record in records if record.get("type") == "poster"}
+    papers = [record for record in records if record.get("type") == "paper"]
 
-    assert paper_titles
-    assert poster_titles
-    assert len(paper_titles & poster_titles) >= 6_000
+    assert len(papers) >= 6_000
+    assert not [record for record in records if record.get("type") == "poster"]
+    assert sum(bool(record.get("hasPoster")) for record in papers) >= 1_500
+    assert sum(bool(record.get("hasSlide")) for record in papers) >= 600
 
 
 def test_candidates_are_concrete_bounded_and_evidenced() -> None:
@@ -150,7 +150,7 @@ def test_records_missing_title_or_abstract_are_excluded_with_reasons() -> None:
 
 
 def run() -> None:
-    test_canonical_index_contains_paper_poster_duplicate_pairs()
+    test_canonical_index_merges_poster_assets_into_papers()
     test_candidates_are_concrete_bounded_and_evidenced()
     test_broad_model_labels_are_filtered()
     test_phrases_do_not_cross_sentence_boundaries()

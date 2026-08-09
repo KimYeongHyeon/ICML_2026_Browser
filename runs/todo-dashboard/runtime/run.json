@@ -1,0 +1,89 @@
+{
+  "start_timestamp": "2026-08-09T22:15:55+09:00",
+  "pid": 87054,
+  "working_directory": "/Users/kyh/Workspace/icml-2026-materials-browser",
+  "command": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "scripts/todo_dashboard.py",
+    "--todo",
+    "implementation=/Users/kyh/.codex/worktrees/887b/icml-2026-materials-browser/todolist/20260809_211340_related_work_product_implementation.md",
+    "--todo",
+    "monitor=/Users/kyh/.codex/worktrees/97e9/icml-2026-materials-browser/todolist/20260809_211247_related_work_product_monitor.md",
+    "--todo",
+    "canonical=todolist/20260809_211105_related_work_product_execution.md",
+    "--primary",
+    "implementation",
+    "--output",
+    "runs/todo-dashboard/dashboard.html",
+    "--refresh-seconds",
+    "15",
+    "--serve",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8765",
+    "--runtime-dir",
+    "runs/todo-dashboard/runtime",
+    "--session-name",
+    "codex-todo-dashboard",
+    "--stdout-log",
+    "runs/todo-dashboard/runtime/stdout.log",
+    "--stderr-log",
+    "runs/todo-dashboard/runtime/stderr.log"
+  ],
+  "git_status": [
+    " M docs/site/data/analysis/icml2026_people_topics.json",
+    " M docs/site/data/icml2026_index.json",
+    " M docs/site/data/icml2026_index.manifest.json",
+    " M docs/site/data/icml2026_map.json",
+    " M docs/site/data/icml2026_search_embeddings.json",
+    " M docs/site/data/icml2026_semantic_sidecar.json",
+    " M docs/site/data/icml2026_startup.json",
+    " M docs/site/data/icml2026_study_features.json",
+    " M docs/site/data/icml2026_trends.json",
+    " M docs/site/data/shards/paper.json",
+    " M docs/site/data/shards/poster.json",
+    " M docs/site/data/shards/workshop.json",
+    " M scripts/build_icml_site.py",
+    " M scripts/test_icml_concept_candidates.py",
+    " M scripts/verify_site_contract.sh",
+    "?? AGENTS.md",
+    "?? runs/",
+    "?? scripts/todo_dashboard.py",
+    "?? scripts/verify_todo_dashboard.mjs",
+    "?? templates/",
+    "?? todolist/"
+  ],
+  "seed": null,
+  "config": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "refresh_seconds": 15,
+    "primary": "implementation",
+    "todo_sources": [
+      {
+        "label": "implementation",
+        "path": "/Users/kyh/.codex/worktrees/887b/icml-2026-materials-browser/todolist/20260809_211340_related_work_product_implementation.md"
+      },
+      {
+        "label": "monitor",
+        "path": "/Users/kyh/.codex/worktrees/97e9/icml-2026-materials-browser/todolist/20260809_211247_related_work_product_monitor.md"
+      },
+      {
+        "label": "canonical",
+        "path": "/Users/kyh/Workspace/icml-2026-materials-browser/todolist/20260809_211105_related_work_product_execution.md"
+      }
+    ]
+  },
+  "supervisor": {
+    "type": "tmux",
+    "session_name": "codex-todo-dashboard"
+  },
+  "stdout_log": "runs/todo-dashboard/runtime/stdout.log",
+  "stderr_log": "runs/todo-dashboard/runtime/stderr.log",
+  "progress_log": "/Users/kyh/Workspace/icml-2026-materials-browser/runs/todo-dashboard/runtime/progress.jsonl",
+  "expected_artifacts": [
+    "/Users/kyh/Workspace/icml-2026-materials-browser/runs/todo-dashboard/dashboard.html",
+    "/Users/kyh/Workspace/icml-2026-materials-browser/runs/todo-dashboard/runtime/run.json"
+  ]
+}

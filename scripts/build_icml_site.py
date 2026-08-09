@@ -556,16 +556,29 @@ def build() -> dict[str, Any]:
     semantic = read_semantic_sidecar()
     paper_events = read_paper_event_metadata()
     abstracts = read_abstracts()
+    posters = {
+        str(row.get("icml_poster_id") or ""): compact_record(row, "poster", "Main Conference", semantic, abstracts)
+        for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl")
+        if not row.get("source_type") or row.get("source_type") == "official_icml_virtual_poster"
+    }
 
     for row in read_jsonl(MATERIALS / "papers" / "manifest.jsonl"):
         if not should_include_paper_row(row):
             continue
-        records.append(compact_record(enrich_paper_row(row, paper_events), "paper", "Main Conference", semantic, abstracts))
-
-    for row in read_jsonl(MATERIALS / "posters" / "manifest.jsonl"):
-        if row.get("source_type") and row.get("source_type") != "official_icml_virtual_poster":
-            continue
-        records.append(compact_record(row, "poster", "Main Conference", semantic, abstracts))
+        paper = compact_record(enrich_paper_row(row, paper_events), "paper", "Main Conference", semantic, abstracts)
+        poster = posters.get(extract_icml_id(paper["id"]), {})
+        for key in ("localPosterPath", "localSlidePath", "projectPageUrl"):
+            if not paper.get(key) and poster.get(key):
+                paper[key] = poster[key]
+        paper["hasPoster"] = bool(paper.get("localPosterPath"))
+        paper["hasSlide"] = bool(paper.get("localSlidePath"))
+        if not paper.get("bestAsset") and poster.get("bestAsset"):
+            paper["bestAsset"] = poster["bestAsset"]
+            paper["bestAssetKind"] = poster["bestAssetKind"]
+        if paper["hasPoster"] or paper["hasSlide"]:
+            paper["availabilityStatus"] = "downloaded"
+            paper["availabilityLabel"] = "Downloaded"
+        records.append(paper)
 
     workshop_root = MATERIALS / "workshops"
     for manifest in sorted(workshop_root.glob("*/manifest.jsonl")):

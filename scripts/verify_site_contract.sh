@@ -46,7 +46,7 @@ for record in records:
     page_url = str(record.get("pageUrl") or "")
     category_tags = record.get("categoryTags")
 
-    if item_type not in {"paper", "poster", "workshop"}:
+    if item_type not in {"paper", "workshop"}:
         errors.append(f"invalid type for {record.get('id')}: {item_type}")
     if status and status not in allowed_status:
         errors.append(f"unexpected status for {record.get('id')}: {status}")
@@ -59,9 +59,6 @@ for record in records:
         if status != "accepted_public":
             errors.append(f"non-accepted paper source: {record.get('id')} {status} {title}")
 
-    if item_type == "poster" and source_type != "official_icml_virtual_poster":
-        errors.append(f"non-official poster source: {record.get('id')} {source_type}")
-
     if item_type == "workshop":
         if source_type != "openreview_submission":
             errors.append(f"non-submission workshop source: {record.get('id')} {source_type} {title}")
@@ -73,12 +70,12 @@ for record in records:
 matches = [record for record in records if plain_title(str(record.get("title") or "")) == target_title]
 if matches:
     match_types = {record.get("type") for record in matches}
-    if "paper" not in match_types or "poster" not in match_types:
-        errors.append(f"target title should appear as both accepted paper and poster presentation: {[(r.get('type'), r.get('id')) for r in matches]}")
+    if match_types != {"paper"} or len(matches) != 1:
+        errors.append(f"target title should appear once as a merged paper: {[(r.get('type'), r.get('id')) for r in matches]}")
 
 counts = Counter(record.get("type") for record in records)
 summary_counts = data.get("summary", {}).get("typeCounts", {})
-for key in {"paper", "poster", "workshop"}:
+for key in {"paper", "workshop"}:
     if counts.get(key, 0) != summary_counts.get(key, 0):
         errors.append(f"summary count mismatch for {key}: records={counts.get(key, 0)} summary={summary_counts.get(key, 0)}")
 
