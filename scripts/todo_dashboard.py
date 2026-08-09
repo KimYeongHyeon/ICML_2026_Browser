@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -11,13 +12,14 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 CHECKBOX_RE = re.compile(r"^- \[([ xX])\]\s+(.+?)\s*$")
@@ -148,9 +150,24 @@ def source_summary(source: dict[str, Any]) -> str:
     return f"{source['label']} {source['done']}/{source['total']}"
 
 
-def public_snapshot(sources: list[dict[str, Any]], primary_label: str) -> dict[str, Any]:
+def todo_source_digest(specs: list[TodoSpec]) -> str:
+    digest = hashlib.sha256()
+    for spec in specs:
+        digest.update(spec.label.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(spec.path).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(spec.path.read_bytes())
+        digest.update(b"\0")
+    return f"sha256:{digest.hexdigest()}"
+
+
+def public_snapshot(
+    sources: list[dict[str, Any]], primary_label: str, source_digest: str
+) -> dict[str, Any]:
     return {
         "generated_at": now_iso(),
+        "source_digest": source_digest,
         "primary": primary_label,
         "sources": [
             {
@@ -259,7 +276,17 @@ def build_dashboard(
     primary_label: str,
     refresh_seconds: int,
 ) -> dict[str, Any]:
-    sources = [parse_todo(spec) for spec in specs]
+    sources: list[dict[str, Any]] = []
+    source_digest = ""
+    for _attempt in range(3):
+        before = todo_source_digest(specs)
+        sources = [parse_todo(spec) for spec in specs]
+        after = todo_source_digest(specs)
+        if before == after:
+            source_digest = after
+            break
+    if not source_digest:
+        raise RuntimeError("todo sources changed repeatedly while building the dashboard")
     by_label = {source["label"]: source for source in sources}
     if primary_label not in by_label:
         raise ValueError(f"primary todo label not found: {primary_label}")
@@ -316,7 +343,7 @@ def build_dashboard(
     document = replace_once(
         document,
         '<span><span class="dot"></span>Updated YYYY-MM-DD · run/config id</span>\n        <span>metric definitions verified against the source report</span>',
-        f'<span><span class="dot"></span>업데이트 {html.escape(generated_at)}</span>\n        <span>서버에서 {refresh_seconds}초마다 자동 새로고침</span>',
+        f'<span><span class="dot"></span>업데이트 {html.escape(generated_at)}</span>\n        <span id="liveStatus" aria-live="polite"><span class="live-dot" aria-hidden="true"></span>서버 연결 시 todo 파일 변경 즉시 반영</span>',
         "header metadata",
     )
     document = replace_once(
@@ -345,7 +372,7 @@ def build_dashboard(
     document = replace_json_script(document, "notesdata", [])
     document = replace_json_script(document, "issuesdata", [])
 
-    snapshot = public_snapshot(sources, primary_label)
+    snapshot = public_snapshot(sources, primary_label, source_digest)
     snapshot["generated_at"] = generated_at
     snapshot_payload = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     document = replace_once(
@@ -448,6 +475,11 @@ def build_dashboard(
 
     extra_css = """
   .header-actions{display:flex;gap:8px;align-items:center}
+  #liveStatus{display:inline-flex;align-items:center;gap:6px}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 16%,transparent)}
+  #liveStatus[data-state="connected"] .live-dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 16%,transparent)}
+  #liveStatus[data-state="updating"] .live-dot{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 16%,transparent)}
+  #liveStatus[data-state="error"] .live-dot{background:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 16%,transparent)}
   .tabgroup[hidden]{display:none}
   .todo-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:12px}
   .todo-toolbar label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;font-weight:650}
@@ -491,10 +523,40 @@ def build_dashboard(
   const priorTheme=localStorage.getItem('todo-dashboard-theme');if(priorTheme)document.documentElement.setAttribute('data-theme',priorTheme);
   document.getElementById('themeBtn').addEventListener('click',()=>localStorage.setItem('todo-dashboard-theme',document.documentElement.getAttribute('data-theme')||''));
   apply();
+  const liveStatus=document.getElementById('liveStatus');
+  const saveView=()=>sessionStorage.setItem('todo-dashboard-scroll',String(scrollY));
+  const setLiveState=(state,text)=>{{liveStatus.dataset.state=state;liveStatus.lastChild.textContent=text;}};
+  let pendingReload=false;
+  const reloadForUpdate=()=>{{
+    if(pendingReload)return;
+    pendingReload=true;
+    saveView();
+    setLiveState('updating','todo 변경 반영 중');
+    const reload=()=>setTimeout(()=>location.reload(),60);
+    if(document.visibilityState==='visible')reload();
+    else addEventListener('visibilitychange',()=>{{if(document.visibilityState==='visible')reload();}},{{once:true}});
+  }};
   if(location.protocol==='http:'||location.protocol==='https:'){{
-    addEventListener('beforeunload',()=>sessionStorage.setItem('todo-dashboard-scroll',String(scrollY)));
+    addEventListener('beforeunload',saveView);
     const savedScroll=Number(sessionStorage.getItem('todo-dashboard-scroll')||0);if(savedScroll)requestAnimationFrame(()=>scrollTo(0,savedScroll));
-    setTimeout(()=>{{if(document.visibilityState==='visible')location.reload();}}, {max(5, refresh_seconds) * 1000});
+    if('EventSource' in window){{
+      const snapshot=JSON.parse(document.getElementById('todosnapshot').textContent);
+      const loadedDigest=String(snapshot.source_digest||'');
+      const events=new EventSource('/events?digest='+encodeURIComponent(loadedDigest));
+      events.onopen=()=>setLiveState('connected','실시간 연결됨');
+      events.addEventListener('todo-update',event=>{{
+        let update={{}};try{{update=JSON.parse(event.data||'{{}}');}}catch(_error){{}}
+        if(!update.digest||update.digest!==loadedDigest)reloadForUpdate();
+      }});
+      events.addEventListener('dashboard-error',event=>{{
+        let update={{}};try{{update=JSON.parse(event.data||'{{}}');}}catch(_error){{}}
+        setLiveState('error','todo 변경 반영 실패'+(update.error?' · '+update.error:''));
+      }});
+      events.onerror=()=>{{if(!pendingReload)setLiveState('updating','서버 다시 연결 중');}};
+    }}else setLiveState('error','실시간 연결 미지원 · 새로고침 사용');
+  }}else{{
+    liveStatus.dataset.state='';
+    liveStatus.lastChild.textContent='정적 사본';
   }}
 }})();
 """
@@ -550,6 +612,95 @@ class StatusWriter:
             handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
+class LiveDashboard:
+    def __init__(
+        self,
+        specs: list[TodoSpec],
+        rebuild: Any,
+        status: StatusWriter,
+        poll_seconds: float = 0.5,
+    ):
+        self.specs = specs
+        self.rebuild = rebuild
+        self.status = status
+        self.poll_seconds = poll_seconds
+        self.signature = todo_source_digest(specs)
+        self.revision = 0
+        self.build_ok = True
+        self.error = ""
+        self.condition = threading.Condition()
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(target=self._run, name="todo-dashboard-live", daemon=True)
+
+    def start(self) -> None:
+        self.thread.start()
+
+    def stop(self) -> None:
+        self.stop_event.set()
+        self.thread.join(timeout=max(1.0, self.poll_seconds * 4))
+
+    def current(self) -> dict[str, Any]:
+        with self.condition:
+            return {
+                "revision": self.revision,
+                "digest": self.signature,
+                "ok": self.build_ok,
+                "error": self.error,
+            }
+
+    def wait_after(self, revision: int, timeout: float) -> dict[str, Any] | None:
+        with self.condition:
+            if self.revision <= revision:
+                self.condition.wait(timeout=timeout)
+            if self.revision <= revision:
+                return None
+            return {
+                "revision": self.revision,
+                "digest": self.signature,
+                "ok": self.build_ok,
+                "error": self.error,
+            }
+
+    def _run(self) -> None:
+        while not self.stop_event.wait(self.poll_seconds):
+            try:
+                current = todo_source_digest(self.specs)
+            except OSError as error:
+                current = f"read-error:{error!r}"
+            if current == self.signature:
+                continue
+            try:
+                snapshot = self.rebuild()
+            except Exception as error:  # fail visibly through the live status
+                ok = False
+                message = str(error)
+                snapshot = {}
+            else:
+                ok = True
+                message = ""
+            with self.condition:
+                self.signature = current
+                self.revision += 1
+                self.build_ok = ok
+                self.error = message
+                revision = self.revision
+                self.condition.notify_all()
+            if ok:
+                self.status.write(
+                    "todo_sources_changed",
+                    revision=revision,
+                    digest=current,
+                    **snapshot,
+                )
+            else:
+                self.status.write(
+                    "live_build_failed",
+                    revision=revision,
+                    digest=current,
+                    error=message,
+                )
+
+
 def git_status(cwd: Path) -> list[str]:
     result = subprocess.run(
         ["git", "status", "--short"],
@@ -601,8 +752,16 @@ def serve(args: argparse.Namespace, specs: list[TodoSpec], template_path: Path) 
     status = StatusWriter(runtime_dir / "progress.jsonl")
     write_runtime_metadata(runtime_dir / "run.json", args, specs, cwd)
 
-    latest = build_dashboard(template_path, args.output, specs, args.primary, args.refresh_seconds)
+    build_lock = threading.Lock()
+
+    def rebuild() -> dict[str, Any]:
+        with build_lock:
+            return build_dashboard(template_path, args.output, specs, args.primary, args.refresh_seconds)
+
+    latest = rebuild()
     status.write("server_started", pid=os.getpid(), url=f"http://{args.host}:{args.port}/", **latest)
+    live = LiveDashboard(specs, rebuild, status)
+    live.start()
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "TodoDashboard/1.0"
@@ -618,17 +777,54 @@ def serve(args: argparse.Namespace, specs: list[TodoSpec], template_path: Path) 
             self.end_headers()
             self.wfile.write(payload)
 
+        def send_event(self, event: str, payload: dict[str, Any]) -> None:
+            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            self.wfile.write(f"id: {payload.get('revision', 0)}\nevent: {event}\ndata: {body}\n\n".encode("utf-8"))
+            self.wfile.flush()
+
+        def stream_events(self, client_digest: str) -> None:
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            self.wfile.write(b"retry: 1000\n\n")
+            self.wfile.flush()
+            state = live.current()
+            revision = int(state["revision"])
+            try:
+                if client_digest and client_digest != state["digest"]:
+                    self.send_event("todo-update" if state["ok"] else "dashboard-error", state)
+                else:
+                    self.send_event("connected", state)
+                while True:
+                    update = live.wait_after(revision, timeout=float(args.refresh_seconds))
+                    if update is None:
+                        self.wfile.write(f": heartbeat {int(time.time())}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                        continue
+                    revision = int(update["revision"])
+                    self.send_event("todo-update" if update["ok"] else "dashboard-error", update)
+            except (BrokenPipeError, ConnectionResetError):
+                return
+
         def do_GET(self) -> None:  # noqa: N802 - stdlib handler contract
-            route = urlparse(self.path).path
+            parsed = urlparse(self.path)
+            route = parsed.path
             if route == "/healthz":
                 payload = json.dumps({"status": "ok", "timestamp": now_iso(), "pid": os.getpid()}, ensure_ascii=False).encode("utf-8")
                 self.send_bytes(payload, "application/json; charset=utf-8")
+                return
+            if route == "/events":
+                client_digest = (parse_qs(parsed.query).get("digest") or [""])[0]
+                self.stream_events(client_digest)
                 return
             if route not in ("/", "/todo-dashboard.html"):
                 self.send_bytes(b"not found\n", "text/plain; charset=utf-8", HTTPStatus.NOT_FOUND)
                 return
             try:
-                snapshot = build_dashboard(template_path, args.output, specs, args.primary, args.refresh_seconds)
+                snapshot = rebuild()
                 payload = args.output.read_bytes()
                 status.write("dashboard_served", client=self.client_address[0], **snapshot)
                 self.send_bytes(payload, "text/html; charset=utf-8")
@@ -641,9 +837,11 @@ def serve(args: argparse.Namespace, specs: list[TodoSpec], template_path: Path) 
                 )
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
+    server.daemon_threads = True
     try:
         server.serve_forever(poll_interval=0.5)
     finally:
+        live.stop()
         status.write("server_stopped", pid=os.getpid())
         server.server_close()
 

@@ -31,6 +31,7 @@
 - [x] Generate the initial dashboard and verify its counts match the source todo files (implementation 16/77, monitor 25/73, canonical 16/74 at 22:02 KST).
 - [x] Verify the rendered dashboard in Codex in-app Browser: tabs/theme/filter work, filter state survives refresh, the toolbar precedes Milestone cards, console warnings/errors are empty, and desktop/exact-390px overflow is zero.
 - [x] Start the local dashboard with durable command, PID, stdout/stderr, and structured status records (tmux `codex-todo-dashboard`, PID 87054, port 8765).
+- [ ] Replace periodic full-page refresh with todo-file change events, preserve the current dashboard view across updates, and verify reconnect behavior in Codex in-app Browser.
 
 ### Milestone 0 - stale and mixed artifact safety
 
