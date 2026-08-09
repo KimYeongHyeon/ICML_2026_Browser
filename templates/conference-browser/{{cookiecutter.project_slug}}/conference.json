@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "conference-browser-config/v1",
+  "templateVersion": {{ cookiecutter._template_version | jsonify }},
+  "name": {{ cookiecutter.conference_name | jsonify }},
+  "slug": {{ cookiecutter.conference_slug | jsonify }},
+  "year": {{ cookiecutter.conference_year }},
+  "title": {{ (cookiecutter.conference_name ~ " " ~ cookiecutter.conference_year ~ " Browser") | jsonify }}
+}

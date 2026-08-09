@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; connect-src 'self'; frame-src http: https:; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'" />
+    <meta name="description" content="Conference paper archive browser." />
+    <title>Conference Browser</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Public paper archive</p>
+        <h1 id="site-title">Conference Browser</h1>
+      </div>
+      <p id="summary" class="summary" aria-live="polite">Loading conference data…</p>
+    </header>
+
+    <main class="workspace">
+      <section class="browser-toolbar" aria-label="Paper filters">
+        <div class="controls">
+          <label>
+            <span>Search</span>
+            <input id="search" type="search" placeholder="Title or author" autocomplete="off" aria-controls="records" />
+          </label>
+          <label>
+            <span>Archive state</span>
+            <select id="status">
+              <option value="all">All papers</option>
+              <option value="archived">Archived on NAS</option>
+              <option value="not_started">Not archived yet</option>
+              <option value="unavailable_public_access">No public PDF</option>
+              <option value="other">Other states</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="data-note">
+          “Archived” confirms a verified preservation copy. The viewer uses only the
+          public PDF URL and never exposes or proxies private archive paths.
+        </p>
+
+        <div class="result-bar">
+          <h2 id="result-heading">Papers</h2>
+          <span id="result-count" aria-live="polite">0 results</span>
+        </div>
+      </section>
+
+      <section class="results-panel" aria-labelledby="result-heading">
+        <div id="records" class="records"></div>
+        <button id="load-more" class="load-more" type="button" aria-controls="records" hidden>Load more papers</button>
+      </section>
+
+      <aside id="viewer-panel" class="viewer-panel" aria-label="Selected paper and PDF viewer">
+        <div class="viewer-header">
+          <div class="viewer-heading">
+            <p id="viewer-kind" class="eyebrow">Paper details</p>
+            <h2 id="viewer-title">Loading paper…</h2>
+          </div>
+          <div id="viewer-actions" class="viewer-actions"></div>
+        </div>
+        <div id="viewer-meta" class="viewer-meta"></div>
+        <div id="viewer-frame" class="viewer-frame" aria-live="polite">
+          <div class="viewer-empty">
+            <strong>Loading public PDF information…</strong>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <template id="empty-template">
+      <div class="empty-state">No papers match the current filters.</div>
+    </template>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "conference_name": "Conference",
+  "conference_slug": "conference",
+  "conference_year": "2026",
+  "project_slug": "{{ cookiecutter.conference_slug }}-{{ cookiecutter.conference_year }}-browser",
+  "archive_root": "/Users/kyh/Workspace/conference-pdf-archive",
+  "_template_version": "0.1.0"
+}
